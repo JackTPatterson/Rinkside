@@ -11,12 +11,12 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jtyler03.moneypuck"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,6 +26,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "7f29a264-14d3-442d-bcca-8f7b3fcb34be"
+      }
     }
   }
 }

@@ -7,13 +7,14 @@ import {
     Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold,
     useFonts
 } from "@expo-google-fonts/sora";
+import BottomSheet from "@gorhom/bottom-sheet";
 import AppLoading from "expo-app-loading";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
 import {ArrowLeft, ArrowRight} from "iconsax-react-native";
 import Papa from "papaparse";
-import React, {useCallback, useEffect, useState} from "react";
+import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {
     Dimensions,
     Image,
@@ -25,6 +26,7 @@ import {
     TouchableOpacity,
     View
 } from "react-native";
+import teamData from "../teams";
 
 
 export default function Games({navigation}) {
@@ -46,9 +48,14 @@ export default function Games({navigation}) {
         require("../assets/WSH_light.png"), require("../assets/WPG_light.png")
     ];
 
+    const bottomSheetRef = useRef(null);
+
+    const snapPoints = useMemo(() => ['1%', '75%'], []);
+
     const getDate = (offset) => {
         const today = new Date();
         today.setDate(today.getDate() + offset);
+        today.setHours(today.getHours()-4)
 
         const year = today.getFullYear();
         const month = (today.getMonth() + 1).toString().padStart(2, '0'); // Adding 1 because months are zero-based
@@ -114,9 +121,24 @@ export default function Games({navigation}) {
         getMatchData(0)
     }, [])
 
+    function getPCTColor(teamCode) {
+        let team = teamData.filter((item) => {
+            return (item.abbreviation === teamCode);
+        })
+        return team[0]?.primary_color;
+    }
+
     let commonConfig = {delimiter: ","};
 
     const [days, setDays] = useState(null);
+
+    const [selectedTeam, setSelectedTeam] = useState(null);
+
+    const [homeGoalie, setHomeGoalie] = useState({name: "", confirmed_by: null, id: 0});
+    const [awayGoalie, setAwayGoalie] = useState({name: "", confirmed_by: null, id: 0});
+
+    const [homeGoalieStats, setHomeGoalieStats] = useState({GSA: 0, SP: 0, GSAx: 0})
+    const [awayGoalieStats, setAwayGoalieStats] = useState({GSA: 0, SP: 0, GSAx: 0});
 
 
     function formatAMPM(date) {
@@ -137,7 +159,11 @@ export default function Games({navigation}) {
         const [hwp, setHwp] = useState(0)
         const [pp, setPP] = useState({h: 5, a: 5});
 
+
+
         useEffect(() => {
+
+
 
 
             if (props.game.homeTeam.score) {
@@ -188,7 +214,7 @@ export default function Games({navigation}) {
 
 
             if(props.game.homeTeam.score !== undefined){
-                if(props.game.clock?.timeRemaining === "00:00"){
+                if(props.game.clock?.timeRemaining === "00:00" || props.game.gameOutcome?.lastPeriodType){
                     return "Final"
                 }
                 else if(props.game.clock?.inIntermission){
@@ -203,10 +229,90 @@ export default function Games({navigation}) {
         }
 
         return <TouchableOpacity onPress={() => {
-            Haptics.selectionAsync().then(r => {
-            });
+            Haptics.selectionAsync().then(r => {});
             navigation.push("Games_Detail", {data: {data: game, date: dt}})
-        }} style={{
+        }}
+                                 onLongPress={()=>{
+                                     bottomSheetRef.current.expand();
+                                     Haptics.selectionAsync().then(r => {});
+                                     setAwayGoalieStats({
+                                         GSA:0,
+                                         SP: 0,
+                                         GSAx: 0
+                                     })
+                                     setHomeGoalieStats({
+                                         GSA:0,
+                                         SP: 0,
+                                         GSAx: 0
+                                     })
+                                     setSelectedTeam(props.game)
+                                     Papa.parse(
+                                         `https://moneypuck.com/moneypuck/tweets/starting_goalies/${game?.id}A.csv`,
+                                         {
+                                             ...commonConfig,
+                                             header: true,
+                                             download: true,
+                                             complete: (result) => {
+                                                 setAwayGoalie({name: result?.data[0].goalie_name, confirmed_by: result?.data[0].handle, id: result?.data[0].goalie_id})
+                                                 Papa.parse(
+                                                     `https://moneypuck.com/moneypuck/playerData/seasonSummary/2023_goalies.csv`,
+                                                     {
+                                                         ...commonConfig,
+                                                         header: true,
+                                                         download: true,
+                                                         complete: (resultG) => {
+                                                             const g = resultG.data.filter((goalie)=>{
+                                                                 return goalie.playerId === result?.data[0].goalie_id && goalie.situation === "all"
+                                                             })
+
+                                                             setAwayGoalieStats({
+                                                                 GSA: (g[0].goals*60)/(g[0].icetime/60).toFixed(2),
+                                                                 SP: (g[0].ongoal - g[0].goals)/g[0].ongoal,
+                                                                GSAx: g[0].xGoals - g[0].goals
+                                                             })
+                                                         }
+                                                     }
+                                                 );
+                                             }
+                                         }
+                                     );
+                                     Papa.parse(
+                                         `https://moneypuck.com/moneypuck/tweets/starting_goalies/${game?.id}H.csv`,
+                                         {
+                                             ...commonConfig,
+                                             header: true,
+                                             download: true,
+                                             complete: (result) => {
+                                                 setHomeGoalie({name: result?.data[0].goalie_name, confirmed_by: result?.data[0].handle, id: result?.data[0].goalie_id})
+                                                 Papa.parse(
+                                                     `https://moneypuck.com/moneypuck/playerData/seasonSummary/2023_goalies.csv`,
+                                                     {
+                                                         ...commonConfig,
+                                                         header: true,
+                                                         download: true,
+                                                         complete: (resultG) => {
+
+                                                             const g = resultG.data.filter((goalie)=>{
+                                                                 return goalie.playerId === result?.data[0].goalie_id && goalie.situation === "all"
+                                                             })
+
+                                                             setHomeGoalieStats({
+                                                                 GSA: (g[0].goals*60)/(g[0].icetime/60).toFixed(2),
+                                                                 SP: (g[0].ongoal - g[0].goals)/g[0].ongoal,
+                                                                 GSAx: g[0].xGoals - g[0].goals
+
+                                                             })
+                                                         }
+                                                     }
+                                                 );
+
+                                             }
+                                         }
+                                     );
+
+
+                                 }}
+                                 style={{
             backgroundColor: '#f7f7f7',
             marginBottom: 4,
             paddingVertical: 15,
@@ -228,23 +334,25 @@ export default function Games({navigation}) {
                     }} source={assets[teamAbbreviations.indexOf(game.homeTeam.abbrev)]}/>
 
                     {
-                        !(pp?.h > pp?.a) ?
-                            <Text style={{color: 'black', fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text> :
+                        (pp?.a < pp?.h && !(game.gameOutcome?.lastPeriodType)) ?
                             <View style={{
                                 backgroundColor: '#f54242',
-                                paddingVertical: 5,
+                                paddingVertical: 0,
                                 borderRadius: 15,
-                                paddingHorizontal: 0,
+                                paddingHorizontal: 5,
                                 flexDirection: 'row',
                                 justifyContent: 'center'
+
                             }}>
                                 <Text style={{
                                     color: 'white',
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>{game.homeTeam.abbrev}</Text>
-                            </View>
+                            </View> : <Text style={{color: 'black', fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
+
 
                     }
+
                 </View>
                 <View style={{
                     flexDirection: 'row',
@@ -261,6 +369,7 @@ export default function Games({navigation}) {
                         }}>{ props.game.homeTeam.score ?? `${Math.round(parseFloat(1-hwp).toFixed(2)*100)}%`}</Text>
                     </View>
                     {
+
                         props.game.homeTeam.score !== undefined && !(getTimeLabel() === "Final") ? <View>
                             <View style={{
                                 backgroundColor: 'white',
@@ -291,7 +400,7 @@ export default function Games({navigation}) {
                             paddingVertical: 5,
                             borderRadius: 5,
                             paddingHorizontal: 15,
-                            marginTop: 10
+                            marginTop: 0
                         }}>
                             <Text style={{
                                 color: 'black',
@@ -320,11 +429,9 @@ export default function Games({navigation}) {
                         height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
                         justifyContent: 'center'
                     }} source={assets[teamAbbreviations.indexOf(game.awayTeam.abbrev)]}/>
-
                     {
-                        !(pp?.a > pp?.h) ?
-                            <Text style={{color: 'black', fontFamily: 'Sora_500Medium'}}>{game.awayTeam.abbrev}</Text> :
-                            <View style={{
+                        (pp?.a > pp?.h && !(game.gameOutcome?.lastPeriodType)) ?
+                             <View style={{
                                 backgroundColor: '#f54242',
                                 paddingVertical: 0,
                                 borderRadius: 15,
@@ -337,7 +444,8 @@ export default function Games({navigation}) {
                                     color: 'white',
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>{game.awayTeam.abbrev}</Text>
-                            </View>
+                            </View> : <Text style={{color: 'black', fontFamily: 'Sora_500Medium'}}>{game.awayTeam.abbrev}</Text>
+
 
                     }
                 </View>
@@ -373,21 +481,20 @@ export default function Games({navigation}) {
     }
     else return <View style={styles.container}>
         <SafeAreaView style={{width: '100%'}}>
-            <Text style={{fontFamily: 'Sora_500Medium', marginBottom: 10, fontSize: 24}}>Games</Text>
                 <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginBottom: 20
+                    marginBottom: 20, marginTop: 20
                 }}>
-                            <Text style={{fontFamily: 'Sora_500Medium', marginBottom: 10, fontSize: 24}}>Today</Text>
+                            <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24}}>Games Today</Text>
                             <View style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
                                 justifyContent: 'flex-end',
                             }}>
                                 <Pressable onPress={() => {
-                                    getMatchData(-1)
+                                    getMatchData(0)
                                     Haptics.selectionAsync()
                                 }} style={{backgroundColor: '#f7f7f7', marginRight: 10, paddingHorizontal: 15, paddingVertical: 15, borderRadius: 100}}>
                                     <ArrowLeft color={"#000"}/>
@@ -411,6 +518,153 @@ export default function Games({navigation}) {
                 <View style={{marginBottom: 80}}/>
             </ScrollView>
         </SafeAreaView>
+        <BottomSheet
+
+            ref={bottomSheetRef}
+            index={0}
+            snapPoints={snapPoints}
+            enablePanDownToClose
+            style={{
+                paddingHorizontal: 20
+            }}
+
+        >
+            { selectedTeam ?
+            <View>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                    <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        width: '100%',
+                        alignItems: 'center',
+                    }}>
+                        <View style={{
+                            alignItems: 'center'
+                        }}>
+
+                            <Image style={{
+                                height: 90, width: 120, transform: [{scale: .7}], flexDirection: 'column',
+                                justifyContent: 'center'
+                            }} source={assets[teamAbbreviations.indexOf(selectedTeam?.homeTeam.abbrev)]}/>
+                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 24}}>{selectedTeam?.homeTeam.abbrev}</Text>
+                        </View>
+                        <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                        }}>
+                        </View>
+
+                        <View style={{
+                            alignItems: 'center'
+                        }}>
+                            <Image style={{
+                                height: 90, width: 120, transform: [{scale: .7}], flexDirection: 'column',
+                                justifyContent: 'center'
+                            }} source={assets[teamAbbreviations.indexOf(selectedTeam?.awayTeam.abbrev)]}/>
+                                    <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 24}}>{selectedTeam?.awayTeam.abbrev}</Text>
+
+
+                        </View>
+
+
+                    </View>
+
+                </View>
+                <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, textAlign: 'center', marginTop: 20, marginBottom: 10}}>Starting Goalies</Text>
+
+                <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                    <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-around',
+                        width: '100%',
+                        alignItems: 'center',
+                    }}>
+                        <View style={{
+                            alignItems: 'center'
+                        }}>
+
+                            <Image style={{
+                                borderRadius: 100, borderWidth: 3, height: 80, width: 80,  marginTop: 10, borderColor: `${getPCTColor(selectedTeam?.homeTeam.abbrev)}`, backgroundColor: '#f7f7f7'
+                            }} source={{uri: `https://assets.nhle.com/mugs/nhl/20232024/${selectedTeam?.homeTeam.abbrev}/${homeGoalie?.id}.png`}}/>
+                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.name.split(" ")[0] !== "" ? homeGoalie.name.split(" ")[0] !== "" : "Unknown"}</Text>
+                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.name.split(" ")[1]}</Text>
+                            {/*<Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.confirmed_by}</Text>*/}
+
+
+                        </View>
+                        <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'center',
+                            alignItems: 'center'
+                        }}>
+                        </View>
+
+
+                        <View style={{
+                            alignItems: 'center'
+                        }}>
+
+                            <View style={{flexDirection: 'row', justifyContent: 'center'}}>
+                                <Image style={{
+                                    borderRadius: 100, borderWidth: 3, height: 80, width: 80,  marginTop: 10, borderColor: `${getPCTColor(selectedTeam?.awayTeam.abbrev)}`,  backgroundColor: '#f7f7f7'
+                                }} source={{uri: `https://assets.nhle.com/mugs/nhl/20232024/${selectedTeam?.awayTeam.abbrev}/${awayGoalie?.id}.png`}}/>
+                            </View>
+                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie.name.split(" ")[0] !== "" ? awayGoalie.name.split(" ")[0] !== "" : "Unknown"}</Text>
+                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie?.name.split(" ")[1]}</Text>
+                            {/*<Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie.confirmed_by}</Text>*/}
+
+                        </View>
+
+
+                    </View>
+
+                </View>
+                <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, textAlign: 'center', marginTop: 20, marginBottom: 10}}>Goalie Stats</Text>
+
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                    <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-around',
+                        width: '100%',
+                        alignItems: 'center',
+                    }}>
+                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.SP.toFixed(3)}</Text>
+                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>SV%</Text>
+                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.SP.toFixed(3)}</Text>
+
+                    </View>
+
+                </View>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                    <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-around',
+                        width: '100%',
+                        alignItems: 'center',
+                    }}>
+                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.GSA.toFixed(2)}</Text>
+                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>GSAA</Text>
+                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.GSA.toFixed(2)}</Text>
+
+                    </View>
+
+                </View>
+
+            </View> : <></> }
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-around',
+                    width: '100%',
+                    alignItems: 'center',
+                }}>
+                    <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.GSAx.toFixed(1)}</Text>
+                    <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>GSAx</Text>
+                    <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.GSAx.toFixed(1)}</Text>
+                </View>
+    </View>
+        </BottomSheet>
 
         <StatusBar style="auto"/>
     </View>

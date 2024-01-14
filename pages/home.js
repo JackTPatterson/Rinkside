@@ -12,10 +12,21 @@ import AppLoading from "expo-app-loading";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
+import {Crown1, Moneys} from "iconsax-react-native";
 import {MotiView} from "moti";
 import Papa from "papaparse";
 import {useEffect, useMemo, useRef, useState} from "react";
-import {Dimensions, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View} from "react-native";
+import {
+    Dimensions,
+    Image,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from "react-native";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
 import * as Progress from 'react-native-progress';
 
@@ -109,7 +120,7 @@ export default function Home() {
                         </View>
                     </View>
 
-                    <Progress.Bar unfilledColor={'#f7f7f7'} color={getPCTColor(props.teamCode) ?? "black"} borderRadius={100} borderWidth={0} style={{marginVertical: 0}} progress={pct/100} height={10} width={Dimensions.get('window').width - 40} />
+                    <Progress.Bar unfilledColor={'#f7f7f7'} color={getPCTColor(props.teamCode) ?? "black"} borderRadius={100} borderWidth={0} style={{marginVertical: 0}} progress={!isNaN(pct/100) ? pct/100 : 0} height={10} width={Dimensions.get('window').width - 40} />
 
 
 
@@ -160,7 +171,7 @@ export default function Home() {
         let val = !tab ? (parseFloat(rank.madePlayoffs)).toFixed(2) * (Dimensions.get('window').width - 70) : (parseFloat(rank.draftLottery)).toFixed(2) * (Dimensions.get('window').width - 70)
 
         return rank.scenerio === 'ALL' ?
-            <Pressable onPress={props.onClick} key={i}
+            <TouchableOpacity onPress={props.onClick} key={i}
                        style={{width: '100%', flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
                 <Text style={{
                     textAlign: 'center',
@@ -251,7 +262,7 @@ export default function Home() {
                             justifyContent: 'center',
                             }} source={assets[teamAbbreviations.indexOf(rank.teamCode)]} /></MotiView> : <></>
                 }
-            </Pressable>
+            </TouchableOpacity>
             : <></>
     }
 
@@ -265,7 +276,7 @@ export default function Home() {
         },
 
         inactiveButton: {
-            backgroundColor: 'transparent', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 100, width: '50%'
+            backgroundColor: '#f7f7f7', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 100, marginRight: 10, flexDirection: 'row', gap: 10, alignItems: 'center'
         },
 
         inactiveText: {
@@ -274,7 +285,7 @@ export default function Home() {
         },
 
         activeButton: {
-            backgroundColor: '#000', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 100, width: '50%'
+            backgroundColor: '#000', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 100, marginRight: 10, flexDirection: 'row', gap: 10, alignItems: 'center'
         },
 
         activeText: {
@@ -309,33 +320,32 @@ export default function Home() {
         <GestureHandlerRootView>
             <View style={styles.container}>
 
-
                 <SafeAreaView style={{width: '100%'}}>
-
                     <Text style={{fontFamily: 'Sora_500Medium', marginBottom: 10, fontSize: 24}}>Stats</Text>
-
                     <View>
                         <View style={{
                             flexDirection: 'row',
                             alignItems: 'center',
-                            justifyContent: 'space-between',
+                            justifyContent: 'flex-start',
                             marginBottom: 20
                         }}>
-
-
-                            <Pressable style={tab === 0 ? styles.activeButton : styles.inactiveButton}
+                            <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                        onPress={() => {
                                            setTab(0)
                                            Haptics.selectionAsync()
                                        }}>
-                                <Text style={tab === 0 ? styles.activeText : styles.inactiveText}>Playoff</Text>
-                            </Pressable>
-                            <Pressable style={tab === 1 ? styles.activeButton : styles.inactiveButton} onPress={() => {
+                                <Crown1 color={tab === 0 ? "white" : "black"}/>
+
+                                <Text style={tab === 0 ? styles.activeText : styles.inactiveText}>Playoffs</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={tab === 1 ? styles.activeButton : styles.inactiveButton} onPress={() => {
                                 setTab(1)
                                 Haptics.selectionAsync()
                             }}>
-                                <Text style={tab === 1 ? styles.activeText : styles.inactiveText}>Draft</Text>
-                            </Pressable>
+                                <Moneys color={tab === 1 ? "white" : "black"}/>
+
+                                <Text style={tab === 1 ? styles.activeText : styles.inactiveText}>Lottery</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
                     <ScrollView showsVerticalScrollIndicator={false}
@@ -361,12 +371,10 @@ export default function Home() {
                         </View>
 
                         <View style={{marginBottom: 50}}/>
-
                     </ScrollView>
                     <StatusBar style="auto"/>
                 </SafeAreaView>
                 <BottomSheet
-
                     ref={bottomSheetRef}
                     index={0}
                     snapPoints={snapPoints}
@@ -374,11 +382,9 @@ export default function Home() {
                     style={{
                         paddingHorizontal: 20
                     }}
-
                 >
                     <View>
                         <View>
-
                             <View style={{
                                 flexDirection: "row",
                                 width: '100%',
