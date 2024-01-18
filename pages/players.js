@@ -15,6 +15,7 @@ import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
 import {ArrowDown2, ArrowLeft, ArrowRight} from "iconsax-react-native";
+import {Skeleton} from "moti/skeleton";
 import Papa from "papaparse";
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
@@ -137,7 +138,7 @@ export default function Players() {
     const bottomSheetRef = useRef(null);
     const bottomSheetRef2 = useRef(null);
 
-    const snapPoints = useMemo(() => ['1%', '90%'], []);
+    const snapPoints = useMemo(() => ['90%'], []);
 
     const [selectedPlayer, setSelectedPlayer] = useState(null)
 
@@ -478,9 +479,13 @@ export default function Players() {
 
                                     </View>
                                     {
-                                        data.map((rank, i) => {
+                                        data.length ? data.map((rank, i) => {
                                             return <Player i={i} rank={rank}/>
-                                        })
+                                        }) : <View style={{gap: 10}}>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                        </View>
                                     }
                                 </View> :
                                 <View>
@@ -675,7 +680,7 @@ export default function Players() {
                 <BottomSheet
 
                     ref={bottomSheetRef}
-                    index={0}
+                    index={-1}
                     snapPoints={snapPoints}
                     enablePanDownToClose
                     style={{
@@ -953,7 +958,7 @@ export default function Players() {
                 <BottomSheet
 
                     ref={bottomSheetRef2}
-                    index={0}
+                    index={-1}
                     snapPoints={snapPoints}
                     enablePanDownToClose
                     style={{

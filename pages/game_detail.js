@@ -498,7 +498,7 @@ export default function GamesDetail({navigation}) {
                 width: 100,color: colors.text
             }}></Text>
             <View style={{flexDirection: 'row', justifyContent: 'center'}}>
-                {data &&
+                {data ?
                     <Image style={{
                         borderRadius: 100,
                         borderWidth: 3,
@@ -507,7 +507,7 @@ export default function GamesDetail({navigation}) {
                         marginTop: 10,
                         borderColor: `${getPCTColor(data.currentTeamAbbrev)}`,
                         backgroundColor: colors.card
-                    }} source={{uri: data.headshot}}/>}
+                    }} source={{uri: data.headshot}}/> : <></>}
             </View>
 
             <Text style={{
@@ -580,7 +580,7 @@ export default function GamesDetail({navigation}) {
                             fontSize: 24, color: colors.text}}>{route.params?.data.data.awayTeam.abbrev} {matchData?.away.score} <Text style={{fontFamily: 'default'}}><Text style={{fontFamily: 'default'}}>•</Text></Text> {matchData?.home.score} {route.params?.data.data.homeTeam.abbrev}</Text></MotiView></View>
                 </View>
                 {
-                    route.params?.data['data'].gameOutcome?.lastPeriodType !== undefined && <TouchableOpacity style={{
+                    route.params?.data['data'].gameOutcome?.lastPeriodType !== undefined ? <TouchableOpacity style={{
                         backgroundColor: colors.card,
                         paddingHorizontal: 20,
                         paddingVertical: 10,
@@ -592,14 +592,25 @@ export default function GamesDetail({navigation}) {
                         Haptics.selectionAsync()
                     }}>
                         <Text style={styles.inactiveText}>Video Recap</Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity> : <></>
                 }
             </View>
 
             <ScrollView scrollEventThrottle={16} onScroll={(s) => handleScroll(s.nativeEvent.contentOffset.y)}
                         style={{height: !tab ? 1000 : '100%'}}>
                 <View style={{flexDirection: 'row', alignItems: 'start', marginTop: 20, justifyContent: 'center'}}>
-                    <View style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
+                    <MotiView from={{
+                        opacity: 0,
+                        translateX: -20
+                    }}
+                              animate={{
+                                  translateX: 0,
+                                  opacity: 1
+                              }}
+                              transition={{
+                                  type: 'timing',
+                                  duration: 500
+                              }} style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
                         <View style={{backgroundColor: colors.card, borderRadius: 100}}>
                             <Text style={{
                                 textAlign: "left",
@@ -631,14 +642,14 @@ export default function GamesDetail({navigation}) {
                                     fontSize: 20,color: colors.text
                                 }}>{ppData.h.a} on {ppData.a.a}</Text>
                             </View> }
-                        {ppData.h.a > ppData.a.a &&
+                        {ppData.h.a > ppData.a.a ?
                             <Text style={{
                                 textAlign: "center",
                                 fontFamily: 'Sora_400Regular',
                                 marginTop: 5,
                                 fontSize: 16,color: colors.text
-                            }}>{ppData.h.t}</Text>}
-                    </View>
+                            }}>{ppData.h.t}</Text> : <></>}
+                    </MotiView>
                     <View style={{flexDirection: 'column', alignItems: 'center', width: '33.3%'}}>
                         <View>
                             {route.params?.data['data'].period && getTimeLabel() !== "INT" && getTimeLabel() !== "Final" ?
@@ -708,17 +719,16 @@ export default function GamesDetail({navigation}) {
                                 <MotiText
                                     from={{
                                         opacity: 0,
-                                        translateX: -10
+                                        translateX: -5
                                     }}
                                     animate={{
                                         translateX: 0,
                                         opacity: 1
 
-
                                     }}
                                     transition={{
                                         type: 'timing',
-                                        duration: 500
+                                        duration: 300
                                     }} style={{
                                     textAlign: "center",
                                     paddingVertical: 4,
@@ -736,13 +746,13 @@ export default function GamesDetail({navigation}) {
                                                }}
                                                transition={{
                                                    type: 'timing',
-                                                   duration: 500
+                                                   duration: 300
                                                }}>
                                     <Svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill={colors.text} stroke="currentColor" strokeWidth="0" strokeLinecap="round" strokeLinejoin="round" className="feather feather-circle"><Circle cx="12" cy="12" r="10"></Circle></Svg>
                                     </MotiView>
                                         <MotiText
                                         from={{
-                                            translateX: 10,
+                                            translateX: 5,
                                             opacity: 0
                                         }}
                                         animate={{
@@ -752,7 +762,7 @@ export default function GamesDetail({navigation}) {
                                         }}
                                         transition={{
                                             type: 'timing',
-                                            duration: 500
+                                            duration: 300
                                         }}
 
                                    style={{
@@ -792,8 +802,22 @@ export default function GamesDetail({navigation}) {
                     </View>
 
 
+                    <MotiView from={{
+                        opacity: 0,
+                        translateX: 20
+                    }}
+                              animate={{
+                                  translateX: 0,
+                                  opacity: 1
 
-                    <View style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
+
+                              }}
+                              transition={{
+                                  type: 'timing',
+                                  duration: 500
+                              }}
+
+                              style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
                         <View style={{backgroundColor: colors.card, borderRadius: 100}}>
                             <Text style={{
                                 textAlign: "left",
@@ -834,7 +858,7 @@ export default function GamesDetail({navigation}) {
                                 marginTop: 5,
                                 fontSize: 16
                             }}>{ppData.a.t}</Text>}
-                    </View>
+                    </MotiView>
 
                 </View>
 
@@ -849,7 +873,7 @@ export default function GamesDetail({navigation}) {
                     }}>
 
                         {
-                            route.params?.data['data']['goals'] !== undefined &&
+                            route.params?.data['data']['goals'] !== undefined ?
                                 <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
                                                       setTab(0)
@@ -877,7 +901,7 @@ export default function GamesDetail({navigation}) {
                                     </Svg>
 
                                     <Text style={tab === 0 ? styles.activeText : styles.inactiveText}>Goals</Text>
-                                </TouchableOpacity>
+                                </TouchableOpacity> : <></>
                         }
 
                         <TouchableOpacity style={tab === 2 ? styles.activeButton : styles.inactiveButton} onPress={() => {
@@ -937,7 +961,7 @@ export default function GamesDetail({navigation}) {
                         !tab && route.params?.data['data']['goals'] !== undefined ?
                             <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false} horizontal>
                                 {route.params?.data['data']['goals'].map((goal, i)=>{
-                                    return <View style={{flexDirection: 'row'}}>
+                                    return <View>
                                         <View>
                                             {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i - 1]?.period) ?
                                                 <Text style={{
@@ -951,8 +975,7 @@ export default function GamesDetail({navigation}) {
                                                     marginBottom: 10,
                                                     textAlign: 'left',color: colors.text
                                                 }}>‎ </Text>}
-                                            <View onPress={() => {
-                                            }} style={{
+                                            <View style={{
                                                 marginBottom: 4,
                                                 alignSelf: 'center',
                                                 height: 80,
@@ -1014,7 +1037,7 @@ export default function GamesDetail({navigation}) {
                                             }}/>}
                                     </View>
                                 })}
-                            </ScrollView> : tab === 2 && route.params?.data['data']['goals'] !== undefined ?
+                            </ScrollView> : tab === 2 ? route.params?.data['data']['goals'] !== undefined ?
                                 <View>
 
                                     <TouchableOpacity onPress={() => {
@@ -1184,7 +1207,7 @@ export default function GamesDetail({navigation}) {
                                                       progress={matchData?.away.score / parseFloat(fullData?.awayTeamExpectedGoals).toFixed(2) ?? 0}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                     </View>
-                                    {matchData?.home.powerPlayConversion || matchData?.away.powerPlayConversion &&
+                                    {matchData?.home.powerPlayConversion || matchData?.away.powerPlayConversion ?
                                         <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
                                             <Text style={{
                                                 fontFamily: 'Sora_500Medium',
@@ -1195,9 +1218,9 @@ export default function GamesDetail({navigation}) {
                                                 fontFamily: 'Sora_500Medium',
                                                 fontSize: 16,color: colors.text
                                             }}>{Math.round((parseFloat(matchData?.away.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1])) * 100)}%</Text>
-                                        </View>
+                                        </View> : <></>
                                     }
-                                    {matchData?.home.powerPlayConversion || matchData?.away.powerPlayConversion &&
+                                    {matchData?.home.powerPlayConversion || matchData?.away.powerPlayConversion ?
                                         <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
                                             <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
                                                           unfilledColor={colors.card} borderRadius={100} borderWidth={0}
@@ -1209,7 +1232,7 @@ export default function GamesDetail({navigation}) {
                                                           style={{marginTop: 20}}
                                                           progress={parseFloat(matchData?.away.powerPlayConversion.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1]) ?? 0}
                                                           height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        </View>}
+                                        </View> : <></>}
                                     {/*{matchData?.home.powerPlayConversion || matchData?.away.powerPlayConversion &&*/}
                                     {/*    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>*/}
                                     {/*        <Text style={{*/}
@@ -1371,7 +1394,7 @@ export default function GamesDetail({navigation}) {
                                         }}
                                     />
 
-                                </View>
+                                </View> : <></>
 
                                 : tab === 2 && !(route.params?.data['data']['goals'] !== undefined) ? <View>
                                     <TouchableOpacity onPress={() => {
@@ -1460,7 +1483,7 @@ export default function GamesDetail({navigation}) {
                                         {/*    }}></View>*/}
                                         {/*</View>*/}
                                         {
-                                            playByPlay && playByPlay.reverse().map((play, i) => {
+                                            playByPlay ? playByPlay.reverse().map((play, i) => {
                                                 if (play.type !== "PGSTR" && play.type !== "PGEND" && play.type !== "ANTHEM") {
                                                     return play.type && <TouchableOpacity key={play.type + i} onPress={() => {
                                                         Haptics.selectionAsync().then(r => {
@@ -1556,7 +1579,7 @@ export default function GamesDetail({navigation}) {
                                                         </View>
                                                     </TouchableOpacity>
                                                 }
-                                            })
+                                            }) : <></>
                                         }
                                         <View style={{height: 100}}></View>
                                     </ScrollView> : tab === 4 ?
@@ -1617,7 +1640,7 @@ export default function GamesDetail({navigation}) {
                                             })}
 
 
-                                        </ScrollView> : tab === 5 &&  <ScrollView horizontal>
+                                        </ScrollView> : tab === 5 ?  <ScrollView horizontal>
                                             <View>
                                                 <Text style={{
                                                     fontFamily: 'Sora_600SemiBold',
@@ -1667,7 +1690,7 @@ export default function GamesDetail({navigation}) {
 
 
 
-                                        </ScrollView>
+                                        </ScrollView> : <></>
 
 
 

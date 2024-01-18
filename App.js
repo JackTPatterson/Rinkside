@@ -12,14 +12,12 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
 
-import {DarkTheme, DefaultTheme, NavigationContainer, useTheme} from "@react-navigation/native";
+import {NavigationContainer, useTheme} from "@react-navigation/native";
 import {createStackNavigator} from "@react-navigation/stack";
-import SettingsStackManager from "./pages/settings/settings";
-import {getColor, getBackground} from "./constants";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import * as SplashScreen from "expo-splash-screen";
-import {ArrowRight, TickCircle} from "iconsax-react-native";
+import {ArrowRight, Brodcast, TickCircle} from "iconsax-react-native";
 import React, {useEffect, useState} from "react";
 import {
     Dimensions,
@@ -30,17 +28,20 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
+    useColorScheme,
     View
 } from 'react-native';
 import 'react-native-gesture-handler'
 import 'react-native-reanimated'
 import Svg, {Path} from 'react-native-svg';
 import GamesStackManager from "./pages/games_stack_manager";
-import Home from "./pages/home";
+import Home from "./pages/home"
 import Players from "./pages/players";
-import Team from "./pages/team"
+import Rankings from "./pages/rankings";
+import SettingsStackManager from "./pages/settings/settings";
 import teamData from "./teams";
-import { Appearance, useColorScheme } from 'react-native';
+import {Appearance} from 'react-native';
+
 
 
 LogBox.ignoreLogs(['Warning: ...']);
@@ -225,7 +226,9 @@ const AppManager = () => {
 
     const Tab = createBottomTabNavigator();
 
-    const scheme = useColorScheme();
+    const scheme = Appearance.getColorScheme();
+
+
 
     const DarkTheme = {
         dark: true,
@@ -254,7 +257,7 @@ const AppManager = () => {
 
     const {colors} = useTheme()
 
-    return <NavigationContainer theme={scheme === 'dark' ? DarkTheme : LightTheme} independent={true}>
+    return <NavigationContainer theme={scheme === 'dark' ? DarkTheme : LightTheme} independent={true} onStateChange={()=>{Haptics.impactAsync()}}>
         <Tab.Navigator
             screenOptions={({route}) => ({
 
@@ -301,11 +304,7 @@ const AppManager = () => {
                     if (route.name === "Games") {
                         return (
 
-                            <Svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width={28}
-                                 height={28} strokeWidth={1.5} stroke={color} className="w-7 h-7">
-                                <Path strokeLinecap="round" strokeLinejoin="round"
-                                      d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                            </Svg>
+                           <Brodcast color={color} size={32}/>
 
 
                         )
@@ -334,8 +333,8 @@ const AppManager = () => {
                 tabBarInactiveTintColor: "#aaacae"
             })}
         >
-            <Tab.Screen name="Home" component={Team}/>
-            <Tab.Screen name="PO" component={Home}/>
+            <Tab.Screen name="Home" component={Home}/>
+            <Tab.Screen name="PO" component={Rankings}/>
             <Tab.Screen name="Players" component={Players}/>
             <Tab.Screen name="Games" component={GamesStackManager}/>
             <Tab.Screen name="Settings" component={SettingsStackManager}/>
@@ -352,7 +351,7 @@ export default function App() {
 
     const Stack = createStackNavigator();
 
-    const scheme = useColorScheme();
+    const scheme = Appearance.getColorScheme();
 
     const DarkTheme = {
         dark: true,
@@ -415,7 +414,7 @@ export default function App() {
     else return (
 
         <NavigationContainer theme={scheme === 'dark' ? DarkTheme : LightTheme}>
-            <Stack.Navigator initialRouteName={team?.length === 3 ? "Home" : "Onboarding"} screenOptions={({route}) => ({headerShown: false})}>
+            <Stack.Navigator initialRouteName={team?.length === 3 ? "Home_team" : "Onboarding"} screenOptions={({route}) => ({headerShown: false})}>
                 <Stack.Screen name="Home" component={AppManager}/>
                 <Stack.Screen name="Onboarding" component={Onboarding}/>
             </Stack.Navigator>

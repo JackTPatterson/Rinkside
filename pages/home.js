@@ -1,147 +1,27 @@
-import {
-    Sora_100Thin,
-    Sora_200ExtraLight,
-    Sora_300Light,
-    Sora_400Regular,
-    Sora_500Medium,
-    Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold,
-    useFonts
-} from "@expo-google-fonts/sora";
 import BottomSheet from "@gorhom/bottom-sheet";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
-import {StatusBar} from "expo-status-bar";
-import {Crown1, Moneys} from "iconsax-react-native";
-import {MotiView} from "moti";
+import {Activity, Calendar, User} from "iconsax-react-native";
+import {Skeleton} from "moti/skeleton";
 import Papa from "papaparse";
-import {useEffect, useMemo, useRef, useState} from "react";
-import {
-    Dimensions,
-    Image,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from "react-native";
+import React, {useEffect, useMemo, useRef, useState} from "react";
+import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {LineChart} from "react-native-chart-kit";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
-import * as Progress from 'react-native-progress';
-
-import Svg, {Path, SvgUri} from "react-native-svg";
 import teamData from "../teams";
-import React from "react";
-
-
 
 export default function Home() {
-    const [data, setData] = useState([])
-
-    const [tab, setTab] = useState(0);
-
-    let commonConfig = {delimiter: ","};
-
-    const [favTeam, setFavTeam] = useState(null);
-
-    const getData = async () => {
-        try {
-            const value = await AsyncStorage.getItem('team');
-            if (value !== null) {
-                setFavTeam(value)
-            }
-        } catch (e) {
-            return e
-
-        }
-    };
-
-    useEffect(() => {
-        getData()
-        if(!data.length)
-        Papa.parse(
-            "https://moneypuck.com/moneypuck/simulations/simulations_recent.csv",
-            {
-                ...commonConfig,
-                header: true,
-                download: true,
-                complete: (result) => {
-                    setData(result.data);
-                }
-            }
-        );
-    }, [])
-
-    const sort_by = (field, reverse, primer) => {
-
-        const key = primer ?
-            function (x) {
-                return primer(x[field])
-            } :
-            function (x) {
-                return x[field]
-            };
-
-        reverse = !reverse ? 1 : -1;
-
-        return function (a, b) {
-            return a = key(a), b = key(b), reverse * ((a > b) - (b > a));
-        }
-    }
-
-    function getPCTColor(teamCode) {
-        let team = teamData.filter((item) => {
-            return (item.abbreviation === teamCode);
-        })
-
-        return team[0]?.primary_color;
-
-    }
 
     const bottomSheetRef = useRef(null);
 
-    const snapPoints = useMemo(() => ['1%', '75%'], []);
+    const snapPoints = useMemo(() => ['75%'], []);
 
-    const PCTStat = (props) => {
+    const [selectedTeam, setSelectedTeam] = useState(null)
 
-        const pct = parseFloat(props.pct).toFixed(2) * 100
+    const { colors } = useTheme();
 
-
-            return (
-                <View style={{marginBottom: 20}}>
-                    <View style={{
-                        flexDirection: 'row',
-                        width: '100%',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 10,
-                        borderRadius: '100%',
-                        marginBottom: 10
-                    }}>
-                        <Text style={{
-                            textAlign: "left",
-                            fontFamily: 'Sora_400Regular',
-                            fontSize: 20,
-                            color: colors.text
-                        }}>{props.rnd}</Text>
-                        <View style={{backgroundColor: colors.card, borderRadius: 100}}>
-                            <Text style={{
-                                textAlign: "left",
-                                paddingHorizontal: 15,
-
-                                paddingVertical: 4,
-                                fontFamily: 'Sora_500Medium',
-                                fontSize: 20,
-                                color: colors.text
-                            }}>{Math.round(pct)}%</Text>
-                        </View>
-                    </View>
-                    <Progress.Bar unfilledColor={colors.card} color={getPCTColor(props.teamCode) ?? "black"} borderRadius={100} borderWidth={0} style={{marginVertical: 0}} progress={!isNaN(pct/100) ? pct/100 : 0} height={10} width={Dimensions.get('window').width - 40} />
-                </View>
-            )
-    }
 
     const teamAbbreviations = [
         "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL",
@@ -160,121 +40,26 @@ export default function Home() {
         require("../assets/WSH_light.png"), require("../assets/WPG_light.png")
     ];
 
-
     const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
-    const { colors } = useTheme();
+    const getData = async () => {
+        try {
+            const value = await AsyncStorage.getItem('team');
+            if (value !== null) {
+                setSelectedTeam(value)
+                return value
+            }
+        } catch (e) {
+            return e
 
+        }
+    };
 
-
-    const Team = (props) => {
-
-        const rank = props.rank;
-        const i = props.i;
-
-
+    function getPCTColor(teamCode) {
         let team = teamData.filter((item) => {
-            return (item.abbreviation === rank.teamCode);
+            return (item.abbreviation === teamCode);
         })
-        const color = (team[0]?.primary_color)
-
-        let val = !tab ? (parseFloat(rank.madePlayoffs)).toFixed(2) * (Dimensions.get('window').width - 70) : (parseFloat(rank.draftLottery)).toFixed(2) * (Dimensions.get('window').width - 70)
-
-        return rank.scenerio === 'ALL' &&
-            <TouchableOpacity onPress={props.onClick} key={i}
-                       style={{width: '100%', flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
-                <Text style={{
-                    textAlign: 'center',
-                    fontFamily: 'Sora_500Medium',
-                    marginRight: 10,
-                    width: 40,
-                    color: colors.text
-                }}>{rank.teamCode}</Text>
-                <MotiView from={{
-                    width: 0
-                }}
-                          animate={{
-                              width: val
-                          }}
-                          transition={{
-                              type: 'timing',
-                              delay: 10 * i,
-                              duration: 500
-                          }}
-                          style={{height: 60, backgroundColor: color ?? "#000", borderRadius: 15, marginRight: 5}}>
-
-
-                    {val > 100 &&
-                        <MotiView  from={{
-                            opacity: 0,
-                            marginLeft: -10,
-                        }}
-                                   animate={{
-                                       opacity: 1,
-                                       marginLeft: -0,
-
-                                   }}
-                                   transition={{
-                                       type: 'timing',
-                                       delay: 10 * i + 200,
-                                       duration: 500
-                                   }}>
-                            <Image style={{height: 40, width: 60,  transform: [{scale: .7}],  flexDirection: 'column',
-                                justifyContent: 'center',
-                                marginLeft: 0,
-                                marginTop: 10}} source={assets[teamAbbreviations.indexOf(rank.teamCode)]} /></MotiView>
-                    }
-                </MotiView>
-
-                <MotiView style={{
-                    position: 'absolute',
-                    zIndex: 100,
-                    left: !tab ? `30%` : "90%",
-                    top: '0%'
-                }} from={{
-                    opacity: 0,
-                    left: !tab ? `25%` : "85%"
-                }}
-                          animate={{
-                              opacity: 1,
-                              left: !tab ? (val > 100 ? "30%" : '90%') : "90%"
-
-                          }}
-                          transition={{
-                              type: 'spring',
-                              delay: 10 * i + 200,
-                              duration: 500
-                          }}>
-                    <Text style={{
-                        textAlign: 'center',
-                        color: colors.text,
-                        fontSize: 16,
-                        top: 20,
-                        fontFamily: 'Sora_500Medium'
-
-                    }}>{(( parseFloat(!tab ? rank.madePlayoffs : rank.draftLottery)).toFixed(2) * 100) > 0 ? parseInt((parseFloat(!tab ? rank.madePlayoffs : rank.draftLottery)).toFixed(2) * 100) : 0}%</Text>
-                </MotiView>
-                {val < 100 &&
-                    <MotiView  from={{
-                        opacity: 0,
-                        marginLeft: -10,
-                    }}
-                               animate={{
-                                   opacity: 1,
-                                   marginLeft: -0,
-
-                               }}
-                               transition={{
-                                   type: 'timing',
-                                   delay: 10 * i + 200,
-                                   duration: 500
-                               }}>
-                        <Image style={{height: 40, width: 60,  transform: [{scale: .7}],  flexDirection: 'column',
-                            justifyContent: 'center',
-                            }} source={assets[teamAbbreviations.indexOf(rank.teamCode)]} /></MotiView>
-                }
-            </TouchableOpacity>
-
+        return team[0]?.primary_color;
     }
 
 
@@ -319,222 +104,1071 @@ export default function Home() {
 
     });
 
-    const [sel, setSel] = useState(favTeam ?? "NYI");
+    const [schedule, setSchedule] = useState([])
 
-    let team = teamData.filter((item) => {
-        return (item.abbreviation === sel.teamCode);
-    })
-
-
-    let [fontsLoaded] = useFonts({
-        Sora_600SemiBold,
-        Sora_500Medium,
-        Sora_400Regular,
-        Sora_300Light,
-        Sora_200ExtraLight,
-        Sora_100Thin,
-        Sora_800ExtraBold,
-        Sora_700Bold
-    })
-
-    if(!fontsLoaded){
-        return <></>
+    function formatAMPM(date) {
+        let hours = date.getHours();
+        let minutes = date.getMinutes();
+        let ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; // the hour '0' should be '12'
+        minutes = minutes < 10 ? '0' + minutes : minutes;
+        let strTime = hours + ':' + minutes + ' ' + ampm;
+        return strTime;
     }
-    else return (
-        <GestureHandlerRootView>
-            <View style={styles.container}>
 
-                <SafeAreaView style={{width: '100%'}}>
-                    <Text style={{fontFamily: 'Sora_500Medium', marginBottom: 10, fontSize: 24, color: colors.text}}>Rankings</Text>
+    const [timeline, setTimeline] = useState([])
+    const [timelineFO, setTimelineFO] = useState([])
+    const [timelineSD, setTimelineSD] = useState([])
+    const [timelinePD, setTimelinePD] = useState([])
+    const [timelineGD, setTimelineGD] = useState([])
+    const [timelineTD, setTimelineTD] = useState([])
+    const [timelineLDD, setTimelineHDD] = useState([])
+    const [timelineHDD, setTimelineLDD] = useState([])
+    const [timelineMD, setTimelineMD] = useState([])
+    const [timelineHD, setTimelineHD] = useState([])
+
+    const [roster, setRoster] = useState([])
+
+    const getRoster = (code) => {
+
+        let myHeaders = new Headers();
+        myHeaders.append("accept", "application/json");
+
+        let requestOptions = {
+            method: 'GET',
+            headers: myHeaders,
+            redirect: 'follow'
+        };
+
+        fetch(`https://api-web.nhle.com/v1/roster/${code}/current`, requestOptions)
+            .then(response => response.text())
+            .then(result => {
+                setRoster(JSON.parse(result))
+            })
+    }
+
+    const getSchedule = (type, code) => {
+
+        let myHeaders = new Headers();
+        myHeaders.append("accept", "application/json");
+
+        let requestOptions = {
+            method: 'GET',
+            headers: myHeaders,
+            redirect: 'follow'
+        };
+
+        fetch(`https://api-web.nhle.com/v1/club-schedule/${code}/${type ? "week" : "month"}/now`, requestOptions)
+            .then(response => response.text())
+            .then(result => {
+                setSchedule(JSON.parse(result)['games'])
+            })
+    }
+
+    function accumulateArrayValues(inputArray) {
+        let resultArray = [];
+        let sum = 0;
+
+        for (let i = 0; i < inputArray.length; i++) {
+            sum += inputArray[i];
+            resultArray.push(sum);
+        }
+
+        return resultArray;
+    }
+
+
+
+    const getTimeLine = (code) => {
+
+
+        Papa.parse(
+            `https://moneypuck.com/moneypuck/playerData/teamGameByGame/2023/regular/${code}.csv`,
+            {
+                ...commonConfig,
+                header: true,
+                download: true,
+                complete: (resultG) => {
+                    const g = resultG.data.filter((goalie) => {
+                        return goalie.situation === "all"
+                    })
+
+
+
+                    const chartData = g.map((d, i) => {
+                        return parseFloat(d?.goalsFor - d?.goalsAgainst)
+                    })
+
+                    const foData = g.map((d, i) => {
+                        return (parseFloat(d?.faceOffsWonFor) / (parseFloat(d?.faceOffsWonFor) + parseFloat(d?.faceOffsWonAgainst))) * 100
+                    })
+
+                    const sDiffData = g.map((d, i) => {
+                        return (parseFloat(d?.shotAttemptsFor) - parseFloat(d?.shotAttemptsAgainst))
+                    })
+
+                    const pDiffData = g.map((d, i) => {
+                        return (parseFloat(d?.penalityMinutesAgainst) - parseFloat(d?.penalityMinutesFor))
+                    })
+                    const gDiffData = g.map((d, i) => {
+                        return (parseFloat(d?.giveawaysAgainst) - parseFloat(d?.giveawaysFor))
+                    })
+                    const tDiffData = g.map((d, i) => {
+                        return (parseFloat(d?.takeawaysAgainst) - parseFloat(d?.takeawaysFor))
+                    })
+
+                    const ldDiffData = g.map((d, i) => {
+                        return (parseFloat(d?.lowDangerShotsFor) - parseFloat(d?.lowDangerShotsAgainst))
+                    })
+                    const hdiffData = g.map((d, i) => {
+                        return (parseFloat(d?.highDangerShotsFor) - parseFloat(d?.highDangerShotsAgainst))
+                    })
+
+                    const mdiffData = g.map((d, i) => {
+                        return (parseFloat(d?.missedShotsFor) - parseFloat(d?.missedShotsAgainst))
+                    })
+
+                    const htdiffData = g.map((d, i) => {
+                        return (parseFloat(d?.hitsFor) - parseFloat(d?.hitsAgainst))
+                    })
+
+                    setTimeline(accumulateArrayValues(chartData))
+                    setTimelineFO(foData)
+                    setTimelineSD(accumulateArrayValues(sDiffData))
+                    setTimelinePD(accumulateArrayValues(pDiffData))
+                    setTimelineGD(accumulateArrayValues(gDiffData))
+                    setTimelineTD(accumulateArrayValues(tDiffData))
+
+                    setTimelineLDD(accumulateArrayValues(ldDiffData))
+                    setTimelineHDD(accumulateArrayValues(hdiffData))
+
+                    setTimelineMD(accumulateArrayValues(mdiffData))
+                    setTimelineHD(accumulateArrayValues(htdiffData))
+
+                }
+            }
+        );
+    }
+
+    const [stats, setStats] = useState({w: 0, l: 0, o: 0, d: "", s: 0})
+
+    const getTeamData = (code) => {
+
+        let requestOptions = {
+            method: 'GET',
+            redirect: 'follow'
+        };
+
+        fetch("https://api-web.nhle.com/v1/standings/now", requestOptions)
+            .then(response => response.text())
+            .then(result => {
+
+                const d = JSON.parse(result).standings.filter((t, i) => {
+                    return t.teamAbbrev.default === `${code}`
+                })
+
+
+                setStats({
+                    w: d[0].wins,
+                    l: d[0].losses,
+                    o: d[0].otLosses,
+                    d: !(d[0].wildcardSequence > 0 && d[0].wildcardSequence < 3) ? d[0].divisionName : d[0].wildcardSequence,
+                    s: !(d[0].wildcardSequence > 0 && d[0].wildcardSequence < 3) ? d[0].divisionSequence : "Wildcard",
+                })
+
+            })
+    }
+
+
+    useEffect(() => {
+
+        getData().then(r=>{
+            getSchedule(true, r)
+            getTimeLine(r)
+            getTeamData(r)
+            getRoster(r)
+        })
+    }, [])
+
+    let commonConfig = {delimiter: ","};
+
+    function convertUTCtoMMDD(utcDateString) {
+        // Parse the UTC date string
+        const utcDate = new Date(utcDateString);
+
+        // Extract month and day
+        const month = (utcDate.getUTCMonth() + 1).toString(); // Months are zero-based
+        const day = (utcDate.getUTCDate() - 1).toString();
+
+        // Format as MM/DD
+        return `${month.replace(/^0+/, '')}/${day.replace(/^0+/, '')}`;
+    }
+
+    const [tab, setTab] = useState(0)
+
+
+    const Match = (props) => {
+
+        const [hwp, setHWP] = useState(0);
+
+        const game = props.game
+
+
+        if (!hwp) {
+            Papa.parse(
+                `https://moneypuck.com/moneypuck/predictions/${game?.id}.csv`,
+                {
+                    ...commonConfig,
+                    header: true,
+                    download: true,
+                    complete: (result) => {
+                        setHWP(game.homeTeam.abbrev === `${selectedTeam}` ? 1 - parseFloat((result.data.slice(-2)[0]).preGameHomeTeamWinOverallScore) : parseFloat((result.data.slice(-2)[0]).preGameHomeTeamWinOverallScore));
+                    }
+                }
+            );
+        }
+
+
+        return <View
+            style={{
+                backgroundColor: colors.card,
+                marginBottom: 4,
+                paddingVertical: 15,
+                borderRadius: 15
+
+            }}>
+            <View style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center'
+            }}>
+                <View style={{
+                    alignItems: 'center'
+                }}>
+
+                    <Image style={{
+                        height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
+                        justifyContent: 'center'
+                    }} source={assets[teamAbbreviations.indexOf(game.homeTeam.abbrev)]}/>
+                    <Text style={{color: colors.text, fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
+                </View>
+                <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}>
+                    <View style={{backgroundColor: '', borderRadius: 100, paddingRight: 15}}>
+                        <Text style={{
+                            textAlign: "right",
+                            paddingVertical: 4,
+                            fontFamily: 'Sora_700Bold',
+                            fontSize: 20,
+                            width: 60,
+                            color: colors.text
+                        }}>{(game.awayTeam.abbrev === `${selectedTeam}`) ? `${Math.round(parseFloat(hwp).toFixed(2) * 100)}%` : `${Math.round(parseFloat(1 - hwp).toFixed(2) * 100)}%`}</Text>
+                    </View>
                     <View>
                         <View style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'flex-start',
-                            marginBottom: 20,
+                            backgroundColor: colors.background,
+                            paddingVertical: 5,
+                            borderRadius: 5,
+                            paddingHorizontal: 15
+                        }}>
+                            <Text style={{
+                                color: colors.text,
+                                textAlign: 'center',
+                                fontFamily: 'Sora_500Medium'
+
+                            }}>{convertUTCtoMMDD(game.startTimeUTC)}</Text>
+                        </View>
+                        <View style={{
+                            backgroundColor: colors.background,
+                            paddingVertical: 5,
+                            borderRadius: 5,
+                            paddingHorizontal: 15,
                             marginTop: 10
                         }}>
-                            <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
-                                       onPress={() => {
-                                           setTab(0)
-                                           Haptics.selectionAsync()
-                                       }}>
-                                <Crown1 color={tab === 0 ? colors.background : colors.text}/>
-
-                                <Text style={tab === 0 ? styles.activeText : styles.inactiveText}>Playoffs</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={tab === 1 ? styles.activeButton : styles.inactiveButton} onPress={() => {
-                                setTab(1)
-                                Haptics.selectionAsync()
-                            }}>
-                                <Moneys color={tab === 1 ? colors.background : colors.text}/>
-
-                                <Text style={tab === 1 ? styles.activeText : styles.inactiveText}>Lottery</Text>
-                            </TouchableOpacity>
+                            <Text style={{
+                                textAlign: 'center',
+                                color: colors.text,
+                                fontFamily: 'Sora_500Medium'
+                            }}>{formatAMPM(new Date(game.startTimeUTC))}</Text>
                         </View>
                     </View>
-                    <ScrollView showsVerticalScrollIndicator={false}
-                                style={{height: Dimensions.get('window').height - 215}}>
-                        <View style={{marginBottom: 5}}>
-                            {data?.sort(sort_by(!tab ? 'madePlayoffs' : 'draftLottery', true, parseFloat)).map((rank, i) => {
-                                return rank.teamCode === favTeam ? <Team key={i} onClick={() => {
-                                    Haptics.selectionAsync()
-                                    setSel(rank)
-                                    !tab ? bottomSheetRef.current.expand() : null
-                                }} rank={rank} i={0}/> : null
-                            })}
-                        </View>
-                        <View style={{height: 2, backgroundColor: 'black', opacity: .2, width: '100%'}}/>
-                        <View style={{marginTop: 10}}>
-                            {data?.sort(sort_by(!tab ? 'madePlayoffs' : 'draftLottery', true, parseFloat)).map((rank, i) => {
-                                return <Team key={i} onClick={() => {
-                                    Haptics.selectionAsync()
-                                    setSel(rank)
-                                    !tab ? bottomSheetRef.current.expand() : null
-                                }} rank={rank} i={i+1}/>
-                            })}
+                    <View style={{backgroundColor: '', borderRadius: 100, paddingLeft: 15}}>
+                        <Text style={{
+                            textAlign: "left",
+                            paddingVertical: 4,
+                            fontFamily: 'Sora_700Bold',
+                            fontSize: 20,
+                            width: 60,
+                            color: colors.text
+                        }}>{game.homeTeam.abbrev === `${selectedTeam}` ? `${Math.round(parseFloat(hwp).toFixed(2) * 100)}%` : `${Math.round(parseFloat(1 - hwp).toFixed(2) * 100)}%`}</Text>
+                    </View>
+                </View>
+
+                <View style={{
+                    alignItems: 'center'
+                }}>
+
+                    <Image style={{
+                        height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
+                        justifyContent: 'center'
+                    }} source={assets[teamAbbreviations.indexOf(game.awayTeam.abbrev)]}/>
+                    <Text style={{fontFamily: 'Sora_500Medium', color: colors.text}}>{game.awayTeam.abbrev}</Text>
+                </View>
+            </View>
+        </View>
+    }
+
+    return (
+        <GestureHandlerRootView>
+            <View style={styles.container}>
+                <TouchableOpacity
+
+                    onPress={()=>{
+                        Haptics.selectionAsync().then(()=>{})
+                        bottomSheetRef.current.expand()
+                    }}
+
+                    style={{
+                    backgroundColor: `${getPCTColor(`${selectedTeam}`)}`,
+                    paddingTop: 75,
+                    width: '100%',
+                    paddingHorizontal: 10,
+                    paddingBottom: 20,
+                    borderRadius: 0,
+                    flexDirection: 'row',
+                    justifyContent: 'flex-start',
+                    alignItems: 'center'
+                }}>
+                    {assets && selectedTeam &&
+                        <Image style={{
+                            height: 50, width: 70, flexDirection: 'column',
+                            justifyContent: 'center'
+                        }} source={assets[teamAbbreviations.indexOf(`${selectedTeam}`)]}/>}
+                    <View>
+                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 24, color: 'white'}}>{
+                            teamData.filter((t)=>{
+                                return t.abbreviation === selectedTeam
+                            })[0]?.name
+                        }
+                        </Text>
+                        <Text style={{
+                            fontFamily: 'Sora_500Medium',
+                            fontSize: 16,
+                            color: 'white',
+                            opacity: .7
+                        }}>{stats.w}-{stats.l}-{stats.o} <Text style={{fontFamily: 'default'}}>•</Text> {stats.s}{stats.s === 4 || stats.s === 5 || stats.s === 6 || stats.s === 7 ? "th" : stats.s === 3 ? "rd" : stats.s === 2 ? "nd" : stats.s !== "Wildcard" ? "st" : ""} {stats.d}</Text>
+                    </View>
+                </TouchableOpacity>
+                <SafeAreaView style={{width: '100%'}}>
+                    <View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{
+                            marginBottom: 20, marginHorizontal: 10,
+                            marginTop: 20
+                        }}>
+
+
+                            <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
+                                              onPress={() => {
+                                                  setTab(0)
+                                                  Haptics.selectionAsync()
+                                              }}>
+                                <Calendar color={tab === 0 ? colors.background : colors.text}/>
+
+                                <Text style={tab === 0 ? styles.activeText : styles.inactiveText}>Schedule</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={tab === 1 ? styles.activeButton : styles.inactiveButton}
+                                              onPress={() => {
+                                                  setTab(1)
+                                                  Haptics.selectionAsync()
+                                              }}>
+                                <Activity color={tab === 1 ? colors.background : colors.text }/>
+                                <Text style={tab === 1 ? styles.activeText : styles.inactiveText}>Season Stats</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={tab === 2 ? styles.activeButton : styles.inactiveButton}
+                                              onPress={() => {
+                                                  setTab(2)
+                                                  Haptics.selectionAsync()
+                                              }}>
+                                <User color={tab === 2 ? colors.background : colors.text }/>
+                                <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>Roster</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                    {!tab ?
+                    <View style={{marginHorizontal: 10}}>
+                        <View>
+                            <Text style={{
+                                fontFamily: 'Sora_600SemiBold',
+                                fontSize: 24, color: colors.text
+                            }}>This Weeks Games</Text>
+
                         </View>
 
-                        <View style={{marginBottom: 50}}/>
-                    </ScrollView>
+
+                        <ScrollView style={{height: '100%', marginTop: 20}} showsVerticalScrollIndicator={false}>
+                            {schedule.length ? schedule?.map((game, i) => {
+                                return <Match game={game}/>
+                            }) : <View style={{gap: 10}}>
+                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+
+                    </View>}
+
+                        </ScrollView>
+
+                    </View> : tab === 1 ?
+                            <View>
+                                <View>
+                                    <Text style={{
+                                        fontFamily: 'Sora_600SemiBold',
+                                        fontSize: 24, color: colors.text
+                                    }}>Season Wide Stats</Text>
+                                    <ScrollView style={{marginHorizontal: 10, marginTop: 20}}>
+
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text, marginTop: 20}}>Goal Differential</Text>
+                                        {timeline &&
+                                            <LineChart
+                                                xAxisLabel={"Test"}
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timeline.map((r, i) => {
+                                                                return isNaN(r) ? 1 : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: '#fff',
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            /> }
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Faceoff Win %</Text>
+                                        {timelineFO && <LineChart
+                                            data={{
+                                                datasets: [
+                                                    {
+                                                        color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                        strokeWidth: 2.5,
+                                                        data: timelineFO.map((r, i) => {
+                                                            return isNaN(r) ? timelineFO[i-1] : r
+                                                        })
+                                                    },
+                                                ]
+                                            }}
+                                            width={Dimensions.get("window").width}
+                                            height={220}
+                                            yAxisInterval={1}
+                                            withHorizontalLines={true}
+                                            withVerticalLines={false}
+                                            yAxisSuffix={"%"}
+                                            withDots={false}
+                                            withShadow
+                                            chartConfig={{
+                                                backgroundColor: `rgba(255, 255, 255, 0)`,
+
+                                                useShadowColorFromDataset: true,
+                                                fillShadowGradientFromOpacity: 0,
+                                                fillShadowGradientToOpacity: 0,
+                                                backgroundGradientFrom: "#fff",
+                                                backgroundGradientFromOpacity: 0,
+                                                backgroundGradientTo: "#fff",
+                                                backgroundGradientToOpacity: 0,
+                                                decimalPlaces: 0,
+                                                labelColor: (opacity = 1) => colors.text,
+                                                color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                strokeWidth: 2.5,
+                                                barPercentage: 10
+                                            }}
+                                            bezier
+                                            style={{
+                                                marginVertical: 8,
+                                                marginLeft: -20,
+                                            }}
+                                        />  }
+
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Penalty Minutes Differential</Text>
+                                        {timelinePD &&
+                                            <LineChart
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timelinePD.map((r, i) => {
+                                                                return isNaN(r) ? timelinePD[i-1] : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            /> }
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Giveaway Differential</Text>
+                                        {timelineGD &&
+                                            <LineChart
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timelineGD.map((r, i) => {
+                                                                return isNaN(r) ? timelineGD[i-1] : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            />  }
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Takeaway Differential</Text>
+                                        {timelineTD &&
+                                            <LineChart
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timelineTD.map((r, i) => {
+                                                                return isNaN(r) ? timelineTD[i-1] : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            />}
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Shot Differential</Text>
+                                        {timelineSD &&
+                                            <LineChart
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timelineSD.map((r, i) => {
+                                                                return isNaN(r) ? timelineSD[i-1] : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            /> }
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Low Danger Shots Differential</Text>
+                                        {timelineLDD &&
+                                            <LineChart
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timelineLDD.map((r, i) => {
+                                                                return isNaN(r) ? timelineLDD[i-1] : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            />}
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>High Danger Shots Differential</Text>
+                                        {timelineHDD &&
+                                            <LineChart
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timelineHDD.map((r, i) => {
+                                                                return isNaN(r) ? timelineHDD[i-1] : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            />  }
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Missed Shot Differential</Text>
+                                        {timelineMD &&
+                                            <LineChart
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timelineMD.map((r, i) => {
+                                                                return isNaN(r) ? timelineMD[i-1] : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            /> }
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Hits Differential</Text>
+                                        {timelineHD &&
+                                            <LineChart
+                                                data={{
+                                                    datasets: [
+                                                        {
+                                                            color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
+                                                            strokeWidth: 2.5,
+                                                            data: timelineHD.map((r, i) => {
+                                                                return isNaN(r) ? timelineHD[i-1] : r
+                                                            })
+                                                        },
+                                                    ]
+                                                }}
+                                                width={Dimensions.get("window").width}
+                                                height={220}
+                                                yAxisInterval={1}
+                                                withHorizontalLines={true}
+                                                withVerticalLines={false}
+                                                withDots={false}
+                                                withShadow
+                                                chartConfig={{
+                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+
+                                                    useShadowColorFromDataset: true,
+                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientToOpacity: 0,
+                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFromOpacity: 0,
+                                                    backgroundGradientTo: "#fff",
+                                                    backgroundGradientToOpacity: 0,
+                                                    decimalPlaces: 0,
+                                                    labelColor: (opacity = 1) => colors.text,
+                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    strokeWidth: 2.5,
+                                                    barPercentage: 10
+                                                }}
+                                                bezier
+                                                style={{
+                                                    marginVertical: 8,
+                                                    marginLeft: -20,
+                                                }}
+                                            /> }
+                                        <View style={{marginBottom: 400}}/>
+                                    </ScrollView>
+                                </View>
+                            </View>
+                         : <View style={{marginHorizontal: 10}}>
+                                <View>
+                                    <Text style={{
+                                        fontFamily: 'Sora_600SemiBold',
+                                        fontSize: 24, color: colors.text
+                                    }}>Team Roster</Text>
+                                    <ScrollView contentInsetAdjustmentBehavior="automatic" style={{marginTop: 20}}>
+                                    <Text style={{
+                                        fontFamily: 'Sora_600SemiBold',
+                                        fontSize: 16, color: colors.text, marginTop: 20, marginBottom: 10
+                                    }}>Forwards</Text>
+                                    <ScrollView style={{height: 175}} showsHorizontalScrollIndicator={false} horizontal>
+
+                                        {roster.forwards.map((player, i)=>{
+                                            return <View style={{flexDirection: 'row'}}>
+                                                <View>
+                                                    <View style={{
+                                                        marginBottom: 4,
+                                                        alignSelf: 'center',
+                                                        height: 80,
+                                                        borderRadius: 100,
+                                                        marginHorizontal: 20
+                                                    }}>
+
+
+                                                        <View style={{flexDirection: 'row', justifyContent: 'center'}}>
+                                                            <Image style={{
+                                                                borderRadius: 100,
+                                                                borderWidth: 3,
+                                                                height: 80,
+                                                                width: 80,
+                                                                marginTop: 10,
+                                                                borderColor: colors.text,
+                                                                backgroundColor: colors.card
+                                                            }} source={{uri: player.headshot}}/>
+                                                        </View>
+                                                        <Text style={{
+                                                            fontFamily: 'Sora_600SemiBold',
+                                                            fontSize: 24,
+                                                            marginTop: 10,
+                                                            textAlign: 'center',color: colors.text
+                                                        }}>#{player.sweaterNumber}</Text>
+                                                        <Text style={{
+                                                            fontFamily: 'Sora_600SemiBold',
+                                                            fontSize: 16,
+                                                            marginTop: 5,
+                                                            textAlign: 'center',color: colors.text
+                                                        }}>{player.firstName.default} {player.lastName.default}</Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        })}
+                                    </ScrollView>
+                                    <Text style={{
+                                        fontFamily: 'Sora_600SemiBold',
+                                        fontSize: 16, color: colors.text, marginTop: 20, marginBottom: 10
+                                    }}>Defensemen</Text>
+                                    <ScrollView style={{height: 175}} showsHorizontalScrollIndicator={false} horizontal>
+                                        {roster.defensemen.map((player, i)=>{
+                                            return <View style={{flexDirection: 'row'}}>
+                                                <View>
+                                                    <View style={{
+                                                        marginBottom: 4,
+                                                        alignSelf: 'center',
+                                                        height: 80,
+                                                        borderRadius: 100,
+                                                        marginHorizontal: 20
+                                                    }}>
+
+
+                                                        <View style={{flexDirection: 'row', justifyContent: 'center'}}>
+                                                            <Image style={{
+                                                                borderRadius: 100,
+                                                                borderWidth: 3,
+                                                                height: 80,
+                                                                width: 80,
+                                                                marginTop: 10,
+                                                                borderColor: colors.text,
+                                                                backgroundColor: colors.card
+                                                            }} source={{uri: player.headshot}}/>
+                                                        </View>
+                                                        <Text style={{
+                                                            fontFamily: 'Sora_600SemiBold',
+                                                            fontSize: 24,
+                                                            marginTop: 10,
+                                                            textAlign: 'center',color: colors.text
+                                                        }}>#{player.sweaterNumber}</Text>
+                                                        <Text style={{
+                                                            fontFamily: 'Sora_600SemiBold',
+                                                            fontSize: 16,
+                                                            marginTop: 5,
+                                                            textAlign: 'center',color: colors.text
+                                                        }}>{player.firstName.default} {player.lastName.default}</Text>
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        })}
+                                    </ScrollView>
+                                        <Text style={{
+                                            fontFamily: 'Sora_600SemiBold',
+                                            fontSize: 16, color: colors.text, marginTop: 20, marginBottom: 10
+                                        }}>Goalies</Text>
+                                        <ScrollView style={{height: 175}} showsHorizontalScrollIndicator={false} horizontal>
+                                            {roster.goalies.map((player, i)=>{
+                                                return <View style={{flexDirection: 'row'}}>
+                                                    <View>
+                                                        <View style={{
+                                                            marginBottom: 4,
+                                                            alignSelf: 'center',
+                                                            height: 80,
+                                                            borderRadius: 100,
+                                                            marginHorizontal: 20
+                                                        }}>
+
+
+                                                            <View style={{flexDirection: 'row', justifyContent: 'center'}}>
+                                                                <Image style={{
+                                                                    borderRadius: 100,
+                                                                    borderWidth: 3,
+                                                                    height: 80,
+                                                                    width: 80,
+                                                                    marginTop: 10,
+                                                                    borderColor: colors.text,
+                                                                    backgroundColor: colors.card
+                                                                }} source={{uri: player.headshot}}/>
+                                                            </View>
+                                                            <Text style={{
+                                                                fontFamily: 'Sora_600SemiBold',
+                                                                fontSize: 24,
+                                                                marginTop: 10,
+                                                                textAlign: 'center',color: colors.text
+                                                            }}>#{player.sweaterNumber}</Text>
+                                                            <Text style={{
+                                                                fontFamily: 'Sora_600SemiBold',
+                                                                fontSize: 16,
+                                                                marginTop: 5,
+                                                                textAlign: 'center',color: colors.text
+                                                            }}>{player.firstName.default} {player.lastName.default}</Text>
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                            })}
+                                        </ScrollView>
+                                        <View style={{marginBottom: 450}}/>
+                                    </ScrollView>
+                                </View>
+
+
+
+
+                            </View>
+
+
+
+                    }
+
+
                 </SafeAreaView>
                 <BottomSheet
+
                     ref={bottomSheetRef}
-                    index={0}
+                    index={-1}
                     snapPoints={snapPoints}
                     enablePanDownToClose
-                    style={{
-                        paddingHorizontal: 20
-                    }}
                     backgroundStyle={{
                         backgroundColor: colors.background
                     }}
                 >
-                    <View>
-                        <View>
-                            <View style={{
-                                flexDirection: "row",
-                                width: '100%',
-                                alignItems: 'center',
-                                marginBottom: 10,
-                                justifyContent: 'space-between'
+                    <View  style={{
+                        paddingHorizontal: 20,
+
+                    }}>
+                        <Text style={{fontFamily: 'Sora_600SemiBold', fontSize: 24, marginBottom: 20, color: colors.text}}>Select a Team</Text>
+                        <ScrollView style={{height: 500}}>
+                        {teamData.map((team, i)=>{
+                            return <TouchableOpacity onPress={()=>{
+                                Haptics.selectionAsync().then(()=>{})
+                                setSelectedTeam(team.abbreviation)
+                                getTimeLine(team.abbreviation)
+                                getTeamData(team.abbreviation)
+                                getSchedule(true, team.abbreviation)
+                                bottomSheetRef.current.close()
+
                             }}>
                                 <View style={{
-                                    flexDirection: "row",
-                                    width: '100%',
+                                    flexDirection: 'row',
+                                    justifyContent: 'flex-start',
                                     alignItems: 'center',
-                                    marginBottom: 0,
-                                    justifyContent: 'start'
+                                    marginBottom: 10,
+                                    marginLeft: -10
                                 }}>
-                                    <SvgUri width={100} height={50} style={{
-                                        flexDirection: 'column',
-                                        justifyContent: 'center',
-                                        marginLeft: -15
-                                    }}
-                                            uri={`https://assets.nhle.com/logos/nhl/svg/${sel?.teamCode}_light.svg`}/>
-                                    <Text style={{
-                                        fontSize: 24,
-                                        fontFamily: 'Sora_600SemiBold',
-                                        textAlign: 'center',
-                                        color: colors.text
-                                    }}>{team[0]?.name}</Text>
-                                </View>
-                                <View style={{backgroundColor: 'black', borderRadius: 100}}>
-                                    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                         xmlns="http://www.w3.org/2000/svg">
-                                        <Path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                    </Svg>
-                                </View>
-                            </View>
-                            <ScrollView showsVerticalScrollIndicator={false} horizontal snapToAlignment={"center"}
-                                        decelerationRate={0} snapToInterval={Dimensions.get('window').width - 40}>
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <Text style={{
-                                        fontSize: 20,
-                                        fontFamily: 'Sora_500Medium',
-                                        textAlign: 'left',
-                                        marginBottom: 20,
-                                        color: colors.text
-                                    }}>Overall</Text>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.madePlayoffs}
-                                                 rnd={'Playoff Percentage'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2} rnd={'Second Round'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3} rnd={'Third Round'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4} rnd={'Finals'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.wonCup} rnd={'Won Cup'}/>
-                                    </ScrollView>
-                                </View>
+                                    {assets &&
+                                    <Image style={{
+                                        height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
+                                        justifyContent: 'center'
+                                    }} source={assets[teamAbbreviations.indexOf(team.abbreviation)]}/> }
 
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <Text style={{
-                                            fontSize: 20,
-                                            fontFamily: 'Sora_500Medium',
-                                            textAlign: 'left',
-                                            marginBottom: 20,
-                                            color: colors.text
-                                        }}>First Round</Text>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin4} rnd={'Win in 4'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin5} rnd={'Win in 5'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin6} rnd={'Win in 6'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin7} rnd={'Win in 7'}/>
-                                    </ScrollView>
+                                    <Text style={{fontFamily: 'Sora_500Medium', fontSize: 20, color: colors.text}}>{team.name}</Text>
                                 </View>
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <Text style={{
-                                        fontSize: 20,
-                                        fontFamily: 'Sora_500Medium',
-                                        textAlign: 'left',
-                                        marginBottom: 20,
-                                        color: colors.text
-                                    }}>Second Round</Text>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin4} rnd={'Win in 4'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin5} rnd={'Win in 5'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin6} rnd={'Win in 6'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin7} rnd={'Win in 7'}/>
-                                    </ScrollView>
-                                </View>
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <Text style={{
-                                        fontSize: 20,
-                                        fontFamily: 'Sora_500Medium',
-                                        textAlign: 'left',
-                                        marginBottom: 20,
-                                        color: colors.text
-                                    }}>Third Round</Text>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin4} rnd={'Win in 4'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin5} rnd={'Win in 5'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin6} rnd={'Win in 6'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin7} rnd={'Win in 7'}/>
-                                    </ScrollView>
-                                </View>
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <Text style={{
-                                        fontSize: 20,
-                                        fontFamily: 'Sora_500Medium',
-                                        textAlign: 'left',
-                                        marginBottom: 20,
-                                        color: colors.text
-                                    }}>Finals</Text>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin4} rnd={'Win in 4'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin5} rnd={'Win in 5'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin6} rnd={'Win in 6'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin7} rnd={'Win in 7'}/>
-                                    </ScrollView>
-                                </View>
-                            </ScrollView>
-
-
-                            {/* Spacer */}
-                        </View>
+                            </TouchableOpacity>
+                        })}
+                        </ScrollView>
                     </View>
                 </BottomSheet>
-
-
             </View>
         </GestureHandlerRootView>
     );

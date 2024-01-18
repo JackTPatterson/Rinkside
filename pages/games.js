@@ -4,7 +4,9 @@ import {
     Sora_300Light,
     Sora_400Regular,
     Sora_500Medium,
-    Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold,
+    Sora_600SemiBold,
+    Sora_700Bold,
+    Sora_800ExtraBold,
     useFonts
 } from "@expo-google-fonts/sora";
 import BottomSheet from "@gorhom/bottom-sheet";
@@ -15,17 +17,7 @@ import {StatusBar} from "expo-status-bar";
 import {ArrowLeft, ArrowRight} from "iconsax-react-native";
 import Papa from "papaparse";
 import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
-import {
-    Dimensions,
-    Image,
-    Pressable, RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from "react-native";
+import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import teamData from "../teams";
 
 
@@ -50,7 +42,7 @@ export default function Games({navigation}) {
 
     const bottomSheetRef = useRef(null);
 
-    const snapPoints = useMemo(() => ['1%', '75%'], []);
+    const snapPoints = useMemo(() => ['75%'], []);
 
 
     const [isLoading, setIsLoading] = useState(true)
@@ -555,6 +547,7 @@ export default function Games({navigation}) {
                                 alignItems: 'center',
                                 justifyContent: 'flex-end',
                             }}>
+
                                 <TouchableOpacity  onLongPress={()=>{
                                     Haptics.notificationAsync()
                                     setDateOffset(0)
@@ -636,7 +629,7 @@ export default function Games({navigation}) {
         <BottomSheet
 
             ref={bottomSheetRef}
-            index={0}
+            index={-1}
             snapPoints={snapPoints}
             enablePanDownToClose
             backgroundStyle={{

@@ -1,13 +1,14 @@
 import {NavigationContainer} from "@react-navigation/native";
 import {createStackNavigator} from "@react-navigation/stack";
-import {useColorScheme} from "react-native";
+import {Appearance, useColorScheme} from "react-native";
 import GamesDetail from "./game_detail";
 import Games from "./games";
 
 export default function GamesStackManager(){
     const Stack = createStackNavigator();
 
-    const scheme = useColorScheme();
+    const scheme = Appearance.getColorScheme();
+
 
     const DarkTheme = {
         dark: true,

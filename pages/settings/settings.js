@@ -3,19 +3,89 @@ import {NavigationContainer, useTheme} from "@react-navigation/native";
 import {createStackNavigator} from "@react-navigation/stack";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
-import {ArrowLeft, ArrowRight, Moon, Sun, Sun1, TickCircle} from "iconsax-react-native";
+import {ArrowLeft, ArrowRight, InfoCircle, Moon, Sun, Sun1, TickCircle, User} from "iconsax-react-native";
 import {useEffect, useState} from "react";
 import teamData from "../../teams";
 import {
     SafeAreaView,
     StyleSheet,
-    useColorScheme,
     View,
     Text,
     TouchableOpacity,
     Dimensions,
-    ScrollView, Image
+    ScrollView, Image, Appearance
 } from "react-native";
+
+const Developed = ({navigation}) => {
+
+    const {colors} = useTheme()
+
+    const styles = StyleSheet.create({
+        container: {
+            backgroundColor: colors.background,
+            height: '100%',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            paddingHorizontal: 10
+        },
+    })
+
+
+
+    return <SafeAreaView style={{width: '100%', position: 'relative', backgroundColor: colors.background}}>
+        <View
+            style={styles.container}>
+            <View>
+                <View style={{flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center'}}>
+                    <TouchableOpacity onPress={() => {
+                        navigation.goBack()
+                        Haptics.selectionAsync()
+                    }} style={{backgroundColor: colors.card, marginRight: 15, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 100}}>
+                        <ArrowLeft color={colors.text}/>
+                    </TouchableOpacity>
+                    <Text style={{fontFamily: 'Sora_600SemiBold', fontSize: 24, color: colors.text}}>App / Data Info</Text>
+
+                </View>
+                <ScrollView>
+                <Text style={{
+                    textAlign: 'left',
+                    fontFamily: 'Sora_500Medium',
+                    fontSize: 16,
+                    marginTop: 10,
+                    lineHeight: 25,
+                    color: colors.text,
+                }}>
+                    This app was developed by Jack Patterson
+                </Text>
+                <Text style={{
+                    textAlign: 'left',
+                    fontFamily: 'Sora_500Medium',
+                    fontSize: 16,
+                    marginTop: 10,
+                    lineHeight: 25,
+                    color: colors.text,
+                }}>
+                    Email: jtpatt03@gmail.com
+                </Text>
+                <Text style={{
+                    textAlign: 'left',
+                    fontFamily: 'Sora_500Medium',
+                    fontSize: 16,
+                    marginTop: 10,
+                    lineHeight: 25,
+                    color: colors.text,
+                }}>
+                    The data displayed on this app is collected and maintained by the sites listed below:
+                </Text>
+                <Image height={100} style={{marginTop: 20}} width={Dimensions.get('window').width - 20} source={{uri: "https://searchvectorlogo.com/wp-content/uploads/2019/08/nhl-com-logo-vector.png"}}/>
+                <Image height={350} style={{marginTop: 20}} width={Dimensions.get('window').width - 20} source={{uri: "https://peter-tanner.com/moneypuck/logos/moneypucklogo.png"}}/>
+                </ScrollView>
+
+            </View>
+        </View>
+
+    </SafeAreaView>
+}
 
 const FavTeam = ({navigation}) => {
 
@@ -150,7 +220,7 @@ const FavTeam = ({navigation}) => {
                 }}>You must restart for selection to take effect</Text>
                 <ScrollView style={{paddingTop: 20, width: Dimensions.get('window').width - 20}}>
                     {teamData.map((team, i) => {
-                        return <TouchableOpacity style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 2, borderColor: selectedTeam === team.abbreviation ? team.primary_color : '#000', borderRadius: 15, padding:  selectedTeam === team.abbreviation ? 10: 0}} onPress={() => {
+                        return <TouchableOpacity style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 2, borderColor: selectedTeam === team.abbreviation ? team.primary_color : '', borderRadius: 15, padding:  selectedTeam === team.abbreviation ? 10: 0}} onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
                             setSelectedTeam(team.abbreviation)
@@ -188,37 +258,7 @@ const FavTeam = ({navigation}) => {
 const Settings = ({navigation}) => {
 
     const {colors} = useTheme()
-    //
-    // const systemTheme = useColorScheme()
-    //
-    //
-    // const [theme, setTheme] = useState(0)
-    //
-    //
-    // const storeData = async (value) => {
-    //     try {
-    //         await AsyncStorage.setItem('theme', value);
-    //     } catch (e) {
-    //     }
-    // };
-    //
-    // const getData = async () => {
-    //     try {
-    //         const d = await AsyncStorage.getItem("theme")
-    //         if (d === null){
-    //             setTheme(0)
-    //         }
-    //         else{
-    //             setTheme(d)
-    //         }
-    //
-    //     } catch (e) {
-    //     }
-    // };
-    //
-    // useEffect(()=>{
-    //     getData().then(()=>{})
-    // }, [])
+
 
 
     const styles = StyleSheet.create({
@@ -273,57 +313,27 @@ const Settings = ({navigation}) => {
                     Haptics.selectionAsync()
                     navigation.push("FavTeam")
                 }} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20}}>
-                    <Text style={{fontFamily: 'Sora_600SemiBold', fontSize: 20, color: colors.text}}>Favorite Team</Text>
+                    <View style={{flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 10}}>
+                        <User color={colors.text}/>
+                        <Text style={{fontFamily: 'Sora_600SemiBold', fontSize: 20, color: colors.text}}>Favorite Team</Text>
+                    </View>
                     <View  style={{backgroundColor: colors.card, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 100}}>
                         <ArrowRight color={colors.text}/>
                     </View>
                 </TouchableOpacity>
-                {/*<View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20}}>*/}
-                {/*    <Text style={{fontFamily: 'Sora_600SemiBold', fontSize: 20, color: colors.text}}>Theme</Text>*/}
-                {/*    <View style={{flexDirection: 'row', gap: 10, justifyContent: 'flex-end', alignItems: 'center'}}>*/}
-                {/*        <TouchableOpacity onPress={() => {*/}
-                {/*            Haptics.selectionAsync().then(r => {});*/}
-                {/*            setTheme(0)*/}
+                <TouchableOpacity onPress={() => {
+                    Haptics.selectionAsync()
+                    navigation.push("Dev")
+                }} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20}}>
+                    <View style={{flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', gap: 10}}>
+                        <InfoCircle color={colors.text}/>
+                        <Text style={{fontFamily: 'Sora_600SemiBold', fontSize: 20, color: colors.text}}>App / Data Info</Text>
+                    </View>
 
-                {/*        }}*/}
-                {/*                          style={{*/}
-                {/*                              backgroundColor: !theme ? colors.text : colors.card,*/}
-                {/*                              borderRadius: 100*/}
-                {/*                          }}>*/}
-                {/*            <Text style={{*/}
-                {/*                textAlign: "left",*/}
-                {/*                paddingHorizontal: 15,*/}
-                {/*                paddingVertical: 4,*/}
-                {/*                fontFamily: 'Sora_500Medium',*/}
-                {/*                fontSize: 16,*/}
-                {/*                marginVertical: 5,*/}
-                {/*                color: !theme ? colors.background : colors.text,*/}
-                {/*            }}>System</Text>*/}
-                {/*        </TouchableOpacity>*/}
-                {/*        <TouchableOpacity onPress={() => {*/}
-                {/*            Haptics.selectionAsync().then(r => {});*/}
-                {/*            setTheme(1)*/}
-
-                {/*        }}*/}
-                {/*                          style={{*/}
-                {/*                              backgroundColor: theme === 1 ? colors.text : colors.card,*/}
-                {/*                              borderRadius: 100*/}
-                {/*                          }}>*/}
-                {/*            <Sun1 style={{margin: 10}} color={ theme === 1 ? colors.background : colors.text}/>*/}
-                {/*        </TouchableOpacity>*/}
-                {/*        <TouchableOpacity onPress={() => {*/}
-                {/*            Haptics.selectionAsync().then(r => {});*/}
-                {/*            setTheme(2)*/}
-
-                {/*        }}*/}
-                {/*                          style={{*/}
-                {/*                              backgroundColor: theme === 2 ? colors.text : colors.background,*/}
-                {/*                              borderRadius: 100*/}
-                {/*                          }}>*/}
-                {/*            <Moon style={{margin: 10}} color={theme === 2 ? colors.background : colors.text}/>*/}
-                {/*        </TouchableOpacity>*/}
-                {/*    </View>*/}
-                {/*</View>*/}
+                    <View  style={{backgroundColor: colors.card, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 100}}>
+                        <ArrowRight color={colors.text}/>
+                    </View>
+                </TouchableOpacity>
             </View>
         </SafeAreaView>
     </View>
@@ -332,7 +342,7 @@ const Settings = ({navigation}) => {
 export default function SettingsStackManager(){
     const Stack = createStackNavigator();
 
-    const scheme = useColorScheme();
+    const scheme = Appearance.getColorScheme();
 
     const DarkTheme = {
         dark: true,
@@ -373,6 +383,7 @@ export default function SettingsStackManager(){
                 initialRouteName="Settings">
                 <Stack.Screen name="Settings" component={Settings}/>
                 <Stack.Screen name="FavTeam" component={FavTeam}/>
+                <Stack.Screen name="Dev" component={Developed}/>
 
 
 

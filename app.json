@@ -9,7 +9,6 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.jpdigital.rinkside",
