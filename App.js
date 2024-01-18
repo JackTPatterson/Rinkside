@@ -175,9 +175,9 @@ export const Onboarding = ({navigation}) => {
                     marginTop: 5,
                     color: colors.text
                 }}>Choose your favorite team</Text>
-                <ScrollView style={{paddingTop: 20, width: Dimensions.get('window').width - 20}}>
+                <ScrollView style={{paddingTop: 20, width: Dimensions.get('window').width - 20, marginTop: 20}}>
                     {teamData.map((team, i) => {
-                        return <TouchableOpacity style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 2, borderColor: selectedTeam === team.abbreviation ? team.primary_color : '#000', borderRadius: 15, padding:  selectedTeam === team.abbreviation ? 10: 0}} onPress={() => {
+                        return <TouchableOpacity style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 2, borderColor: selectedTeam === team.abbreviation ? team.primary_color : colors.background, borderRadius: 15, padding:  selectedTeam === team.abbreviation ? 10: 0}} onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
                             setSelectedTeam(team.abbreviation)

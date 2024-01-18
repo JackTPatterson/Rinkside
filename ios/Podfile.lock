@@ -17,6 +17,8 @@ PODS:
     - ExpoModulesCore
   - ExpoKeepAwake (12.3.0):
     - ExpoModulesCore
+  - ExpoLinearGradient (12.5.0):
+    - ExpoModulesCore
   - ExpoModulesCore (1.5.12):
     - RCT-Folly (= 2021.07.22.00)
     - React-Core
@@ -511,6 +513,7 @@ DEPENDENCIES:
   - Expo (from `../node_modules/expo`)
   - ExpoHaptics (from `../node_modules/expo-haptics/ios`)
   - ExpoKeepAwake (from `../node_modules/expo-keep-awake/ios`)
+  - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
   - EXSplashScreen (from `../node_modules/expo-splash-screen/ios`)
@@ -587,6 +590,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-haptics/ios"
   ExpoKeepAwake:
     :path: "../node_modules/expo-keep-awake/ios"
+  ExpoLinearGradient:
+    :path: "../node_modules/expo-linear-gradient/ios"
   ExpoModulesCore:
     :path: "../node_modules/expo-modules-core"
   ExpoSystemUI:
@@ -692,6 +697,7 @@ SPEC CHECKSUMS:
   Expo: 61a8e1aa94311557c137c0a4dfd4fe78281cfbb4
   ExpoHaptics: 360af6898407ee4e8265d30a1a8fb16491a660eb
   ExpoKeepAwake: be4cbd52d9b177cde0fd66daa1913afa3161fc1d
+  ExpoLinearGradient: 5d18293f89c063036121281175c4653d6a7c34a2
   ExpoModulesCore: c480fd4e3c7c8e81f0a6ba3a7c56869f25fe016d
   ExpoSystemUI: e4afa05539f42fe3be09d21a6498e5495019a5b2
   EXSplashScreen: c0e7f2d4a640f3b875808ed0b88575538daf6d82
@@ -742,6 +748,6 @@ SPEC CHECKSUMS:
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   Yoga: b76f1acfda8212aa16b7e26bcce3983230c82603
 
-PODFILE CHECKSUM: 36a3a76687d8b0c9d21cb3c5a9081eacc124daf5
+PODFILE CHECKSUM: d25e187d70377b8ab6a148c33017aee52dc20229
 
 COCOAPODS: 1.12.1
