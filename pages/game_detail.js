@@ -609,7 +609,8 @@ export default function GamesDetail({navigation}) {
                               }}
                               transition={{
                                   type: 'timing',
-                                  duration: 500
+                                  duration: 500,
+                                  delay: 300
                               }} style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
                         <View style={{backgroundColor: colors.card, borderRadius: 100}}>
                             <Text style={{
@@ -723,7 +724,8 @@ export default function GamesDetail({navigation}) {
                                     }}
                                     animate={{
                                         translateX: 0,
-                                        opacity: 1
+                                        opacity: 1,
+                                        delay: 300
 
                                     }}
                                     transition={{
@@ -757,7 +759,8 @@ export default function GamesDetail({navigation}) {
                                         }}
                                         animate={{
                                             translateX: 0,
-                                            opacity: 1
+                                            opacity: 1,
+                                            delay: 300
 
                                         }}
                                         transition={{
@@ -814,7 +817,8 @@ export default function GamesDetail({navigation}) {
                               }}
                               transition={{
                                   type: 'timing',
-                                  duration: 500
+                                  duration: 500,
+                                  delay: 300
                               }}
 
                               style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>

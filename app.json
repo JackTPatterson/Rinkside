@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Rinkside",
-    "slug": "moneypuck",
+    "name": "Rinkside Hockey Stats",
+    "slug": "rinkside",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
