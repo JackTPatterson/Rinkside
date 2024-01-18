@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "Rinkside.app"
-               BlueprintName = "Rinkside"
-               ReferencedContainer = "container:Rinkside.xcodeproj">
+               BuildableName = "RinksideHockeyStats.app"
+               BlueprintName = "RinksideHockeyStats"
+               ReferencedContainer = "container:RinksideHockeyStats.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "RinksideTests.xctest"
-               BlueprintName = "RinksideTests"
-               ReferencedContainer = "container:Rinkside.xcodeproj">
+               BuildableName = "RinksideHockeyStatsTests.xctest"
+               BlueprintName = "RinksideHockeyStatsTests"
+               ReferencedContainer = "container:RinksideHockeyStats.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "Rinkside.app"
-            BlueprintName = "Rinkside"
-            ReferencedContainer = "container:Rinkside.xcodeproj">
+            BuildableName = "RinksideHockeyStats.app"
+            BlueprintName = "RinksideHockeyStats"
+            ReferencedContainer = "container:RinksideHockeyStats.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "Rinkside.app"
-            BlueprintName = "Rinkside"
-            ReferencedContainer = "container:Rinkside.xcodeproj">
+            BuildableName = "RinksideHockeyStats.app"
+            BlueprintName = "RinksideHockeyStats"
+            ReferencedContainer = "container:RinksideHockeyStats.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

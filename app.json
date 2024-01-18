@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Rinkside Hockey Stats",
+    "name": "Rinkside Stats",
     "slug": "rinkside",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -26,7 +26,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "7f29a264-14d3-442d-bcca-8f7b3fcb34be"
+        "projectId": "6a1cebad-c730-48e1-b136-5a8b2ea74133"
       }
     }
   }
