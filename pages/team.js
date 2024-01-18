@@ -1,4 +1,7 @@
 import BottomSheet from "@gorhom/bottom-sheet";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {useTheme} from "@react-navigation/native";
+import {getBackground, getInactiveButtonBackground, getColor} from "../constants";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {Activity, Calendar} from "iconsax-react-native";
@@ -19,14 +22,15 @@ import {LineChart} from "react-native-chart-kit";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
 import teamData from "../teams";
 
-
 export default function Team() {
 
     const bottomSheetRef = useRef(null);
 
-    const snapPoints = useMemo(() => ['1%', '75%'], []);
+    const snapPoints = useMemo(() => ['75%'], []);
 
-    const [selectedTeam, setSelectedTeam] = useState("NYI")
+    const [selectedTeam, setSelectedTeam] = useState(null)
+
+    const { colors } = useTheme();
 
 
     const teamAbbreviations = [
@@ -48,6 +52,19 @@ export default function Team() {
 
     const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
+    const getData = async () => {
+        try {
+            const value = await AsyncStorage.getItem('team');
+            if (value !== null) {
+                setSelectedTeam(value)
+                return value
+            }
+        } catch (e) {
+            return e
+
+        }
+    };
+
     function getPCTColor(teamCode) {
         let team = teamData.filter((item) => {
             return (item.abbreviation === teamCode);
@@ -61,10 +78,10 @@ export default function Team() {
             alignItems: 'center',
             justifyContent: 'flex-start',
             height: '100%',
-            backgroundColor: 'white'
+            backgroundColor: colors.background
         },
         inactiveButton: {
-            backgroundColor: '#f7f7f7',
+            backgroundColor: colors.card,
             paddingHorizontal: 20,
             paddingVertical: 15,
             borderRadius: 100,
@@ -75,12 +92,12 @@ export default function Team() {
         },
 
         inactiveText: {
-            color: 'black',
+            color: colors.text,
             fontFamily: 'Sora_500Medium', textAlign: 'center'
         },
 
         activeButton: {
-            backgroundColor: '#000',
+            backgroundColor: colors.text,
             paddingHorizontal: 20,
             paddingVertical: 15,
             borderRadius: 100,
@@ -91,7 +108,7 @@ export default function Team() {
         },
 
         activeText: {
-            color: 'white',
+            color: colors.background,
             fontFamily: 'Sora_600SemiBold', textAlign: 'center'
         }
 
@@ -110,9 +127,6 @@ export default function Team() {
         return strTime;
     }
 
-    const [isWeek, setIsWeek] = useState(true)
-
-
     const [timeline, setTimeline] = useState([])
     const [timelineFO, setTimelineFO] = useState([])
     const [timelineSD, setTimelineSD] = useState([])
@@ -122,7 +136,6 @@ export default function Team() {
     const [timelineLDD, setTimelineHDD] = useState([])
     const [timelineHDD, setTimelineLDD] = useState([])
     const [timelineMD, setTimelineMD] = useState([])
-
     const [timelineHD, setTimelineHD] = useState([])
 
     const getSchedule = (type, code) => {
@@ -258,13 +271,13 @@ export default function Team() {
     }
 
 
-
-
-
     useEffect(() => {
-        getSchedule(true, "NYI")
-        getTimeLine("NYI")
-        getTeamData("NYI")
+
+        getData().then(r=>{
+            getSchedule(true, r)
+            getTimeLine(r)
+            getTeamData(r)
+        })
     }, [])
 
     let commonConfig = {delimiter: ","};
@@ -308,7 +321,7 @@ export default function Team() {
 
         return <View
             style={{
-                backgroundColor: '#f7f7f7',
+                backgroundColor: colors.card,
                 marginBottom: 4,
                 paddingVertical: 15,
                 borderRadius: 15
@@ -327,7 +340,7 @@ export default function Team() {
                         height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
                         justifyContent: 'center'
                     }} source={assets[teamAbbreviations.indexOf(game.homeTeam.abbrev)]}/>
-                    <Text style={{color: 'black', fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
+                    <Text style={{color: colors.text, fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
                 </View>
                 <View style={{
                     flexDirection: 'row',
@@ -340,32 +353,34 @@ export default function Team() {
                             paddingVertical: 4,
                             fontFamily: 'Sora_700Bold',
                             fontSize: 20,
-                            width: 60
+                            width: 60,
+                            color: colors.text
                         }}>{(game.awayTeam.abbrev === `${selectedTeam}`) ? `${Math.round(parseFloat(hwp).toFixed(2) * 100)}%` : `${Math.round(parseFloat(1 - hwp).toFixed(2) * 100)}%`}</Text>
                     </View>
                     <View>
                         <View style={{
-                            backgroundColor: 'white',
+                            backgroundColor: colors.background,
                             paddingVertical: 5,
                             borderRadius: 5,
                             paddingHorizontal: 15
                         }}>
                             <Text style={{
-                                color: 'black',
+                                color: colors.text,
                                 textAlign: 'center',
                                 fontFamily: 'Sora_500Medium'
+
                             }}>{convertUTCtoMMDD(game.startTimeUTC)}</Text>
                         </View>
                         <View style={{
-                            backgroundColor: 'white',
+                            backgroundColor: colors.background,
                             paddingVertical: 5,
                             borderRadius: 5,
                             paddingHorizontal: 15,
                             marginTop: 10
                         }}>
                             <Text style={{
-                                color: 'black',
                                 textAlign: 'center',
+                                color: colors.text,
                                 fontFamily: 'Sora_500Medium'
                             }}>{formatAMPM(new Date(game.startTimeUTC))}</Text>
                         </View>
@@ -376,7 +391,8 @@ export default function Team() {
                             paddingVertical: 4,
                             fontFamily: 'Sora_700Bold',
                             fontSize: 20,
-                            width: 60
+                            width: 60,
+                            color: colors.text
                         }}>{game.homeTeam.abbrev === `${selectedTeam}` ? `${Math.round(parseFloat(hwp).toFixed(2) * 100)}%` : `${Math.round(parseFloat(1 - hwp).toFixed(2) * 100)}%`}</Text>
                     </View>
                 </View>
@@ -389,7 +405,7 @@ export default function Team() {
                         height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
                         justifyContent: 'center'
                     }} source={assets[teamAbbreviations.indexOf(game.awayTeam.abbrev)]}/>
-                    <Text style={{color: 'black', fontFamily: 'Sora_500Medium'}}>{game.awayTeam.abbrev}</Text>
+                    <Text style={{fontFamily: 'Sora_500Medium', color: colors.text}}>{game.awayTeam.abbrev}</Text>
                 </View>
             </View>
         </View>
@@ -402,7 +418,6 @@ export default function Team() {
 
                     onPress={()=>{
                         Haptics.selectionAsync().then(()=>{})
-
                         bottomSheetRef.current.expand()
                     }}
 
@@ -417,16 +432,16 @@ export default function Team() {
                     justifyContent: 'flex-start',
                     alignItems: 'center'
                 }}>
-                    {assets ?
+                    {assets && selectedTeam &&
                         <Image style={{
                             height: 50, width: 70, flexDirection: 'column',
                             justifyContent: 'center'
-                        }} source={assets[teamAbbreviations.indexOf(`${selectedTeam}`)]}/> : <></>}
+                        }} source={assets[teamAbbreviations.indexOf(`${selectedTeam}`)]}/>}
                     <View>
                         <Text style={{fontFamily: 'Sora_500Medium', fontSize: 24, color: 'white'}}>{
                             teamData.filter((t)=>{
                                 return t.abbreviation === selectedTeam
-                            })[0].name
+                            })[0]?.name
                         }
                         </Text>
                         <Text style={{
@@ -434,7 +449,7 @@ export default function Team() {
                             fontSize: 16,
                             color: 'white',
                             opacity: .7
-                        }}>{stats.w}-{stats.l}-{stats.o} • {stats.s}{stats.s === 4 || stats.s === 5 || stats.s === 6 || stats.s === 7 ? "th" : stats.s === 3 ? "rd" : stats.s === 2 ? "nd" : stats.s !== "Wildcard" ? "st" : ""} {stats.d}</Text>
+                        }}>{stats.w}-{stats.l}-{stats.o} <Text style={{fontFamily: 'default'}}>•</Text> {stats.s}{stats.s === 4 || stats.s === 5 || stats.s === 6 || stats.s === 7 ? "th" : stats.s === 3 ? "rd" : stats.s === 2 ? "nd" : stats.s !== "Wildcard" ? "st" : ""} {stats.d}</Text>
                     </View>
                 </TouchableOpacity>
                 <SafeAreaView style={{width: '100%'}}>
@@ -453,7 +468,7 @@ export default function Team() {
                                                   setTab(0)
                                                   Haptics.selectionAsync()
                                               }}>
-                                <Calendar color={tab === 0 ? "white" : "black"}/>
+                                <Calendar color={tab === 0 ? colors.background : colors.text}/>
 
                                 <Text style={tab === 0 ? styles.activeText : styles.inactiveText}>Schedule</Text>
                             </TouchableOpacity>
@@ -462,7 +477,7 @@ export default function Team() {
                                                   setTab(1)
                                                   Haptics.selectionAsync()
                                               }}>
-                                <Activity color={tab === 1 ? "white" : "black"}/>
+                                <Activity color={tab === 1 ? colors.background : colors.text }/>
                                 <Text style={tab === 1 ? styles.activeText : styles.inactiveText}>Season Stats</Text>
                             </TouchableOpacity>
                         </View>
@@ -472,7 +487,7 @@ export default function Team() {
                         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
                             <Text style={{
                                 fontFamily: 'Sora_600SemiBold',
-                                fontSize: 24
+                                fontSize: 24, color: colors.text
                             }}>This Weeks Games</Text>
 
                         </View>
@@ -487,14 +502,15 @@ export default function Team() {
 
                     </View> :
                         <ScrollView style={{marginHorizontal: 10}}>
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Goal Differential</Text>
-                            {timeline ?
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Goal Differential</Text>
+                            {timeline &&
                                 <LineChart
+                                    xAxisLabel={"Test"}
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timeline.map((r, i) => {
                                                     return isNaN(r) ? 1 : r
                                                 })
@@ -510,7 +526,6 @@ export default function Team() {
                                     withShadow
                                     chartConfig={{
                                         backgroundColor: `rgba(255, 255, 255, 0)`,
-
                                         useShadowColorFromDataset: true,
                                         fillShadowGradientFromOpacity: 0,
                                         fillShadowGradientToOpacity: 0,
@@ -520,7 +535,8 @@ export default function Team() {
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        labelColor: (opacity = 1) => colors.text,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -528,14 +544,14 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Faceoff Win %</Text>
-                            {timelineFO ? <LineChart
+                                /> }
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Faceoff Win %</Text>
+                            {timelineFO && <LineChart
                                 data={{
                                     datasets: [
                                         {
                                             color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                            strokeWidth: 2,
+                                            strokeWidth: 2.5,
                                             data: timelineFO.map((r, i) => {
                                                 return isNaN(r) ? timelineFO[i-1] : r
                                             })
@@ -561,8 +577,9 @@ export default function Team() {
                                     backgroundGradientTo: "#fff",
                                     backgroundGradientToOpacity: 0,
                                     decimalPlaces: 0,
+                                    labelColor: (opacity = 1) => colors.text,
                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                    strokeWidth: 2,
+                                    strokeWidth: 2.5,
                                     barPercentage: 10
                                 }}
                                 bezier
@@ -570,16 +587,16 @@ export default function Team() {
                                     marginVertical: 8,
                                     marginLeft: -20,
                                 }}
-                            /> : <></> }
+                            />  }
 
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Penalty Minutes Differential</Text>
-                            {timelinePD ?
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Penalty Minutes Differential</Text>
+                            {timelinePD &&
                                 <LineChart
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timelinePD.map((r, i) => {
                                                     return isNaN(r) ? timelinePD[i-1] : r
                                                 })
@@ -604,8 +621,9 @@ export default function Team() {
                                         backgroundGradientTo: "#fff",
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
+                                        labelColor: (opacity = 1) => colors.text,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -613,15 +631,15 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Giveaway Differential</Text>
-                            {timelineGD ?
+                                /> }
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Giveaway Differential</Text>
+                            {timelineGD &&
                                 <LineChart
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timelineGD.map((r, i) => {
                                                     return isNaN(r) ? timelineGD[i-1] : r
                                                 })
@@ -646,8 +664,9 @@ export default function Team() {
                                         backgroundGradientTo: "#fff",
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
+                                        labelColor: (opacity = 1) => colors.text,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -655,15 +674,15 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Takeaway Differential</Text>
-                            {timelineTD ?
+                                />  }
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Takeaway Differential</Text>
+                            {timelineTD &&
                                 <LineChart
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timelineTD.map((r, i) => {
                                                     return isNaN(r) ? timelineTD[i-1] : r
                                                 })
@@ -688,8 +707,9 @@ export default function Team() {
                                         backgroundGradientTo: "#fff",
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
+                                        labelColor: (opacity = 1) => colors.text,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -697,15 +717,15 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Shot Differential</Text>
-                            {timelineSD ?
+                                />}
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Shot Differential</Text>
+                            {timelineSD &&
                                 <LineChart
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timelineSD.map((r, i) => {
                                                     return isNaN(r) ? timelineSD[i-1] : r
                                                 })
@@ -730,8 +750,9 @@ export default function Team() {
                                         backgroundGradientTo: "#fff",
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
+                                        labelColor: (opacity = 1) => colors.text,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -739,15 +760,15 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Low Danger Shots Differential</Text>
-                            {timelineLDD ?
+                                /> }
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Low Danger Shots Differential</Text>
+                            {timelineLDD &&
                                 <LineChart
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timelineLDD.map((r, i) => {
                                                     return isNaN(r) ? timelineLDD[i-1] : r
                                                 })
@@ -772,8 +793,9 @@ export default function Team() {
                                         backgroundGradientTo: "#fff",
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
+                                        labelColor: (opacity = 1) => colors.text,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -781,15 +803,15 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>High Danger Shots Differential</Text>
-                            {timelineHDD ?
+                                />}
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>High Danger Shots Differential</Text>
+                            {timelineHDD &&
                                 <LineChart
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timelineHDD.map((r, i) => {
                                                     return isNaN(r) ? timelineHDD[i-1] : r
                                                 })
@@ -814,8 +836,9 @@ export default function Team() {
                                         backgroundGradientTo: "#fff",
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
+                                        labelColor: (opacity = 1) => colors.text,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -823,15 +846,15 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Missed Shot Differential</Text>
-                            {timelineMD ?
+                                />  }
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Missed Shot Differential</Text>
+                            {timelineMD &&
                                 <LineChart
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timelineMD.map((r, i) => {
                                                     return isNaN(r) ? timelineMD[i-1] : r
                                                 })
@@ -841,13 +864,13 @@ export default function Team() {
                                     width={Dimensions.get("window").width}
                                     height={220}
                                     yAxisInterval={1}
+
                                     withHorizontalLines={true}
                                     withVerticalLines={false}
                                     withDots={false}
                                     withShadow
                                     chartConfig={{
                                         backgroundColor: `rgba(255, 255, 255, 0)`,
-
                                         useShadowColorFromDataset: true,
                                         fillShadowGradientFromOpacity: 0,
                                         fillShadowGradientToOpacity: 0,
@@ -856,8 +879,9 @@ export default function Team() {
                                         backgroundGradientTo: "#fff",
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
+                                        labelColor: (opacity = 1) => colors.text,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -865,15 +889,15 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
-                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10}}>Hits Differential</Text>
-                            {timelineHD ?
+                                /> }
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text}}>Hits Differential</Text>
+                            {timelineHD &&
                                 <LineChart
                                     data={{
                                         datasets: [
                                             {
                                                 color: (opacity) => `${getPCTColor(`${selectedTeam}`)}`,
-                                                strokeWidth: 2,
+                                                strokeWidth: 2.5,
                                                 data: timelineHD.map((r, i) => {
                                                     return isNaN(r) ? timelineHD[i-1] : r
                                                 })
@@ -898,8 +922,9 @@ export default function Team() {
                                         backgroundGradientTo: "#fff",
                                         backgroundGradientToOpacity: 0,
                                         decimalPlaces: 0,
+                                        labelColor: (opacity = 1) => colors.text,
                                         color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                        strokeWidth: 2,
+                                        strokeWidth: 2.5,
                                         barPercentage: 10
                                     }}
                                     bezier
@@ -907,7 +932,7 @@ export default function Team() {
                                         marginVertical: 8,
                                         marginLeft: -20,
                                     }}
-                                /> : <></> }
+                                /> }
                             <View style={{marginBottom: 250}}/>
                         </ScrollView>
 
@@ -918,17 +943,22 @@ export default function Team() {
                 <BottomSheet
 
                     ref={bottomSheetRef}
-                    index={0}
+                    index={-1}
                     snapPoints={snapPoints}
+
                     enablePanDownToClose
-                    style={{
-                        paddingHorizontal: 20
+                    backgroundStyle={{
+                        backgroundColor: colors.background
                     }}
 
+
                 >
-                    <View>
-                        <Text style={{fontFamily: 'Sora_600SemiBold', fontSize: 24, marginBottom: 20}}>Select a Team</Text>
-                        <ScrollView>
+                    <View  style={{
+                        paddingHorizontal: 20,
+
+                    }}>
+                        <Text style={{fontFamily: 'Sora_600SemiBold', fontSize: 24, marginBottom: 20, color: colors.text}}>Select a Team</Text>
+                        <ScrollView style={{height: 500}}>
                         {teamData.map((team, i)=>{
                             return <TouchableOpacity onPress={()=>{
                                 Haptics.selectionAsync().then(()=>{})
@@ -939,11 +969,24 @@ export default function Team() {
                                 bottomSheetRef.current.collapse()
 
                             }}>
-                                <Text style={{fontFamily: 'Sora_500Medium', fontSize: 20, marginBottom: 20}}>{team.name}</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    justifyContent: 'flex-start',
+                                    alignItems: 'center',
+                                    marginBottom: 10,
+                                    marginLeft: -10
+                                }}>
+                                    {assets &&
+                                    <Image style={{
+                                        height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
+                                        justifyContent: 'center'
+                                    }} source={assets[teamAbbreviations.indexOf(team.abbreviation)]}/> }
+
+                                    <Text style={{fontFamily: 'Sora_500Medium', fontSize: 20, color: colors.text}}>{team.name}</Text>
+                                </View>
                             </TouchableOpacity>
                         })}
                         </ScrollView>
-                        <View style={{paddingTop: 100}}/>
                     </View>
                 </BottomSheet>
             </View>

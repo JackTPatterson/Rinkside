@@ -8,7 +8,7 @@ import {
     useFonts
 } from "@expo-google-fonts/sora";
 import BottomSheet from "@gorhom/bottom-sheet";
-import AppLoading from "expo-app-loading";
+import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
@@ -52,6 +52,11 @@ export default function Games({navigation}) {
 
     const snapPoints = useMemo(() => ['1%', '75%'], []);
 
+
+    const [isLoading, setIsLoading] = useState(true)
+
+    const { colors } = useTheme();
+
     const getDate = (offset) => {
         const today = new Date();
         today.setDate(today.getDate() + offset);
@@ -67,30 +72,45 @@ export default function Games({navigation}) {
 
     const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
+    const [dateOffset, setDateOffset] = useState(0);
+
 
     const styles = StyleSheet.create({
         container: {
             alignItems: 'center',
             justifyContent: 'flex-start',
-            paddingHorizontal: 10,
             height: '100%',
-            backgroundColor: 'white'
+            backgroundColor: colors.background,
         },
         inactiveButton: {
-            backgroundColor: 'transparent', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 100, width: '50%'
+            backgroundColor: colors.card,
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+            borderRadius: 100,
+            marginRight: 10,
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center'
         },
 
         inactiveText: {
-            color: 'black',
+            color: colors.text,
             fontFamily: 'Sora_500Medium', textAlign: 'center'
         },
 
         activeButton: {
-            backgroundColor: '#000', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 100
+            backgroundColor: colors.text,
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+            borderRadius: 100,
+            marginRight: 10,
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center'
         },
 
         activeText: {
-            color: 'white',
+            color: colors.background,
             fontFamily: 'Sora_600SemiBold', textAlign: 'center'
         }
     });
@@ -112,7 +132,10 @@ export default function Games({navigation}) {
             .then(response => response.text())
             .then(result => {
                 setData(JSON.parse(result)['games'])
+
             })
+
+        setIsLoading(false)
     }
 
 
@@ -230,7 +253,7 @@ export default function Games({navigation}) {
 
         return <TouchableOpacity onPress={() => {
             Haptics.selectionAsync().then(r => {});
-            navigation.push("Games_Detail", {data: {data: game, date: dt}})
+            navigation.push("Games_Detail", {data: {data: game, date: dt, prob: {h: 1 - hwp, a: hwp}}})
         }}
                                  onLongPress={()=>{
                                      bottomSheetRef.current.expand();
@@ -313,7 +336,7 @@ export default function Games({navigation}) {
 
                                  }}
                                  style={{
-            backgroundColor: '#f7f7f7',
+            backgroundColor: colors.card,
             marginBottom: 4,
             paddingVertical: 15,
             borderRadius: 15,
@@ -345,10 +368,10 @@ export default function Games({navigation}) {
 
                             }}>
                                 <Text style={{
-                                    color: 'white',
+                                    color: colors.background,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>{game.homeTeam.abbrev}</Text>
-                            </View> : <Text style={{color: 'black', fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
+                            </View> : <Text style={{color: colors.text, fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
 
 
                     }
@@ -359,9 +382,10 @@ export default function Games({navigation}) {
                     justifyContent: 'center',
                     alignItems: 'center'
                 }}>
-                    <View style={{backgroundColor: '', borderRadius: 100, paddingRight: 15}}>
+                    <View style={{borderRadius: 100, paddingRight: 15}}>
                         <Text style={{
                             textAlign: "right",
+                            color: colors.text,
                             paddingVertical: 4,
                             fontFamily: 'Sora_700Bold',
                             fontSize: 20,
@@ -372,38 +396,38 @@ export default function Games({navigation}) {
 
                         props.game.homeTeam.score !== undefined && !(getTimeLabel() === "Final") ? <View>
                             <View style={{
-                                backgroundColor: 'white',
+                                backgroundColor: colors.background,
                                 paddingVertical: 5,
                                 borderRadius: 5,
                                 paddingHorizontal: 15
                             }}>
                                 <Text style={{
-                                    color: 'black',
+                                    color: colors.text,
                                     textAlign: 'center',
                                     fontFamily: 'Sora_500Medium'
                                 }}>{props.game?.period > 3 ? "OT" : `P${props.game?.period}`}</Text>
                             </View>
                             <View style={{
-                                backgroundColor: 'white',
+                                backgroundColor: colors.background,
                                 paddingVertical: 5,
                                 borderRadius: 5,
                                 paddingHorizontal: 15,
                                 marginTop: 10
                             }}>
                                 <Text style={{
-                                    color: 'black',
+                                    color: colors.text,
                                     fontFamily: 'Sora_500Medium'
                                 }}>{getTimeLabel()}</Text>
                             </View>
                         </View> : <View style={{
-                            backgroundColor: 'white',
+                            backgroundColor: colors.background,
                             paddingVertical: 5,
                             borderRadius: 5,
                             paddingHorizontal: 15,
                             marginTop: 0
                         }}>
                             <Text style={{
-                                color: 'black',
+                                color: colors.text,
                                 fontFamily: 'Sora_500Medium'
                             }}>{getTimeLabel()}</Text>
                         </View>
@@ -415,7 +439,7 @@ export default function Games({navigation}) {
                             textAlign: "left",
                             paddingVertical: 4,
                             fontFamily: 'Sora_700Bold',
-                            fontSize: 20,
+                            fontSize: 20, color: colors.text,
                             width: !props.game.awayTeam.score ? 60 : 40
                         }}>{props.game.awayTeam.score ?? `${Math.round(parseFloat(hwp).toFixed(2)*100)}%`}</Text>
                     </View>
@@ -441,10 +465,10 @@ export default function Games({navigation}) {
 
                             }}>
                                 <Text style={{
-                                    color: 'white',
+                                    color: colors.background,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>{game.awayTeam.abbrev}</Text>
-                            </View> : <Text style={{color: 'black', fontFamily: 'Sora_500Medium'}}>{game.awayTeam.abbrev}</Text>
+                            </View> : <Text style={{color: colors.text, fontFamily: 'Sora_500Medium' }}>{game.awayTeam.abbrev}</Text>
 
 
                     }
@@ -476,47 +500,138 @@ export default function Games({navigation}) {
         Sora_700Bold
     })
 
+    function getDaySuffix(day) {
+        if (day >= 11 && day <= 13) {
+            return 'th';
+        }
+        const lastDigit = day % 10;
+        switch (lastDigit) {
+            case 1:
+                return 'st';
+            case 2:
+                return 'nd';
+            case 3:
+                return 'rd';
+            default:
+                return 'th';
+        }
+    }
+
+    function formatDate(date, offset) {
+        const today = new Date();
+        const inputDate = new Date(date);
+
+        const adjustedDate = new Date(inputDate.getTime() + offset * 24 * 60 * 60 * 1000);
+
+        if (adjustedDate.toDateString() === today.toDateString()) {
+            return "Today";
+        } else if (adjustedDate.toDateString() === new Date(today.getTime() + 24 * 60 * 60 * 1000).toDateString()) {
+            return "Tomorrow";
+        } else if (adjustedDate.toDateString() === new Date(today.getTime() - 24 * 60 * 60 * 1000).toDateString()) {
+            return "Yesterday";
+        } else {
+            const monthAbbreviation = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(adjustedDate);
+            const day = adjustedDate.getDate();
+            const daySuffix = getDaySuffix(day);
+            const formattedDay = day < 10 ? `${day}${daySuffix}` : `${day}${daySuffix}`;
+            return `${monthAbbreviation} ${formattedDay}`;
+        }
+    }
+
     if(!fontsLoaded){
-        return <AppLoading/>
+        return <></>
     }
     else return <View style={styles.container}>
         <SafeAreaView style={{width: '100%'}}>
                 <View style={{
-                    flexDirection: 'row',
+                    flexDirection: 'row',paddingHorizontal: 10,
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    marginBottom: 20, marginTop: 20
+                    marginTop: 20
                 }}>
-                            <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24}}>Games Today</Text>
+                            <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24, color: colors.text}}>Games {formatDate("2024-01-16", dateOffset+2)}</Text>
                             <View style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
                                 justifyContent: 'flex-end',
                             }}>
-                                <Pressable onPress={() => {
+                                <TouchableOpacity  onLongPress={()=>{
+                                    Haptics.notificationAsync()
+                                    setDateOffset(0)
                                     getMatchData(0)
+
+                                }} onPress={() => {
+                                    setDateOffset(v=>v-1)
+                                    getMatchData(dateOffset-1)
                                     Haptics.selectionAsync()
-                                }} style={{backgroundColor: '#f7f7f7', marginRight: 10, paddingHorizontal: 15, paddingVertical: 15, borderRadius: 100}}>
-                                    <ArrowLeft color={"#000"}/>
-                                </Pressable>
-                                <Pressable onPress={() => {
+                                }} style={{backgroundColor: colors.card, marginRight: 10, paddingHorizontal: 15, paddingVertical: 15, borderRadius: 100}}>
+                                    <ArrowLeft color={colors.text}/>
+                                </TouchableOpacity>
+                                <TouchableOpacity onLongPress={()=>{
+                                    Haptics.notificationAsync()
+                                    setDateOffset(0)
                                     getMatchData(0)
+                                }} onPress={() => {
+                                    setDateOffset(v=>v+1)
+
+                                    getMatchData(dateOffset+1)
                                     Haptics.selectionAsync()
-                                }} style={{backgroundColor: '#f7f7f7', paddingHorizontal: 15, paddingVertical: 15, borderRadius: 100}}>
-                                    <ArrowRight color={"#000"}/>
-                                </Pressable>
+                                }} style={{backgroundColor: colors.card, paddingHorizontal: 15, paddingVertical: 15, borderRadius: 100}}>
+                                    <ArrowRight color={colors.text}/>
+                                </TouchableOpacity>
                             </View>
 
 
                 </View>
-            <ScrollView showsVerticalScrollIndicator={false} style={{height: Dimensions.get('window').height - 215}}>
-                {data.map((game, i) => {
+            {isLoading ? <></> :
+            <ScrollView showsVerticalScrollIndicator={false} style={{height: Dimensions.get('window').height - 215, paddingHorizontal: 10,}}>
+                <Text style={{
+                    marginBottom: 20,
+                    fontFamily: 'Sora_600SemiBold',
+                    fontSize: 16,
+                    color: colors.text
+                }}>Live Games</Text>
+
+                {data.filter((g=>{
+                    return !g.gameOutcome?.lastPeriodType
+                })).map((game, i) => {
+                    return (
+                        <View style={{width: Dimensions.get('window').width - 20}}>
+                        <Team game={game} keu={i}/>
+                        </View>
+                    )
+                })}
+
+                <Text style={{
+                    marginBottom: 20,
+                    marginTop: 20,
+                    fontFamily: 'Sora_600SemiBold',
+                    fontSize: 16,
+                    color: colors.text
+                }}>Upcoming Games</Text>
+                {data.filter((g=>{
+                    return (g.homeTeam.score === undefined || g.awayTeam.score  === undefined) && !g.gameOutcome?.lastPeriodType
+                })).map((game, i) => {
+                    return (
+                        <Team game={game} keu={i}/>
+                    )
+                })}
+                <Text style={{
+                    marginBottom: 20,
+                    marginTop: 20,
+                    fontFamily: 'Sora_600SemiBold',
+                    fontSize: 16,
+                    color: colors.text
+                }}>Finished Games</Text>
+                {data.filter((g=>{
+                   return g.gameOutcome?.lastPeriodType
+                })).map((game, i) => {
                     return (
                             <Team game={game} keu={i}/>
                     )
                 })}
                 <View style={{marginBottom: 80}}/>
-            </ScrollView>
+            </ScrollView> }
         </SafeAreaView>
         <BottomSheet
 
@@ -524,12 +639,12 @@ export default function Games({navigation}) {
             index={0}
             snapPoints={snapPoints}
             enablePanDownToClose
-            style={{
-                paddingHorizontal: 20
+            backgroundStyle={{
+                backgroundColor: colors.card
             }}
 
         >
-            { selectedTeam ?
+            { selectedTeam &&
             <View>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
                     <View style={{
@@ -541,12 +656,11 @@ export default function Games({navigation}) {
                         <View style={{
                             alignItems: 'center'
                         }}>
-
                             <Image style={{
                                 height: 90, width: 120, transform: [{scale: .7}], flexDirection: 'column',
                                 justifyContent: 'center'
                             }} source={assets[teamAbbreviations.indexOf(selectedTeam?.homeTeam.abbrev)]}/>
-                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 24}}>{selectedTeam?.homeTeam.abbrev}</Text>
+                            <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 24}}>{selectedTeam?.homeTeam.abbrev}</Text>
                         </View>
                         <View style={{
                             flexDirection: 'row',
@@ -562,7 +676,7 @@ export default function Games({navigation}) {
                                 height: 90, width: 120, transform: [{scale: .7}], flexDirection: 'column',
                                 justifyContent: 'center'
                             }} source={assets[teamAbbreviations.indexOf(selectedTeam?.awayTeam.abbrev)]}/>
-                                    <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 24}}>{selectedTeam?.awayTeam.abbrev}</Text>
+                                    <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 24}}>{selectedTeam?.awayTeam.abbrev}</Text>
 
 
                         </View>
@@ -571,7 +685,7 @@ export default function Games({navigation}) {
                     </View>
 
                 </View>
-                <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, textAlign: 'center', marginTop: 20, marginBottom: 10}}>Starting Goalies</Text>
+                <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, textAlign: 'center', marginTop: 20, marginBottom: 10, color: colors.text}}>Starting Goalies</Text>
 
                 <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
                     <View style={{
@@ -585,11 +699,11 @@ export default function Games({navigation}) {
                         }}>
 
                             <Image style={{
-                                borderRadius: 100, borderWidth: 3, height: 80, width: 80,  marginTop: 10, borderColor: `${getPCTColor(selectedTeam?.homeTeam.abbrev)}`, backgroundColor: '#f7f7f7'
+                                borderRadius: 100, borderWidth: 3, height: 80, width: 80,  marginTop: 10, borderColor: `${getPCTColor(selectedTeam?.homeTeam.abbrev)}`, backgroundColor: colors.card
                             }} source={{uri: `https://assets.nhle.com/mugs/nhl/20232024/${selectedTeam?.homeTeam.abbrev}/${homeGoalie?.id}.png`}}/>
-                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.name.split(" ")[0] !== "" ? homeGoalie.name.split(" ")[0] !== "" : "Unknown"}</Text>
-                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.name.split(" ")[1]}</Text>
-                            {/*<Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.confirmed_by}</Text>*/}
+                            <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.name.split(" ")[0] !== "" ? homeGoalie.name.split(" ")[0] !== "" : "Unknown"}</Text>
+                            <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.name.split(" ")[1]}</Text>
+                            {/*<Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalie.confirmed_by}</Text>*/}
 
 
                         </View>
@@ -607,12 +721,12 @@ export default function Games({navigation}) {
 
                             <View style={{flexDirection: 'row', justifyContent: 'center'}}>
                                 <Image style={{
-                                    borderRadius: 100, borderWidth: 3, height: 80, width: 80,  marginTop: 10, borderColor: `${getPCTColor(selectedTeam?.awayTeam.abbrev)}`,  backgroundColor: '#f7f7f7'
+                                    borderRadius: 100, borderWidth: 3, height: 80, width: 80,  marginTop: 10, borderColor: `${getPCTColor(selectedTeam?.awayTeam.abbrev)}`,  backgroundColor: colors.card
                                 }} source={{uri: `https://assets.nhle.com/mugs/nhl/20232024/${selectedTeam?.awayTeam.abbrev}/${awayGoalie?.id}.png`}}/>
                             </View>
-                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie.name.split(" ")[0] !== "" ? awayGoalie.name.split(" ")[0] !== "" : "Unknown"}</Text>
-                            <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie?.name.split(" ")[1]}</Text>
-                            {/*<Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie.confirmed_by}</Text>*/}
+                            <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie.name.split(" ")[0] !== "" ? awayGoalie.name.split(" ")[0] !== "" : "Unknown"}</Text>
+                            <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie?.name.split(" ")[1]}</Text>
+                            {/*<Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalie.confirmed_by}</Text>*/}
 
                         </View>
 
@@ -620,7 +734,7 @@ export default function Games({navigation}) {
                     </View>
 
                 </View>
-                <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, textAlign: 'center', marginTop: 20, marginBottom: 10}}>Goalie Stats</Text>
+                <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, textAlign: 'center', marginTop: 20, marginBottom: 10, color: colors.text}}>Goalie Stats</Text>
 
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
                     <View style={{
@@ -629,9 +743,9 @@ export default function Games({navigation}) {
                         width: '100%',
                         alignItems: 'center',
                     }}>
-                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.SP.toFixed(3)}</Text>
-                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>SV%</Text>
-                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.SP.toFixed(3)}</Text>
+                        <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.SP.toFixed(3)}</Text>
+                        <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>SV%</Text>
+                        <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.SP.toFixed(3)}</Text>
 
                     </View>
 
@@ -643,15 +757,15 @@ export default function Games({navigation}) {
                         width: '100%',
                         alignItems: 'center',
                     }}>
-                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.GSA.toFixed(2)}</Text>
-                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>GSAA</Text>
-                        <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.GSA.toFixed(2)}</Text>
+                        <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.GSA.toFixed(2)}</Text>
+                        <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>GSAA</Text>
+                        <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.GSA.toFixed(2)}</Text>
 
                     </View>
 
                 </View>
 
-            </View> : <></> }
+            </View> }
             <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
                 <View style={{
                     flexDirection: 'row',
@@ -659,9 +773,9 @@ export default function Games({navigation}) {
                     width: '100%',
                     alignItems: 'center',
                 }}>
-                    <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.GSAx.toFixed(1)}</Text>
-                    <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>GSAx</Text>
-                    <Text style={{color: 'black', fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.GSAx.toFixed(1)}</Text>
+                    <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{homeGoalieStats.GSAx.toFixed(1)}</Text>
+                    <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>GSAx</Text>
+                    <Text style={{color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16}}>{awayGoalieStats.GSAx.toFixed(1)}</Text>
                 </View>
     </View>
         </BottomSheet>

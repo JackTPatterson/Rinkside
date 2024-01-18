@@ -8,7 +8,8 @@ import {
     useFonts
 } from "@expo-google-fonts/sora";
 import BottomSheet from "@gorhom/bottom-sheet";
-import AppLoading from "expo-app-loading";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
@@ -43,7 +44,23 @@ export default function Home() {
 
     let commonConfig = {delimiter: ","};
 
+    const [favTeam, setFavTeam] = useState(null);
+
+    const getData = async () => {
+        try {
+            const value = await AsyncStorage.getItem('team');
+            if (value !== null) {
+                setFavTeam(value)
+            }
+        } catch (e) {
+            return e
+
+        }
+    };
+
     useEffect(() => {
+        getData()
+        if(!data.length)
         Papa.parse(
             "https://moneypuck.com/moneypuck/simulations/simulations_recent.csv",
             {
@@ -106,32 +123,24 @@ export default function Home() {
                         <Text style={{
                             textAlign: "left",
                             fontFamily: 'Sora_400Regular',
-                            fontSize: 20
+                            fontSize: 20,
+                            color: colors.text
                         }}>{props.rnd}</Text>
-                        <View style={{backgroundColor: '#f7f7f7', borderRadius: 100}}>
+                        <View style={{backgroundColor: colors.card, borderRadius: 100}}>
                             <Text style={{
                                 textAlign: "left",
                                 paddingHorizontal: 15,
 
                                 paddingVertical: 4,
                                 fontFamily: 'Sora_500Medium',
-                                fontSize: 20
+                                fontSize: 20,
+                                color: colors.text
                             }}>{Math.round(pct)}%</Text>
                         </View>
                     </View>
-
-                    <Progress.Bar unfilledColor={'#f7f7f7'} color={getPCTColor(props.teamCode) ?? "black"} borderRadius={100} borderWidth={0} style={{marginVertical: 0}} progress={!isNaN(pct/100) ? pct/100 : 0} height={10} width={Dimensions.get('window').width - 40} />
-
-
-
+                    <Progress.Bar unfilledColor={colors.card} color={getPCTColor(props.teamCode) ?? "black"} borderRadius={100} borderWidth={0} style={{marginVertical: 0}} progress={!isNaN(pct/100) ? pct/100 : 0} height={10} width={Dimensions.get('window').width - 40} />
                 </View>
-
-
             )
-
-
-
-
     }
 
     const teamAbbreviations = [
@@ -154,6 +163,7 @@ export default function Home() {
 
     const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
+    const { colors } = useTheme();
 
 
 
@@ -170,14 +180,15 @@ export default function Home() {
 
         let val = !tab ? (parseFloat(rank.madePlayoffs)).toFixed(2) * (Dimensions.get('window').width - 70) : (parseFloat(rank.draftLottery)).toFixed(2) * (Dimensions.get('window').width - 70)
 
-        return rank.scenerio === 'ALL' ?
+        return rank.scenerio === 'ALL' &&
             <TouchableOpacity onPress={props.onClick} key={i}
                        style={{width: '100%', flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
                 <Text style={{
                     textAlign: 'center',
                     fontFamily: 'Sora_500Medium',
                     marginRight: 10,
-                    width: 40
+                    width: 40,
+                    color: colors.text
                 }}>{rank.teamCode}</Text>
                 <MotiView from={{
                     width: 0
@@ -193,7 +204,7 @@ export default function Home() {
                           style={{height: 60, backgroundColor: color ?? "#000", borderRadius: 15, marginRight: 5}}>
 
 
-                    {val > 100 ?
+                    {val > 100 &&
                         <MotiView  from={{
                             opacity: 0,
                             marginLeft: -10,
@@ -211,7 +222,7 @@ export default function Home() {
                             <Image style={{height: 40, width: 60,  transform: [{scale: .7}],  flexDirection: 'column',
                                 justifyContent: 'center',
                                 marginLeft: 0,
-                                marginTop: 10}} source={assets[teamAbbreviations.indexOf(rank.teamCode)]} /></MotiView> : <></>
+                                marginTop: 10}} source={assets[teamAbbreviations.indexOf(rank.teamCode)]} /></MotiView>
                     }
                 </MotiView>
 
@@ -236,14 +247,14 @@ export default function Home() {
                           }}>
                     <Text style={{
                         textAlign: 'center',
-                        color: !tab ? (val > 100 ? 'white' : "black") : 'black',
+                        color: colors.text,
                         fontSize: 16,
                         top: 20,
                         fontFamily: 'Sora_500Medium'
 
-                    }}>{((parseFloat(!tab ? rank.madePlayoffs : rank.draftLottery)).toFixed(2) * 100) > 0 ? ((parseFloat(!tab ? rank.madePlayoffs : rank.draftLottery)).toFixed(2) * 100) : 0}%</Text>
+                    }}>{(( parseFloat(!tab ? rank.madePlayoffs : rank.draftLottery)).toFixed(2) * 100) > 0 ? parseInt((parseFloat(!tab ? rank.madePlayoffs : rank.draftLottery)).toFixed(2) * 100) : 0}%</Text>
                 </MotiView>
-                {val < 100 ?
+                {val < 100 &&
                     <MotiView  from={{
                         opacity: 0,
                         marginLeft: -10,
@@ -260,42 +271,55 @@ export default function Home() {
                                }}>
                         <Image style={{height: 40, width: 60,  transform: [{scale: .7}],  flexDirection: 'column',
                             justifyContent: 'center',
-                            }} source={assets[teamAbbreviations.indexOf(rank.teamCode)]} /></MotiView> : <></>
+                            }} source={assets[teamAbbreviations.indexOf(rank.teamCode)]} /></MotiView>
                 }
             </TouchableOpacity>
-            : <></>
+
     }
 
 
     const styles = StyleSheet.create({
         container: {
-            backgroundColor: 'white',
             alignItems: 'center',
             justifyContent: 'flex-start',
-            paddingHorizontal: 10
+            height: '100%',
+            backgroundColor: colors.background
         },
-
         inactiveButton: {
-            backgroundColor: '#f7f7f7', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 100, marginRight: 10, flexDirection: 'row', gap: 10, alignItems: 'center'
+            backgroundColor: colors.card,
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+            borderRadius: 100,
+            marginRight: 10,
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center'
         },
 
         inactiveText: {
-            color: 'black',
+            color: colors.text,
             fontFamily: 'Sora_500Medium', textAlign: 'center'
         },
 
         activeButton: {
-            backgroundColor: '#000', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 100, marginRight: 10, flexDirection: 'row', gap: 10, alignItems: 'center'
+            backgroundColor: colors.text,
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+            borderRadius: 100,
+            marginRight: 10,
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center'
         },
 
         activeText: {
-            color: 'white',
+            color: colors.background,
             fontFamily: 'Sora_600SemiBold', textAlign: 'center'
         }
 
     });
 
-    const [sel, setSel] = useState("NYI");
+    const [sel, setSel] = useState(favTeam ?? "NYI");
 
     let team = teamData.filter((item) => {
         return (item.abbreviation === sel.teamCode);
@@ -314,27 +338,28 @@ export default function Home() {
     })
 
     if(!fontsLoaded){
-        return <AppLoading/>
+        return <></>
     }
     else return (
         <GestureHandlerRootView>
             <View style={styles.container}>
 
                 <SafeAreaView style={{width: '100%'}}>
-                    <Text style={{fontFamily: 'Sora_500Medium', marginBottom: 10, fontSize: 24}}>Stats</Text>
+                    <Text style={{fontFamily: 'Sora_500Medium', marginBottom: 10, fontSize: 24, color: colors.text}}>Rankings</Text>
                     <View>
                         <View style={{
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'flex-start',
-                            marginBottom: 20
+                            marginBottom: 20,
+                            marginTop: 10
                         }}>
                             <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                        onPress={() => {
                                            setTab(0)
                                            Haptics.selectionAsync()
                                        }}>
-                                <Crown1 color={tab === 0 ? "white" : "black"}/>
+                                <Crown1 color={tab === 0 ? colors.background : colors.text}/>
 
                                 <Text style={tab === 0 ? styles.activeText : styles.inactiveText}>Playoffs</Text>
                             </TouchableOpacity>
@@ -342,7 +367,7 @@ export default function Home() {
                                 setTab(1)
                                 Haptics.selectionAsync()
                             }}>
-                                <Moneys color={tab === 1 ? "white" : "black"}/>
+                                <Moneys color={tab === 1 ? colors.background : colors.text}/>
 
                                 <Text style={tab === 1 ? styles.activeText : styles.inactiveText}>Lottery</Text>
                             </TouchableOpacity>
@@ -352,7 +377,7 @@ export default function Home() {
                                 style={{height: Dimensions.get('window').height - 215}}>
                         <View style={{marginBottom: 5}}>
                             {data?.sort(sort_by(!tab ? 'madePlayoffs' : 'draftLottery', true, parseFloat)).map((rank, i) => {
-                                return rank.teamCode === "NYI" ? <Team key={i} onClick={() => {
+                                return rank.teamCode === favTeam ? <Team key={i} onClick={() => {
                                     Haptics.selectionAsync()
                                     setSel(rank)
                                     !tab ? bottomSheetRef.current.expand() : null
@@ -372,7 +397,6 @@ export default function Home() {
 
                         <View style={{marginBottom: 50}}/>
                     </ScrollView>
-                    <StatusBar style="auto"/>
                 </SafeAreaView>
                 <BottomSheet
                     ref={bottomSheetRef}
@@ -381,6 +405,9 @@ export default function Home() {
                     enablePanDownToClose
                     style={{
                         paddingHorizontal: 20
+                    }}
+                    backgroundStyle={{
+                        backgroundColor: colors.background
                     }}
                 >
                     <View>
@@ -408,7 +435,8 @@ export default function Home() {
                                     <Text style={{
                                         fontSize: 24,
                                         fontFamily: 'Sora_600SemiBold',
-                                        textAlign: 'center'
+                                        textAlign: 'center',
+                                        color: colors.text
                                     }}>{team[0]?.name}</Text>
                                 </View>
                                 <View style={{backgroundColor: 'black', borderRadius: 100}}>
@@ -425,7 +453,8 @@ export default function Home() {
                                         fontSize: 20,
                                         fontFamily: 'Sora_500Medium',
                                         textAlign: 'left',
-                                        marginBottom: 20
+                                        marginBottom: 20,
+                                        color: colors.text
                                     }}>Overall</Text>
                                     <ScrollView style={{height: '100%'}}>
                                         <PCTStat teamCode={sel.teamCode} pct={sel.madePlayoffs}
@@ -443,7 +472,8 @@ export default function Home() {
                                             fontSize: 20,
                                             fontFamily: 'Sora_500Medium',
                                             textAlign: 'left',
-                                            marginBottom: 20
+                                            marginBottom: 20,
+                                            color: colors.text
                                         }}>First Round</Text>
                                         <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin4} rnd={'Win in 4'}/>
                                         <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin5} rnd={'Win in 5'}/>
@@ -456,7 +486,8 @@ export default function Home() {
                                         fontSize: 20,
                                         fontFamily: 'Sora_500Medium',
                                         textAlign: 'left',
-                                        marginBottom: 20
+                                        marginBottom: 20,
+                                        color: colors.text
                                     }}>Second Round</Text>
                                     <ScrollView style={{height: '100%'}}>
                                         <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin4} rnd={'Win in 4'}/>
@@ -470,7 +501,8 @@ export default function Home() {
                                         fontSize: 20,
                                         fontFamily: 'Sora_500Medium',
                                         textAlign: 'left',
-                                        marginBottom: 20
+                                        marginBottom: 20,
+                                        color: colors.text
                                     }}>Third Round</Text>
                                     <ScrollView style={{height: '100%'}}>
                                         <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin4} rnd={'Win in 4'}/>
@@ -484,7 +516,8 @@ export default function Home() {
                                         fontSize: 20,
                                         fontFamily: 'Sora_500Medium',
                                         textAlign: 'left',
-                                        marginBottom: 20
+                                        marginBottom: 20,
+                                        color: colors.text
                                     }}>Finals</Text>
                                     <ScrollView style={{height: '100%'}}>
                                         <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin4} rnd={'Win in 4'}/>

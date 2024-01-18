@@ -16,16 +16,6 @@ const NumberTicker = ({style, textSize = 35, textStyle, number, duration}) => {
                     />
                 );
             }
-            else if (data === '$') {
-                return (
-                    <DollarTicker
-                        key={index}
-                        textSize={textSize}
-                        textStyle={textStyle}
-                        duration={duration}
-                    />
-                );
-            }
             return (
                 <TextTicker
                     key={index}

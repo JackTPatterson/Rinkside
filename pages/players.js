@@ -10,28 +10,18 @@ import {
     useFonts
 } from "@expo-google-fonts/sora";
 import BottomSheet from "@gorhom/bottom-sheet";
-import AppLoading from "expo-app-loading";
+import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
-import {ArrowLeft, ArrowRight} from "iconsax-react-native";
+import {ArrowDown2, ArrowLeft, ArrowRight} from "iconsax-react-native";
 import Papa from "papaparse";
 import React, {useEffect, useMemo, useRef, useState} from "react";
-import {
-    Dimensions,
-    Image,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
-} from "react-native";
+import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {LineChart} from "react-native-chart-kit";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
-import * as Progress from 'react-native-progress';
 
-import Svg, {Path, SvgUri} from "react-native-svg";
+import Svg, {Path} from "react-native-svg";
 import teamData from "../teams";
 
 
@@ -115,6 +105,19 @@ export default function Players() {
         }
     }
 
+    function accumulateArrayValues(inputArray) {
+        let resultArray = [];
+        let sum = 0;
+
+        for (let i = 0; i < inputArray.length; i++) {
+            sum += inputArray[i];
+            resultArray.push(sum);
+        }
+
+        return resultArray;
+    }
+
+
     useEffect(() => {
         //needs to be dynamic to year
         getPlayerData(0, 0)
@@ -132,55 +135,11 @@ export default function Players() {
     }
 
     const bottomSheetRef = useRef(null);
+    const bottomSheetRef2 = useRef(null);
 
-    const snapPoints = useMemo(() => ['1%', '75%'], []);
+    const snapPoints = useMemo(() => ['1%', '90%'], []);
 
-    const PCTStat = (props) => {
-
-        const pct = parseFloat(props.pct).toFixed(2) * 100
-
-
-        return (
-            <View style={{marginBottom: 20}}>
-                <View style={{
-                    flexDirection: 'row',
-                    width: '100%',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 10,
-                    borderRadius: '100%',
-                    marginBottom: 10
-                }}>
-                    <Text style={{
-                        textAlign: "left",
-                        fontFamily: 'Sora_400Regular',
-                        fontSize: 20
-                    }}>{props.rnd}</Text>
-                    <View style={{backgroundColor: '#f7f7f7', borderRadius: 100}}>
-                        <Text style={{
-                            textAlign: "left",
-                            paddingHorizontal: 15,
-
-                            paddingVertical: 4,
-                            fontFamily: 'Sora_500Medium',
-                            fontSize: 20
-                        }}>{Math.round(pct)}%</Text>
-                    </View>
-                </View>
-
-                <Progress.Bar unfilledColor={'#f7f7f7'} color={getPCTColor(props.teamCode) ?? "black"}
-                              borderRadius={100} borderWidth={0} style={{marginVertical: 0}}
-                              progress={!isNaN(pct / 100) ? pct / 100 : 0} height={10}
-                              width={Dimensions.get('window').width - 40}/>
-
-
-            </View>
-
-
-        )
-
-
-    }
+    const [selectedPlayer, setSelectedPlayer] = useState(null)
 
 
     const Player = (props) => {
@@ -207,7 +166,6 @@ export default function Players() {
                 fetch(`https://api-web.nhle.com/v1/player/${rank.playerId}/landing`, requestOptions)
                     .then(response => response.text())
                     .then(result => {
-                        console.log("test")
                         setData(JSON.parse(result).featuredStats.regularSeason.subSeason)
                     });
             }
@@ -226,9 +184,18 @@ export default function Players() {
                 setSshowing(val=>!val ? 1 : val === 2 ? 0 : 2)
             }}
 
+            onLongPress={() => {
+                bottomSheetRef.current.expand()
+                Haptics.impactAsync()
+                    fetch(`https://api-web.nhle.com/v1/player/${rank.playerId}/landing`, requestOptions)
+                        .then(response => response.text())
+                        .then(result => {
+                            setSelectedPlayer(JSON.parse(result))
+                        });
+            }}
 
             style={{
-                backgroundColor: '#f7f7f7',
+                backgroundColor: colors.card,
                 paddingVertical: 15,
                 marginBottom: 4,
                 borderRadius: 15,
@@ -239,7 +206,7 @@ export default function Players() {
                 justifyContent: 'flex-left',
                 alignItems: 'center'
             }}>
-                <Text style={{color: 'black', fontSize: 24, fontFamily: 'Sora_500Medium'}}>{page + 1 + props.i}</Text>
+                <Text style={{color: colors.text, fontSize: 24, fontFamily: 'Sora_500Medium'}}>{page + 1 + props.i}</Text>
                 <View style={{
                     alignItems: 'center'
                 }}>
@@ -252,7 +219,7 @@ export default function Players() {
                 <View>
                     <View>
                         <Text style={{
-                            color: 'black',
+                            color: colors.text,
                             fontSize: 16,
                             fontFamily: 'Sora_500Medium'
                         }}>{rank.name}</Text>
@@ -265,7 +232,7 @@ export default function Players() {
 
 
                                 <Text style={{
-                                    color: 'black',
+                                    color: colors.text,
                                     opacity: .5,
                                     fontSize: 16,
                                     marginRight: 10,
@@ -285,7 +252,7 @@ export default function Players() {
                                     alignItems: 'center'
                                 }}>
                                     <Text style={{
-                                        color: 'black',
+                                        color: colors.text,
                                         opacity: .5,
                                         fontSize: 16,
                                         marginRight: 10,
@@ -293,7 +260,7 @@ export default function Players() {
                                     }}>Assists:
                                     </Text>
                                     <Text style={{
-                                        color: 'black',
+                                        color: colors.text,
                                         fontSize: 16,
                                         fontFamily: 'Sora_500Medium'
                                     }}>{data?.assists}
@@ -305,7 +272,7 @@ export default function Players() {
                                     alignItems: 'center'
                                 }}>
                                     <Text style={{
-                                        color: 'black',
+                                        color: colors.text,
                                         opacity: .5,
                                         fontSize: 16,
                                         marginRight: 10,
@@ -313,7 +280,7 @@ export default function Players() {
                                     }}>Pts:
                                     </Text>
                                     <Text style={{
-                                        color: 'black',
+                                        color: colors.text,
                                         fontSize: 16,
                                         fontFamily: 'Sora_500Medium'
                                     }}>{data?.goals + data?.assists}
@@ -351,30 +318,46 @@ export default function Players() {
 
     const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
+    const { colors } = useTheme();
+
 
     const styles = StyleSheet.create({
         container: {
-            backgroundColor: 'white',
             alignItems: 'center',
             justifyContent: 'flex-start',
+            height: '100%',
+            backgroundColor: colors.background,
             paddingHorizontal: 10
         },
-
         inactiveButton: {
-            backgroundColor: '#f7f7f7', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 100, marginRight: 10, flexDirection: 'row', gap: 10, alignItems: 'center'
+            backgroundColor: colors.card,
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+            borderRadius: 100,
+            marginRight: 10,
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center'
         },
 
         inactiveText: {
-            color: 'black',
+            color: colors.text,
             fontFamily: 'Sora_500Medium', textAlign: 'center'
         },
 
         activeButton: {
-            backgroundColor: '#000', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 100, marginRight: 10, flexDirection: 'row', gap: 10, alignItems: 'center'
+            backgroundColor: colors.text,
+            paddingHorizontal: 20,
+            paddingVertical: 15,
+            borderRadius: 100,
+            marginRight: 10,
+            flexDirection: 'row',
+            gap: 10,
+            alignItems: 'center'
         },
 
         activeText: {
-            color: 'white',
+            color: colors.background,
             fontFamily: 'Sora_600SemiBold', textAlign: 'center'
         }
 
@@ -402,23 +385,24 @@ export default function Players() {
 
     const [gShowing, setGShowing] = useState(2)
 
+    const [selectedStat, setSelectedStat] = useState("goals")
+
     if (!fontsLoaded) {
-        return <AppLoading/>
+        return <></>
     } else return (
         <GestureHandlerRootView>
             <View style={styles.container}>
-
-
                 <SafeAreaView style={{width: '100%'}}>
 
-                    <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24}}>Stats</Text>
+                    <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24, color: colors.text}}>Player Rankings</Text>
 
                     <View>
                         <View style={{
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'flex-start',
-                            marginBottom: 20
+                            marginBottom: 20,
+                            marginTop: 10
                         }}>
 
 
@@ -454,39 +438,40 @@ export default function Players() {
                                     }}>
                                         <Text style={{
                                             fontFamily: 'Sora_500Medium',
-                                            fontSize: 24
+                                            fontSize: 24,
+                                            color: colors.text,
                                         }}>Ranks {page + 1} - {page + 10}</Text>
                                         <View style={{
                                             flexDirection: 'row',
                                             alignItems: 'center',
                                             justifyContent: 'flex-end'
                                         }}>
-                                            {page > 0 ?
+                                            {page > 0 &&
                                                 <TouchableOpacity onPress={() => {
                                                     setPage(page => page - 10)
                                                     getPlayerData(0, page - 10)
                                                     Haptics.selectionAsync()
                                                 }} style={{
-                                                    backgroundColor: '#f7f7f7',
+                                                    backgroundColor: colors.card,
                                                     marginRight: 10,
                                                     paddingHorizontal: 15,
                                                     paddingVertical: 15,
                                                     borderRadius: 100
                                                 }}>
-                                                    <ArrowLeft color={"#000"}/>
-                                                </TouchableOpacity> : <></>}
+                                                    <ArrowLeft color={colors.text}/>
+                                                </TouchableOpacity>}
 
                                             <TouchableOpacity onPress={() => {
                                                 setPage(page => page + 10)
                                                 getPlayerData(0, page + 10)
                                                 Haptics.selectionAsync()
                                             }} style={{
-                                                backgroundColor: '#f7f7f7',
+                                                backgroundColor: colors.card,
                                                 paddingHorizontal: 15,
                                                 paddingVertical: 15,
                                                 borderRadius: 100
                                             }}>
-                                                <ArrowRight color={"#000"}/>
+                                                <ArrowRight color={colors.text}/>
                                             </TouchableOpacity>
                                         </View>
 
@@ -508,38 +493,39 @@ export default function Players() {
                                     }}>
                                         <Text style={{
                                             fontFamily: 'Sora_500Medium',
-                                            fontSize: 24
+                                            fontSize: 24,
+                                            color: colors.text,
                                         }}>Ranks {page + 1} - {page + 10}</Text>
                                         <View style={{
                                             flexDirection: 'row',
                                             alignItems: 'center',
                                             justifyContent: 'flex-end'
                                         }}>
-                                            {page > 0 ?
+                                            {page > 0 &&
                                                 <TouchableOpacity onPress={() => {
                                                     setPage(page => page - 10)
                                                     getPlayerData(1, page - 10)
                                                     Haptics.selectionAsync()
                                                 }} style={{
-                                                    backgroundColor: '#f7f7f7',
+                                                    backgroundColor: colors.card,
                                                     marginRight: 10,
                                                     paddingHorizontal: 15,
                                                     paddingVertical: 15,
                                                     borderRadius: 100
                                                 }}>
-                                                    <ArrowLeft color={"#000"}/>
-                                                </TouchableOpacity> : <></>}
+                                                    <ArrowLeft color={colors.text}/>
+                                                </TouchableOpacity> }
                                             <TouchableOpacity onPress={() => {
                                                 setPage(page => page + 10)
                                                 getPlayerData(1, page + 10)
                                                 Haptics.selectionAsync()
                                             }} style={{
-                                                backgroundColor: '#f7f7f7',
+                                                backgroundColor: colors.card,
                                                 paddingHorizontal: 15,
                                                 paddingVertical: 15,
                                                 borderRadius: 100
                                             }}>
-                                                <ArrowRight color={"#000"}/>
+                                                <ArrowRight color={colors.text}/>
                                             </TouchableOpacity>
                                         </View>
 
@@ -547,7 +533,7 @@ export default function Players() {
                                     </View>
                                     <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, alignItems: 'center'}}>
                                         <Text style={{
-                                            color: 'black',
+                                           color: colors.text,
                                             opacity: .5,
                                             fontSize: 16,
                                             marginRight: 10,
@@ -555,7 +541,7 @@ export default function Players() {
                                         }}>Showing:
                                         </Text>
                                         <Text style={{
-                                            color: 'black',
+                                           color: colors.text,
                                             fontSize: 16,
                                             fontFamily: 'Sora_500Medium'
                                         }}>{!gShowing ? "Goals Saved Above Average" : gShowing === 2 ? "Save %" : "Goals Saved Above Expected"}
@@ -569,7 +555,7 @@ export default function Players() {
                                                     setGShowing(val=>!val ? 1 : val === 2 ? 0 : 2)
                                                 }}
                                                 style={{
-                                                    backgroundColor: '#f7f7f7',
+                                                    backgroundColor: colors.card,
                                                     marginBottom: 4,
                                                     paddingVertical: 15,
                                                     borderRadius: 15,
@@ -582,9 +568,9 @@ export default function Players() {
                                                     alignItems: 'center'
                                                 }}>
                                                     <Text style={{
-                                                        color: 'black',
+                                                       color: colors.text,
                                                         fontSize: 24,
-                                                        fontFamily: 'Sora_500Medium'
+                                                        fontFamily: 'Sora_500Medium',
                                                     }}>{page + 1 + i}</Text>
 
                                                     <View style={{
@@ -601,7 +587,7 @@ export default function Players() {
                                                     </View>
                                                     <View>
                                                         <Text style={{
-                                                            color: 'black',
+                                                           color: colors.text,
                                                             fontSize: 16,
                                                             fontFamily: 'Sora_500Medium'
                                                         }}>{rank.name}</Text>
@@ -614,7 +600,7 @@ export default function Players() {
 
 
                                                                 <Text style={{
-                                                                    color: 'black',
+                                                                   color: colors.text,
                                                                     opacity: .5,
                                                                     fontSize: 16,
                                                                     marginRight: 10,
@@ -622,7 +608,7 @@ export default function Players() {
                                                                 }}>GSAA:
                                                                 </Text>
                                                                 <Text style={{
-                                                                    color: 'black',
+                                                                   color: colors.text,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_500Medium'
                                                                 }}>{((rank.goals*60)/(rank.icetime/60).toFixed(2)).toFixed(3)}
@@ -634,7 +620,7 @@ export default function Players() {
                                                                 alignItems: 'center'
                                                             }}>
                                                                 <Text style={{
-                                                                    color: 'black',
+                                                                   color: colors.text,
                                                                     opacity: .5,
                                                                     fontSize: 16,
                                                                     marginRight: 10,
@@ -642,7 +628,7 @@ export default function Players() {
                                                                 }}>SV%:
                                                                 </Text>
                                                                 <Text style={{
-                                                                    color: 'black',
+                                                                   color: colors.text,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_500Medium'
                                                                 }}>{((rank.ongoal - rank.goals) / rank.ongoal).toFixed(3)}
@@ -654,7 +640,7 @@ export default function Players() {
                                                                 alignItems: 'center'
                                                             }}>
                                                                 <Text style={{
-                                                                    color: 'black',
+                                                                   color: colors.text,
                                                                     opacity: .5,
                                                                     fontSize: 16,
                                                                     marginRight: 10,
@@ -662,7 +648,7 @@ export default function Players() {
                                                                 }}>GSAx:
                                                                 </Text>
                                                                 <Text style={{
-                                                                    color: 'black',
+                                                                   color: colors.text,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_500Medium'
                                                                 }}>{(rank.xGoals - rank.goals).toFixed(2)}
@@ -695,125 +681,417 @@ export default function Players() {
                     style={{
                         paddingHorizontal: 20
                     }}
-
+                    backgroundStyle={{
+                        backgroundColor: colors.background
+                    }}
                 >
                     <View>
-                        <View>
-
+                        <View style={{
+                            flexDirection: "row",
+                            width: '100%',
+                            alignItems: 'center',
+                            marginBottom: 10,
+                            justifyContent: 'space-between'
+                        }}>
                             <View style={{
                                 flexDirection: "row",
                                 width: '100%',
                                 alignItems: 'center',
-                                marginBottom: 10,
-                                justifyContent: 'space-between'
+                                marginBottom: 0,
+                                justifyContent: 'start'
                             }}>
-                                <View style={{
-                                    flexDirection: "row",
-                                    width: '100%',
-                                    alignItems: 'center',
-                                    marginBottom: 0,
-                                    justifyContent: 'start'
-                                }}>
-                                    <SvgUri width={100} height={50} style={{
-                                        flexDirection: 'column',
-                                        justifyContent: 'center',
-                                        marginLeft: -15
-                                    }}
-                                            uri={`https://assets.nhle.com/logos/nhl/svg/${sel?.teamCode}_light.svg`}/>
-                                    <Text style={{
-                                        fontSize: 24,
-                                        fontFamily: 'Sora_600SemiBold',
-                                        textAlign: 'center'
-                                    }}>{team[0]?.name}</Text>
-                                </View>
-                                <View style={{backgroundColor: 'black', borderRadius: 100}}>
-                                    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                         xmlns="http://www.w3.org/2000/svg">
-                                        <Path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12"/>
-                                    </Svg>
-                                </View>
+                                <Image style={{
+                                    borderRadius: 100,
+                                    borderWidth: 3,
+                                    height: 80,
+                                    width: 80,
+                                    marginRight: 20,
+                                    borderColor: `${getPCTColor(selectedPlayer?.currentTeamAbbrev)}`,
+                                    backgroundColor: colors.card
+                                }} source={{uri: selectedPlayer?.headshot}}/>
+                                <Text style={{
+                                    fontSize: 24,
+                                    fontFamily: 'Sora_600SemiBold',
+                                    textAlign: 'center',
+                                    color: colors.text
+                                }}>{selectedPlayer?.firstName.default} {selectedPlayer?.lastName.default}</Text>
                             </View>
-                            <ScrollView showsVerticalScrollIndicator={false} horizontal snapToAlignment={"center"}
-                                        decelerationRate={0} snapToInterval={Dimensions.get('window').width - 40}>
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <Text style={{
-                                        fontSize: 20,
-                                        fontFamily: 'Sora_500Medium',
-                                        textAlign: 'left',
-                                        marginBottom: 20
-                                    }}>Overall</Text>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.madePlayoffs}
-                                                 rnd={'Playoff Percentage'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2} rnd={'Second Round'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3} rnd={'Third Round'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4} rnd={'Finals'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.wonCup} rnd={'Won Cup'}/>
-                                    </ScrollView>
-                                </View>
 
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <Text style={{
-                                            fontSize: 20,
-                                            fontFamily: 'Sora_500Medium',
-                                            textAlign: 'left',
-                                            marginBottom: 20
-                                        }}>First Round</Text>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin4} rnd={'Win in 4'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin5} rnd={'Win in 5'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin6} rnd={'Win in 6'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round1Winin7} rnd={'Win in 7'}/>
-                                    </ScrollView>
-                                </View>
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <Text style={{
-                                        fontSize: 20,
-                                        fontFamily: 'Sora_500Medium',
-                                        textAlign: 'left',
-                                        marginBottom: 20
-                                    }}>Second Round</Text>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin4} rnd={'Win in 4'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin5} rnd={'Win in 5'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin6} rnd={'Win in 6'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round2Winin7} rnd={'Win in 7'}/>
-                                    </ScrollView>
-                                </View>
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <Text style={{
-                                        fontSize: 20,
-                                        fontFamily: 'Sora_500Medium',
-                                        textAlign: 'left',
-                                        marginBottom: 20
-                                    }}>Third Round</Text>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin4} rnd={'Win in 4'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin5} rnd={'Win in 5'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin6} rnd={'Win in 6'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round3Winin7} rnd={'Win in 7'}/>
-                                    </ScrollView>
-                                </View>
-                                <View style={{width: Dimensions.get('window').width - 40}}>
-                                    <Text style={{
-                                        fontSize: 20,
-                                        fontFamily: 'Sora_500Medium',
-                                        textAlign: 'left',
-                                        marginBottom: 20
-                                    }}>Finals</Text>
-                                    <ScrollView style={{height: '100%'}}>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin4} rnd={'Win in 4'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin5} rnd={'Win in 5'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin6} rnd={'Win in 6'}/>
-                                        <PCTStat teamCode={sel.teamCode} pct={sel.round4Winin7} rnd={'Win in 7'}/>
-                                    </ScrollView>
-                                </View>
-                            </ScrollView>
+                            <View style={{backgroundColor: 'black', borderRadius: 100}}>
+                                <Svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                     xmlns="http://www.w3.org/2000/svg">
+                                    <Path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                                </Svg>
+                            </View>
 
-
-                            {/* Spacer */}
                         </View>
+                        <Text style={{
+                           color: colors.text,
+                            marginTop: 10,
+                            fontSize: 16,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Career
+                        </Text>
+                        <View style={{
+                            flexDirection: "row",
+                            width: '100%',
+                            alignItems: 'center',
+                            marginBottom: 10,
+                            gap: 10,
+                            marginTop: 10,
+                            justifyContent: 'flex-start'
+                        }}>
+                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                            <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    fontSize: 24,
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>
+                                {selectedPlayer?.careerTotals.regularSeason.goals + selectedPlayer?.careerTotals.playoffs.goals}
+                                </Text>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    opacity: .5,
+                                    fontSize: 16,
+                                    fontFamily: 'Sora_400Regular'
+                                }}>Goals</Text>
+                            </View>
+                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    fontSize: 24,
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>
+                                    {selectedPlayer?.careerTotals.regularSeason.assists + selectedPlayer?.careerTotals.playoffs.assists}
+                                </Text>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    opacity: .5,
+                                    fontSize: 16,
+                                    fontFamily: 'Sora_400Regular'
+                                }}>Assists</Text>
+                            </View>
+                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    fontSize: 24,
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>
+                                    {selectedPlayer?.careerTotals.regularSeason.points + selectedPlayer?.careerTotals.playoffs.points}
+                                </Text>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    opacity: .5,
+                                    fontSize: 16,
+                                    fontFamily: 'Sora_400Regular'
+                                }}>Points</Text>
+                            </View>
+
+                        </View>
+                        <View style={{
+                            flexDirection: "row",
+                            width: '100%',
+                            alignItems: 'center',
+                            marginBottom: 10,
+                            gap: 10,
+                            justifyContent: 'flex-start'
+                        }}>
+                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    fontSize: 24,
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>
+                                    {selectedPlayer?.careerTotals.regularSeason.plusMinus}
+                                </Text>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    opacity: .5,
+                                    fontSize: 16,
+                                    fontFamily: 'Sora_400Regular'
+                                }}>+/-</Text>
+                            </View>
+                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    fontSize: 24,
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>
+                                    {selectedPlayer?.careerTotals.regularSeason.shots}
+                                </Text>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    opacity: .5,
+                                    fontSize: 16,
+                                    fontFamily: 'Sora_400Regular'
+                                }}>Shots</Text>
+                            </View>
+                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    fontSize: 24,
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>
+                                    {selectedPlayer?.careerTotals.regularSeason.gamesPlayed}
+                                </Text>
+                                <Text style={{
+                                   color: colors.text,
+                                    textAlign: 'left',
+                                    opacity: .5,
+                                    fontSize: 16,
+                                    fontFamily: 'Sora_400Regular'
+                                }}>Games</Text>
+                            </View>
+
+                        </View>
+                        <Text style={{
+                           color: colors.text,
+                            marginTop: 10,
+                            fontSize: 16,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Last 5 Games
+                        </Text>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10}}>
+                            <TouchableOpacity onPress={() => {
+                                Haptics.selectionAsync().then(() => {
+                                })
+                                bottomSheetRef2.current.expand()
+                            }} style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
+                                backgroundColor: colors.card,
+                                borderRadius: 100,
+                                alignSelf: 'flex-start',
+                                paddingHorizontal: 10,
+                                paddingVertical: 3
+                            }}>
+                                <Text style={{
+                                   color: colors.text,
+                                    fontSize: 16,
+                                    fontFamily: 'Sora_500Medium'
+                                }}>{selectedStat.charAt(0).toUpperCase() + selectedStat.slice(1)}
+                                </Text>
+                                <ArrowDown2 color={colors.text} size={16}/>
+
+                            </TouchableOpacity>
+                            <Text style={{
+                                color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_700Bold'
+
+                            }}  duration={250}>
+                                {selectedPlayer ? accumulateArrayValues(selectedPlayer?.last5Games.map((r, i) => {
+                                    return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
+                                }))[4] : 0}
+                            </Text>
+
+
+                        </View>
+
+                        {selectedPlayer &&
+                            <LineChart
+                                data={{
+                                    labels: ["Game 1", "Game 2", "Game 3", "Game 4", "Game 5"],
+                                    datasets: [
+                                        {
+                                            color: (opacity) => `${getPCTColor(selectedPlayer?.currentTeamAbbrev)}`,
+                                            strokeWidth: 2.5,
+                                            data: selectedPlayer?.last5Games.map((r, i) => {
+                                                return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
+                                            })
+                                        }
+                                    ],
+                                }}
+
+                                width={Dimensions.get("window").width}
+                                height={150}
+                                yLabelsOffset={20}
+                                xLabelsOffset={-5}
+
+                                withHorizontalLines={true}
+                                withVerticalLines={false}
+                                withDots={false}
+                                withShadow
+                                chartConfig={{
+                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+                                    useShadowColorFromDataset: true,
+                                    fillShadowGradientFromOpacity: 0,
+                                    fillShadowGradientToOpacity: 0,
+                                    backgroundGradientFrom: '#fff',
+                                    backgroundGradientFromOpacity: 0,
+                                    backgroundGradientTo: "#fff",
+                                    backgroundGradientToOpacity: 0,
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                    labelColor: () =>  colors.text,
+                                    strokeWidth: 3,
+                                }}
+                                bezier
+                                yAxisInterval={2}
+                                style={{
+                                    marginVertical: 8,
+                                    marginLeft: -30,
+                                }}
+                            />}
+
+
                     </View>
+
+                </BottomSheet>
+                <BottomSheet
+
+                    ref={bottomSheetRef2}
+                    index={0}
+                    snapPoints={snapPoints}
+                    enablePanDownToClose
+                    style={{
+                        paddingHorizontal: 20
+                    }}
+                    backgroundStyle={{
+                        backgroundColor: colors.background
+                    }}
+                >
+                    <View style={{flexDirection: 'column', gap: 20}}>
+                        <Text style={{
+                           color: colors.text,
+                            fontSize: 24,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Select A Stat
+                        </Text>
+
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("goals")
+                            bottomSheetRef2.current.collapse()
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>Goals
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("assists")
+                            bottomSheetRef2.current.collapse()
+
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>Assists
+                            </Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("points")
+                            bottomSheetRef2.current.collapse()
+
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>Points
+                            </Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("shots")
+                            bottomSheetRef2.current.collapse()
+
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>Shots
+                            </Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("pim")
+                            bottomSheetRef2.current.collapse()
+
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>PIM
+                            </Text></TouchableOpacity>
+
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("powerPlayGoals")
+                            bottomSheetRef2.current.collapse()
+
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>PPG
+                            </Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("shorthandedGoals")
+                            bottomSheetRef2.current.collapse()
+
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>SHG
+                            </Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("plusMinus")
+                            bottomSheetRef2.current.collapse()
+
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>+/-
+                            </Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            setSelectedStat("shifts")
+                            bottomSheetRef2.current.collapse()
+
+                        }}>
+                            <Text style={{
+                               color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>Shifts
+                            </Text></TouchableOpacity>
+
+                    </View>
+
                 </BottomSheet>
 
 

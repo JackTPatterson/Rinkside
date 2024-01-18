@@ -1,28 +1,26 @@
 {
   "expo": {
-    "name": "moneypuck",
+    "name": "Rinkside",
     "slug": "moneypuck",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
+    "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
     ],
+
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.jtyler03.moneypuck"
+      "supportsTablet": false,
+      "bundleIdentifier": "com.jpdigital.rinkside",
+      "icon": "./assets/icon.png"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.jpdigital.rinkside"
     },
     "web": {
       "favicon": "./assets/favicon.png"
