@@ -124,7 +124,7 @@ export default function Games({navigation}) {
             .then(response => response.text())
             .then(result => {
                 setData(JSON.parse(result)['games'])
-
+                console.log(`https://api-web.nhle.com/v1/score/${getDate(dateOffset)}`)
             })
 
         setIsLoading(false)
@@ -229,7 +229,7 @@ export default function Games({navigation}) {
 
 
             if(props.game.homeTeam.score !== undefined){
-                if(props.game.clock?.timeRemaining === "00:00" || props.game.gameOutcome?.lastPeriodType){
+                if(props.game.gameState === "OFF"){
                     return "Final"
                 }
                 else if(props.game.clock?.inIntermission){
@@ -512,9 +512,8 @@ export default function Games({navigation}) {
     function formatDate(date, offset) {
         const today = new Date();
         const inputDate = new Date(date);
-
+        offset++;
         const adjustedDate = new Date(inputDate.getTime() + offset * 24 * 60 * 60 * 1000);
-
         if (adjustedDate.toDateString() === today.toDateString()) {
             return "Today";
         } else if (adjustedDate.toDateString() === new Date(today.getTime() + 24 * 60 * 60 * 1000).toDateString()) {
@@ -586,7 +585,7 @@ export default function Games({navigation}) {
                 }}>Live Games</Text>
 
                 {data.filter((g=>{
-                    return !g.gameOutcome?.lastPeriodType
+                    return g.gameState === "LIVE" || g.gameState === "CRIT"
                 })).map((game, i) => {
                     return (
                         <View style={{width: Dimensions.get('window').width - 20}}>
@@ -603,7 +602,7 @@ export default function Games({navigation}) {
                     color: colors.text
                 }}>Upcoming Games</Text>
                 {data.filter((g=>{
-                    return (g.homeTeam.score === undefined || g.awayTeam.score  === undefined) && !g.gameOutcome?.lastPeriodType
+                    return g.gameState === "FUT"
                 })).map((game, i) => {
                     return (
                         <Team game={game} keu={i}/>
@@ -617,7 +616,7 @@ export default function Games({navigation}) {
                     color: colors.text
                 }}>Finished Games</Text>
                 {data.filter((g=>{
-                   return g.gameOutcome?.lastPeriodType
+                   return g.gameState === "OFF"
                 })).map((game, i) => {
                     return (
                             <Team game={game} keu={i}/>

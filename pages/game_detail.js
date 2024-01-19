@@ -10,10 +10,10 @@ import {
     ExportCircle,
     Flash,
     ImportCircle,
-    Profile2User,
+    Profile2User, Star, Star1,
     TimerPause,
     User,
-    UserRemove
+    UserRemove, VideoCircle
 } from "iconsax-react-native";
 import {MotiText, MotiView} from "moti";
 import Papa from "papaparse";
@@ -142,7 +142,7 @@ export default function GamesDetail({navigation}) {
     const [shotsP2, setShotsP2] = useState({h: 0, a: 0});
     const [shotsP3, setShotsP3] = useState({h: 0, a: 0});
 
-
+    const [goals, setGoals] = useState([])
 
     useEffect(()=>{
 
@@ -155,6 +155,15 @@ export default function GamesDetail({navigation}) {
             headers: myHeaders,
             redirect: 'follow'
         };
+
+        fetch(`https://api-web.nhle.com/v1/gamecenter/${route.params?.data['data']['id']}/landing`, requestOptions)
+            .then(response => response.text())
+            .then(result => {
+                setLanding(JSON.parse(result))
+                let g = JSON.parse(result).summary.scoring.flatMap(period => period.goals);
+
+                setGoals(g)
+            })
 
         fetch(`https://api-web.nhle.com/v1/gamecenter/${route.params?.data['data']['id']}/boxscore`, requestOptions)
             .then(response => response.text())
@@ -208,17 +217,17 @@ export default function GamesDetail({navigation}) {
                     h: JSON.parse(result)?.boxscore.shotsByPeriod[2].home,
                     a: JSON.parse(result)?.boxscore.shotsByPeriod[2].away
                 })
-
-                setPPData({
-                    h: {
-                        t: JSON.parse(result)?.situation.timeRemaining,
-                        a: JSON.parse(result)?.situation.homeTeam.strength
-                    },
-                    a: {
-                        t: JSON.parse(result)?.situation.timeRemaining,
-                        a: JSON.parse(result)?.situation.awayTeam.strength
-                    }
-                })
+                //
+                // setPPData({
+                //     h: {
+                //         t: JSON.parse(result)?.situation.timeRemaining,
+                //         a: JSON.parse(result)?.situation.homeTeam.strength
+                //     },
+                //     a: {
+                //         t: JSON.parse(result)?.situation.timeRemaining,
+                //         a: JSON.parse(result)?.situation.awayTeam.strength
+                //     }
+                // })
             })
 
 
@@ -427,12 +436,36 @@ export default function GamesDetail({navigation}) {
     const [assets, error] = useAssets(require("../assets/rink.png"));
 
     const [homeStat, setHomeStat] = useState(true);
+    const [landing, setLanding] = useState(true);
 
     const [selP, setSelP] = useState(0);
 
+    const landingData = (data) => {
+        return {
+            h: parseInt(landing?.summary.teamGameStats.filter(stat => {
+                return stat.category === data
+            })[0].homeValue), a: parseInt(landing?.summary.teamGameStats.filter(stat => {
+                return stat.category === data
+            })[0].awayValue)
+        }
+    }
+    const ppcData = () => {
+
+        const home = landing?.summary.teamGameStats.filter(stat => {
+            return stat.category === "powerPlay"
+        })[0].homeValue.split("/")
+
+        const away = landing?.summary.teamGameStats.filter(stat => {
+            return stat.category === "powerPlay"
+        })[0].awayValue.split("/")
+
+        return {
+            h: parseInt(home[0]) / parseInt(home[1]), a: parseInt(away[0]) / parseInt(away[1])}
+    }
 
 
-    function getPCTColor(teamCode) {
+
+function getPCTColor(teamCode) {
         let team = teamData.filter((item) => {
             return (item.abbreviation === teamCode);
         })
@@ -479,7 +512,11 @@ export default function GamesDetail({navigation}) {
                 .then(result => {
                     setData(JSON.parse(result))
                 })
+
+
         })
+
+
 
 
         return <TouchableOpacity onPress={() => {
@@ -580,7 +617,7 @@ export default function GamesDetail({navigation}) {
                             fontSize: 24, color: colors.text}}>{route.params?.data.data.awayTeam.abbrev} {matchData?.away.score} <Text style={{fontFamily: 'default'}}><Text style={{fontFamily: 'default'}}>•</Text></Text> {matchData?.home.score} {route.params?.data.data.homeTeam.abbrev}</Text></MotiView></View>
                 </View>
                 {
-                    route.params?.data['data'].gameOutcome?.lastPeriodType !== undefined ? <TouchableOpacity style={{
+                    route.params?.data['data'].gameOutcome?.lastPeriodType !== undefined ? <TouchableOpacity  style={{
                         backgroundColor: colors.card,
                         paddingHorizontal: 20,
                         paddingVertical: 10,
@@ -604,8 +641,8 @@ export default function GamesDetail({navigation}) {
                         translateX: -20
                     }}
                               animate={{
-                                  translateX: 0,
-                                  opacity: 1
+                                  translateX: stat ? 0 : -20,
+                                  opacity: stat ? 1 : 0
                               }}
                               transition={{
                                   type: 'timing',
@@ -723,8 +760,8 @@ export default function GamesDetail({navigation}) {
                                         translateX: -5
                                     }}
                                     animate={{
-                                        translateX: 0,
-                                        opacity: 1,
+                                        translateX: stat ? 0 : -5,
+                                        opacity: stat ? 1 : 0,
                                         delay: 300
 
                                     }}
@@ -758,8 +795,8 @@ export default function GamesDetail({navigation}) {
                                             opacity: 0
                                         }}
                                         animate={{
-                                            translateX: 0,
-                                            opacity: 1,
+                                            translateX: matchData?.home.score ? 0 : 5,
+                                            opacity: matchData?.home.score ? 1 : 0,
                                             delay: 300
 
                                         }}
@@ -810,8 +847,8 @@ export default function GamesDetail({navigation}) {
                         translateX: 20
                     }}
                               animate={{
-                                  translateX: 0,
-                                  opacity: 1
+                                  translateX: stat ? 0 : 20,
+                                  opacity: stat ? 1 : 0
 
 
                               }}
@@ -877,7 +914,7 @@ export default function GamesDetail({navigation}) {
                     }}>
 
                         {
-                            route.params?.data['data']['goals'] !== undefined ?
+                            route.params?.data['data']['gameState'] !== "FUT" ?
                                 <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
                                                       setTab(0)
@@ -917,7 +954,7 @@ export default function GamesDetail({navigation}) {
                                           }}
                         >
                             <Chart2 color={tab === 2 ? colors.background : colors.text}/>
-                            <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>{route.params?.data['data']['goals'] !== undefined ? "Game" : "Pregame"} Stats</Text>
+                            <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>{route.params?.data['data']['gameState'] !== 'FUT' ? "Game" : "Pregame"} Stats</Text>
                         </TouchableOpacity>
 
                         {/*{*/}
@@ -932,7 +969,7 @@ export default function GamesDetail({navigation}) {
                         {/*        </TouchableOpacity>*/}
                         {/*}*/}
                         {
-                            route.params?.data['data']['goals'] !== undefined &&
+                            route.params?.data['data']['gameState'] !== "FUT" &&
                                 <TouchableOpacity style={tab === 5 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
                                                       setTab(5)
@@ -943,7 +980,7 @@ export default function GamesDetail({navigation}) {
                                 </TouchableOpacity>
                         }
                         {
-                            route.params?.data['data']['goals'] !== undefined && <
+                            route.params?.data['data']['gameState'] !== "FUT" && <
                                 TouchableOpacity style={tab === 4 ? styles.activeButton : styles.inactiveButton}
                                                  onPress={() => {
                                                      setTab(4)
@@ -956,15 +993,29 @@ export default function GamesDetail({navigation}) {
                             </TouchableOpacity>
                         }
 
+                        {
+                            route.params?.data['data']['gameState'] !== "FINAL" && <
+                                TouchableOpacity style={tab === 6 ? styles.activeButton : styles.inactiveButton}
+                                                 onPress={() => {
+                                                     setTab(6)
+                                                     Haptics.selectionAsync()
+                                                 }}>
+
+                                <Star1 color={tab === 6 ? colors.background : colors.text}/>
+
+                                <Text style={tab === 6 ? styles.activeText : styles.inactiveText}>Stars</Text>
+                            </TouchableOpacity>
+                        }
+
 
 
                     </ScrollView>
                 </View>
                 <View>
                     {
-                        !tab && route.params?.data['data']['goals'] !== undefined ?
+                        !tab && route.params?.data['data']['gameState'] !== "FUT" ?
                             <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false} horizontal>
-                                {route.params?.data['data']['goals'].map((goal, i)=>{
+                                {goals?.map((goal, i)=>{
                                     return <View>
                                         <View>
                                             {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i - 1]?.period) ?
@@ -973,7 +1024,7 @@ export default function GamesDetail({navigation}) {
                                                     fontSize: 16,
                                                     marginBottom: 10,
                                                     textAlign: 'center',color: colors.text
-                                                }}>Period {goal.period}</Text> : <Text style={{
+                                                }}>Period {route.params?.data['data']['goals'][i]?.period}</Text> : <Text style={{
                                                     fontFamily: 'Sora_600SemiBold',
                                                     fontSize: 16,
                                                     marginBottom: 10,
@@ -992,7 +1043,7 @@ export default function GamesDetail({navigation}) {
                                                     fontSize: 16,
                                                     textAlign: 'center',
                                                     color: colors.text
-                                                }}>{goal.teamAbbrev}</Text>
+                                                }}>{goal.teamAbbrev.default}</Text>
                                                 <Text style={{
                                                     fontFamily: 'Sora_600SemiBold',
                                                     fontSize: 14,
@@ -1007,9 +1058,9 @@ export default function GamesDetail({navigation}) {
                                                         height: 80,
                                                         width: 80,
                                                         marginTop: 10,
-                                                        borderColor: `${getPCTColor(goal.teamAbbrev)}`,
+                                                        borderColor: `${getPCTColor(goal.teamAbbrev.default)}`,
                                                         backgroundColor: colors.card
-                                                    }} source={{uri: goal.mugshot}}/>
+                                                    }} source={{uri: goal.headshot}}/>
                                                 </View>
 
                                                 <Text style={{
@@ -1018,30 +1069,54 @@ export default function GamesDetail({navigation}) {
                                                     marginTop: 10,
                                                     textAlign: 'center',
                                                     color: colors.text
-                                                }}>{goal.name.default}</Text>
+                                                }}>{goal.name.default} <Text style={{fontFamily: 'default'}}>•</Text> {goal.goalsToDate}</Text>
+                                                {
+                                                    goal.assists.map(a=>{
+                                                        return  <Text style={{
+                                                            fontFamily: 'Sora_600SemiBold',
+                                                            fontSize: 14,
+                                                            marginTop: 4,
+                                                            textAlign: 'center',
+                                                            opacity: .5,color: colors.text
+                                                        }}>{a.name.default} <Text style={{fontFamily: 'default'}}>•</Text> {a.assistsToDate}</Text>
+                                                    })
+                                                }
                                                 <Text style={{
                                                     fontFamily: 'Sora_600SemiBold',
                                                     fontSize: 14,
                                                     marginTop: 4,
                                                     textAlign: 'center',
                                                     opacity: .5,color: colors.text
-                                                }}>{goal.timeInPeriod} <Text style={{fontFamily: 'default'}}>•</Text> {goal.strength}</Text>
+                                                }}>{goal.timeInPeriod} <Text style={{fontFamily: 'default'}}>•</Text> {goal.strength.toUpperCase()}</Text>
+                                                <TouchableOpacity onPress={() => {
+                                                    Linking.openURL(`https://players.brightcove.net/6415718365001/EXtG1xJ7H_default/index.html?videoId=${goal.highlightClip}`).then(r => {
+                                                    });
+                                                    Haptics.selectionAsync()
+                                                }} style={{
+                                                    backgroundColor: colors.card,
+                                                    alignSelf: 'center',
+                                                    marginTop: 10,
+                                                    paddingHorizontal: 20,
+                                                    paddingVertical: 10,
+                                                    borderRadius: 100,
+                                                    marginRight: 10,
+                                                    flexDirection: 'row',
+                                                    gap: 5,
+                                                    alignItems: 'center'
+                                                }}>
+                                                    <VideoCircle color={colors.text}/>
+                                                    <Text style={styles.inactiveText}>Clip</Text>
+                                                </TouchableOpacity>
                                             </View>
+
                                         </View>
 
 
-                                        {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i + 1]?.period && i !== route.params?.data['data']['goals'].length - 1) &&
-                                            <View style={{
-                                                height: '50%',
-                                                borderWidth: 1,
-                                                borderStyle: 'dotted',
-                                                borderColor: 'black',
-                                                opacity: .3,
-                                                marginHorizontal: 10
-                                            }}/>}
+
+                                        
                                     </View>
                                 })}
-                            </ScrollView> : tab === 2 ? route.params?.data['data']['goals'] !== undefined ?
+                            </ScrollView> : tab === 2 ? route.params?.data['data']['gameState'] !== "FUT" ?
                                 <View>
 
                                     <TouchableOpacity onPress={() => {
@@ -1217,7 +1292,7 @@ export default function GamesDetail({navigation}) {
                                                 fontFamily: 'Sora_500Medium',
                                                 fontSize: 16,color: colors.text
                                             }}>{Math.round((parseFloat(matchData?.home.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.home.powerPlayConversion.split("/")[1])).toFixed(2) * 100)}%</Text>
-                                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>Power Play</Text>
+                                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Power Play</Text>
                                             <Text style={{
                                                 fontFamily: 'Sora_500Medium',
                                                 fontSize: 16,color: colors.text
@@ -1237,66 +1312,82 @@ export default function GamesDetail({navigation}) {
                                                           progress={parseFloat(matchData?.away.powerPlayConversion.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1]) ?? 0}
                                                           height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                         </View> : <></>}
-                                    {/*{matchData?.home.powerPlayConversion || matchData?.away.powerPlayConversion &&*/}
-                                    {/*    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>*/}
-                                    {/*        <Text style={{*/}
-                                    {/*            fontFamily: 'Sora_500Medium',*/}
-                                    {/*            fontSize: 16,color: colors.text*/}
-                                    {/*        }}>{matchData?.home.pim}</Text>*/}
-                                    {/*        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>Penalty Minutes</Text>*/}
-                                    {/*        <Text style={{*/}
-                                    {/*            fontFamily: 'Sora_500Medium',*/}
-                                    {/*            fontSize: 16,color: colors.text*/}
-                                    {/*        }}>{matchData?.away.pim}</Text>*/}
-                                    {/*    </View>}*/}
-                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between'}}>*/}
-                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}*/}
-                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
-                                    {/*                  style={{marginTop: 20, transform: [{rotate: '180deg'}]}}*/}
-                                    {/*                  progress={parseFloat(matchData?.home.pim) / (parseFloat(matchData?.home.pim) + parseFloat(matchData?.away.pim)) ?? 0}*/}
-                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
-                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}*/}
-                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
-                                    {/*                  style={{marginTop: 20}}*/}
-                                    {/*                  progress={parseFloat(matchData?.away.pim) / (parseFloat(matchData?.home.pim) + parseFloat(matchData?.away.pim)) ?? 0}*/}
-                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
-                                    {/*</View>*/}
-                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>*/}
-                                    {/*    <Text*/}
-                                    {/*        style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>{matchData?.home.blocks}</Text>*/}
-                                    {/*    <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>Blocked Shots</Text>*/}
-                                    {/*    <Text*/}
-                                    {/*        style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>{matchData?.away.blocks}</Text>*/}
-                                    {/*</View>*/}
-                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between'}}>*/}
-                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}*/}
-                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
-                                    {/*                  style={{marginTop: 20, transform: [{rotate: '180deg'}]}}*/}
-                                    {/*                  progress={parseFloat(matchData?.home.blocks) / (parseFloat(matchData?.home.blocks) + parseFloat(matchData?.away.blocks)) ?? 0}*/}
-                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
-                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}*/}
-                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
-                                    {/*                  style={{marginTop: 20}}*/}
-                                    {/*                  progress={parseFloat(matchData?.away.blocks) / (parseFloat(matchData?.home.blocks) + parseFloat(matchData?.away.blocks)) ?? 0}*/}
-                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
-                                    {/*</View>*/}
-                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>*/}
-                                    {/*    <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>{matchData?.home.hits}</Text>*/}
-                                    {/*    <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>Hits</Text>*/}
-                                    {/*    <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>{matchData?.away.hits}</Text>*/}
-                                    {/*</View>*/}
-                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between'}}>*/}
-                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}*/}
-                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
-                                    {/*                  style={{marginTop: 20, transform: [{rotate: '180deg'}]}}*/}
-                                    {/*                  progress={parseFloat(matchData?.home.hits) / (parseFloat(matchData?.home.hits) + parseFloat(matchData?.away.hits)) ?? 0}*/}
-                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
-                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}*/}
-                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
-                                    {/*                  style={{marginTop: 20}}*/}
-                                    {/*                  progress={parseFloat(matchData?.away.hits) / (parseFloat(matchData?.home.hits) + parseFloat(matchData?.away.hits)) ?? 0}*/}
-                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
-                                    {/*</View>*/}
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                        <Text
+                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('pim').h}</Text>
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>PIM</Text>
+                                        <Text
+                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('pim').a}</Text>
+                                    </View>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
+                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                      progress={landingData('pim').h / (landingData('pim').h + landingData('pim').a)}
+                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
+                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                      style={{marginTop: 20}}
+                                                      progress={landingData('pim').a / (landingData('pim').h + landingData('pim').a)}
+                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                    </View>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                        <Text
+                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{ppcData().h.toFixed(2)*100}%</Text>
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>PP Conversions</Text>
+                                        <Text
+                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{ppcData().a.toFixed(2)*100}%</Text>
+                                    </View>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
+                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                      progress={ppcData().h}
+                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
+                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                      style={{marginTop: 20}}
+                                                      progress={ppcData().a}
+                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                    </View>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                        <Text
+                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('blockedShots').h}</Text>
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Blocked Shots</Text>
+                                        <Text
+                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('blockedShots').a}</Text>
+                                    </View>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
+                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                      progress={landingData('blockedShots').h / (landingData('blockedShots').h + landingData('blockedShots').a)}
+                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
+                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                      style={{marginTop: 20}}
+                                                      progress={landingData('blockedShots').a / (landingData('blockedShots').h + landingData('blockedShots').a)}
+                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                    </View>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                        <Text
+                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('hits').h}</Text>
+                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Hits</Text>
+                                        <Text
+                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('hits').a}</Text>
+                                    </View>
+                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
+                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                      progress={landingData('hits').h / (landingData('hits').h + landingData('hits').a)}
+                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
+                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                      style={{marginTop: 20}}
+                                                      progress={landingData('hits').a / (landingData('hits').h + landingData('hits').a)}
+                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                    </View>
 
                                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
                                         <Text style={{
@@ -1398,74 +1489,73 @@ export default function GamesDetail({navigation}) {
                                         }}
                                     />
 
-                                </View> : <></>
+                                </View> : <View>
+                                        <TouchableOpacity onPress={() => {
+                                            getSIMData(!isReg)
+                                            setIsReg(!isReg)
+                                        }}>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    width: 60,color: colors.text
+                                                }}>{Math.round(parseFloat(sim.h.w).toFixed(2) * 100)}%</Text>
+                                                <Text
+                                                    style={{fontFamily: 'Sora_500Medium', fontSize: 16,color: colors.text}}>{isReg ? "REG" : "OT"} Win
+                                                    Playoff %</Text>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    width: 60,color: colors.text
+                                                }}>{Math.round(parseFloat(sim.a.w).toFixed(2) * 100)}%</Text>
+                                            </View>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
+                                                              unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                              style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                              progress={parseFloat(sim.h.w).toFixed(2) ?? 0} height={6}
+                                                              width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
+                                                              unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                              style={{marginTop: 20}} progress={parseFloat(sim.a.w).toFixed(2) ?? 0}
+                                                              height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            </View>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => {
+                                            getSIMData(!isReg)
+                                            setIsReg(!isReg)
 
-                                : tab === 2 && !(route.params?.data['data']['goals'] !== undefined) ? <View>
-                                    <TouchableOpacity onPress={() => {
-                                        getSIMData(!isReg)
-                                        setIsReg(!isReg)
+                                        }}>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    width: 60,color: colors.text
+                                                }}>{Math.round(parseFloat(sim.h.l).toFixed(2) * 100)}%</Text>
+                                                <Text
+                                                    style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>{isReg ? "REG" : "OT"} Loss
+                                                    Playoff %</Text>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    width: 60,color: colors.text
+                                                }}>{Math.round(parseFloat(sim.a.l).toFixed(2) * 100)}%</Text>
+                                            </View>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
+                                                              unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                              style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                              progress={parseFloat(sim.h.l).toFixed(2) ?? 0} height={6}
+                                                              width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
+                                                              unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                              style={{marginTop: 20}} progress={parseFloat(sim.a.l).toFixed(2) ?? 0}
+                                                              height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            </View>
+                                        </TouchableOpacity>
+                                    </View>
 
-                                    }}>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,
-                                                width: 60,color: colors.text
-                                            }}>{Math.round(parseFloat(sim.h.w).toFixed(2) * 100)}%</Text>
-                                            <Text
-                                                style={{fontFamily: 'Sora_500Medium', fontSize: 16,color: colors.text}}>{isReg ? "REG" : "OT"} Win
-                                                Playoff %</Text>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,
-                                                width: 60,color: colors.text
-                                            }}>{Math.round(parseFloat(sim.a.w).toFixed(2) * 100)}%</Text>
-                                        </View>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                          progress={parseFloat(sim.h.w).toFixed(2) ?? 0} height={6}
-                                                          width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20}} progress={parseFloat(sim.a.w).toFixed(2) ?? 0}
-                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        </View>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => {
-                                        getSIMData(!isReg)
-                                        setIsReg(!isReg)
-
-                                    }}>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,
-                                                width: 60,color: colors.text
-                                            }}>{Math.round(parseFloat(sim.h.l).toFixed(2) * 100)}%</Text>
-                                            <Text
-                                                style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>{isReg ? "REG" : "OT"} Loss
-                                                Playoff %</Text>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,
-                                                width: 60,color: colors.text
-                                            }}>{Math.round(parseFloat(sim.a.l).toFixed(2) * 100)}%</Text>
-                                        </View>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                          progress={parseFloat(sim.h.l).toFixed(2) ?? 0} height={6}
-                                                          width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20}} progress={parseFloat(sim.a.l).toFixed(2) ?? 0}
-                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        </View>
-                                    </TouchableOpacity>
-                                </View> : tab === 3 ?
+                                 : tab === 3 ?
 
                                     <ScrollView>
 
@@ -1654,7 +1744,7 @@ export default function GamesDetail({navigation}) {
                                                     color: colors.text
                                                 }}>{route.params.data.data.homeTeam.abbrev}</Text>
                                                 <Table>
-                                                    <Row textStyle={{fontFamily: 'Sora_600SemiBold'}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={["Pos", "Name", "Goals", "Assists", "Shots", "TOI", "Blocks", "Hits", "+/-"]}/>
+                                                    <Row textStyle={{fontFamily: 'Sora_600SemiBold', color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={["Pos", "Name", "Goals", "Assists", "Shots", "TOI", "Blocks", "Hits", "+/-"]}/>
                                                     {playerStats.h && playerStats.h?.sort(sort_by('goals', true, parseInt)).map((player) => {
                                                         return <Row textStyle={{fontFamily: 'Sora_500Medium', marginTop: 10,color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={[ player.position, player.name.default, player.goals, player.assists, player.shots, player.toi, player.blockedShots, player.hits, player.plusMinus]}/>
                                                     })}
@@ -1670,10 +1760,9 @@ export default function GamesDetail({navigation}) {
                                                         fontFamily: 'Sora_600SemiBold',
                                                         fontSize: 16,
                                                         textAlign: 'left',color: colors.text
-
                                                     }}>{route.params.data.data.awayTeam.abbrev}</Text>
                                                     <Table>
-                                                        <Row textStyle={{fontFamily: 'Sora_600SemiBold'}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={["Pos", "Name", "Goals", "Assists", "Shots", "TOI", "Blocks", "Hits", "+/-"]}/>
+                                                        <Row textStyle={{fontFamily: 'Sora_600SemiBold', color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={["Pos", "Name", "Goals", "Assists", "Shots", "TOI", "Blocks", "Hits", "+/-"]}/>
                                                         {playerStats.a && playerStats.a?.sort(sort_by('goals', true, parseInt)).map((player) => {
                                                             return <Row textStyle={{fontFamily: 'Sora_500Medium', color: colors.text, marginTop: 10}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={[ player.position, player.name.default, player.goals, player.assists, player.shots, player.toi, player.blockedShots, player.hits, player.plusMinus]}/>
                                                         })}
@@ -1694,6 +1783,66 @@ export default function GamesDetail({navigation}) {
 
 
 
+                                        </ScrollView> : tab === 6 ? <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false} horizontal>
+                                            {landing?.summary.threeStars.map((star, i)=>{
+                                                return <View>
+                                                    <View>
+
+                                                        <View style={{
+                                                            marginBottom: 4,
+                                                            alignSelf: 'center',
+                                                            height: 80,
+                                                            borderRadius: 100,
+                                                            marginHorizontal: 20
+                                                        }}>
+                                                            <Text style={{
+                                                                fontFamily: 'Sora_700Bold',
+                                                                fontSize: 16,
+                                                                textAlign: 'center',
+                                                                color: colors.text
+                                                            }}>{star.teamAbbrev}</Text>
+
+                                                            <View style={{flexDirection: 'row', justifyContent: 'center'}}>
+                                                                <Image style={{
+                                                                    borderRadius: 100,
+                                                                    borderWidth: 3,
+                                                                    height: 80,
+                                                                    width: 80,
+                                                                    marginTop: 10,
+                                                                    borderColor: `${getPCTColor(star.teamAbbrev)}`,
+                                                                    backgroundColor: colors.card
+                                                                }} source={{uri: star.headshot}}/>
+                                                            </View>
+
+                                                            <Text style={{
+                                                                fontFamily: 'Sora_600SemiBold',
+                                                                fontSize: 16,
+                                                                marginTop: 10,
+                                                                textAlign: 'center',
+                                                                color: colors.text
+                                                            }}>{star.firstName} {star.lastName}</Text>
+                                                            <Text style={{
+                                                                fontFamily: 'Sora_600SemiBold',
+                                                                fontSize: 14,
+                                                                marginTop: 4,
+                                                                textAlign: 'center',
+                                                                opacity: .5,color: colors.text
+                                                            }}>{star.points} points</Text>
+                                                        </View>
+                                                    </View>
+
+
+                                                    {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i + 1]?.period && i !== route.params?.data['data']['goals'].length - 1) &&
+                                                        <View style={{
+                                                            height: '50%',
+                                                            borderWidth: 1,
+                                                            borderStyle: 'dotted',
+                                                            borderColor: 'black',
+                                                            opacity: .3,
+                                                            marginHorizontal: 10
+                                                        }}/>}
+                                                </View>
+                                            })}
                                         </ScrollView> : <></>
 
 
