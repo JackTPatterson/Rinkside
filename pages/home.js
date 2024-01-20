@@ -10,6 +10,7 @@ import React, {useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {LineChart} from "react-native-chart-kit";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
+import {SvgUri} from "react-native-svg";
 import teamData from "../teams";
 
 export default function Home() {
@@ -130,6 +131,7 @@ export default function Home() {
 
     const [roster, setRoster] = useState([])
 
+
     const getRoster = (code) => {
 
         let myHeaders = new Headers();
@@ -146,6 +148,7 @@ export default function Home() {
             .then(result => {
                 setRoster(JSON.parse(result))
             })
+
     }
 
     const getSchedule = (type, code) => {
@@ -308,6 +311,8 @@ export default function Home() {
     const [tab, setTab] = useState(0)
 
 
+
+
     const Match = (props) => {
 
         const [hwp, setHWP] = useState(0);
@@ -328,6 +333,7 @@ export default function Home() {
                 }
             );
         }
+
 
 
         return <View
@@ -498,6 +504,7 @@ export default function Home() {
                             </TouchableOpacity>
                         </ScrollView>
                     </View>
+
                     {!tab ?
                     <View style={{marginHorizontal: 10}}>
                         <View>

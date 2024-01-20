@@ -299,6 +299,43 @@ export default function Players() {
 
     }
 
+    function getDaySuffix(day) {
+        if (day >= 11 && day <= 13) {
+            return 'th';
+        }
+        const lastDigit = day % 10;
+        switch (lastDigit) {
+            case 1:
+                return 'st';
+            case 2:
+                return 'nd';
+            case 3:
+                return 'rd';
+            default:
+                return 'th';
+        }
+    }
+
+    function formatDate(date, offset) {
+        const today = new Date();
+        const inputDate = new Date(date);
+        offset++;
+        const adjustedDate = new Date(inputDate.getTime() + offset * 24 * 60 * 60 * 1000);
+        if (adjustedDate.toDateString() === today.toDateString()) {
+            return "Today";
+        } else if (adjustedDate.toDateString() === new Date(today.getTime() + 24 * 60 * 60 * 1000).toDateString()) {
+            return "Tomorrow";
+        } else if (adjustedDate.toDateString() === new Date(today.getTime() - 24 * 60 * 60 * 1000).toDateString()) {
+            return "Yesterday";
+        } else {
+            const monthAbbreviation = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(adjustedDate);
+            const day = adjustedDate.getDate();
+            const daySuffix = getDaySuffix(day);
+            const formattedDay = day < 10 ? `${day}${daySuffix}` : `${day}${daySuffix}`;
+            return `${monthAbbreviation} ${formattedDay}`;
+        }
+    }
+
     const teamAbbreviations = [
         "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL",
         "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR",
@@ -714,12 +751,22 @@ export default function Players() {
                                     borderColor: `${getPCTColor(selectedPlayer?.currentTeamAbbrev)}`,
                                     backgroundColor: colors.card
                                 }} source={{uri: selectedPlayer?.headshot}}/>
-                                <Text style={{
-                                    fontSize: 24,
-                                    fontFamily: 'Sora_600SemiBold',
-                                    textAlign: 'center',
-                                    color: colors.text
-                                }}>{selectedPlayer?.firstName.default} {selectedPlayer?.lastName.default}</Text>
+                                <View>
+                                    <Text style={{
+                                        fontSize: 24,
+                                        fontFamily: 'Sora_600SemiBold',
+                                        textAlign: 'left',
+                                        color: colors.text
+                                    }}>{selectedPlayer?.firstName.default} {selectedPlayer?.lastName.default}</Text>
+                                    <Text style={{
+                                        fontFamily: 'Sora_500Medium',
+                                        fontSize: 16,
+                                        opacity: .5,
+                                        textAlign: 'left',
+                                        color: colors.text
+                                    }}>{selectedPlayer?.fullTeamName.default}</Text>
+                                </View>
+
                             </View>
 
                             <View style={{backgroundColor: 'black', borderRadius: 100}}>
@@ -753,7 +800,7 @@ export default function Players() {
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                {selectedPlayer?.careerTotals.regularSeason.goals + selectedPlayer?.careerTotals.playoffs.goals}
+                                {selectedPlayer?.careerTotals.regularSeason.goals}
                                 </Text>
                                 <Text style={{
                                    color: colors.text,
@@ -770,7 +817,7 @@ export default function Players() {
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                    {selectedPlayer?.careerTotals.regularSeason.assists + selectedPlayer?.careerTotals.playoffs.assists}
+                                    {selectedPlayer?.careerTotals.regularSeason.assists}
                                 </Text>
                                 <Text style={{
                                    color: colors.text,
@@ -787,7 +834,7 @@ export default function Players() {
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                    {selectedPlayer?.careerTotals.regularSeason.points + selectedPlayer?.careerTotals.playoffs.points}
+                                    {selectedPlayer?.careerTotals.regularSeason.points}
                                 </Text>
                                 <Text style={{
                                    color: colors.text,
@@ -879,8 +926,8 @@ export default function Players() {
                                 backgroundColor: colors.card,
                                 borderRadius: 100,
                                 alignSelf: 'flex-start',
-                                paddingHorizontal: 10,
-                                paddingVertical: 3
+                                paddingHorizontal: 15,
+                                paddingVertical: 10
                             }}>
                                 <Text style={{
                                    color: colors.text,
@@ -908,14 +955,16 @@ export default function Players() {
                         {selectedPlayer &&
                             <LineChart
                                 data={{
-                                    labels: ["Game 1", "Game 2", "Game 3", "Game 4", "Game 5"],
+                                    labels:  selectedPlayer?.last5Games.map((r, i) => {
+                                        return formatDate(r.gameDate, 0)
+                                    }).reverse(),
                                     datasets: [
                                         {
                                             color: (opacity) => `${getPCTColor(selectedPlayer?.currentTeamAbbrev)}`,
                                             strokeWidth: 2.5,
                                             data: selectedPlayer?.last5Games.map((r, i) => {
                                                 return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
-                                            })
+                                            }).reverse()
                                         }
                                     ],
                                 }}

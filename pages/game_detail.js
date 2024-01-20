@@ -1,23 +1,25 @@
+import BottomSheet, {useBottomSheet} from "@gorhom/bottom-sheet";
 import {useRoute, useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import * as Linking from 'expo-linking';
 import {
+    ArrowDown2,
     ArrowLeft,
     Chart2,
     Clock,
     CloseCircle,
     ExportCircle,
     Flash,
-    ImportCircle,
-    Profile2User, Star, Star1,
+    ImportCircle, Map1,
+    Profile2User, RowVertical, Star, Star1,
     TimerPause,
     User,
     UserRemove, VideoCircle
 } from "iconsax-react-native";
 import {MotiText, MotiView} from "moti";
 import Papa from "papaparse";
-import React, {useEffect, useRef, useState} from "react";
+import React, {useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {LineChart} from "react-native-chart-kit";
 import * as Progress from 'react-native-progress';
@@ -28,7 +30,10 @@ import teamData from '../teams';
 
 export default function GamesDetail({navigation}) {
 
-    const graphRef = useRef(null);
+
+    const bottomSheetRef2 = useRef()
+    const snapPoints = useMemo(() => ['90%'], []);
+
 
     const {colors} = useTheme()
 
@@ -144,6 +149,36 @@ export default function GamesDetail({navigation}) {
 
     const [goals, setGoals] = useState([])
 
+    const [mapStats, setMapStats] = useState([])
+    const [mapStatsSel, setMapStatsSel] = useState("shot-on-goal")
+
+    function mapToPixel(x, y, width, height, elementSize) {
+        let halfElementSize = elementSize / 2;
+        let pixelX = (x + 100) / 200 * width - halfElementSize;
+        let pixelY = (1 - (y + 42.5) / 85) * height - halfElementSize; // Flip y-axis for typical graph orientation
+        return { x: pixelX, y: pixelY };
+    }
+
+    const getMapData = (type) => {
+        setMapStatsSel("Shots")
+        let myHeaders = new Headers();
+        myHeaders.append("accept", "application/json");
+
+        let requestOptions = {
+            method: 'GET',
+            headers: myHeaders,
+            redirect: 'follow'
+        };
+        fetch(`https://api-web.nhle.com/v1/gamecenter/${route.params?.data['data']['id']}/play-by-play`, requestOptions)
+            .then(response => response.text())
+            .then(result => {
+                const d = JSON.parse(result).plays.filter(shot=>{
+                    return shot.typeDescKey === type
+                })
+                setMapStats(d.map(s=>{return{x: s.details.xCoord, y: s.details.yCoord, d: s.details.eventOwnerTeamId}}))
+            })
+    }
+
     useEffect(()=>{
 
 
@@ -229,6 +264,10 @@ export default function GamesDetail({navigation}) {
                 //     }
                 // })
             })
+
+        getMapData('shot-on-goal')
+
+
 
 
 
@@ -441,26 +480,39 @@ export default function GamesDetail({navigation}) {
     const [selP, setSelP] = useState(0);
 
     const landingData = (data) => {
-        return {
-            h: parseInt(landing?.summary.teamGameStats.filter(stat => {
-                return stat.category === data
-            })[0].homeValue), a: parseInt(landing?.summary.teamGameStats.filter(stat => {
-                return stat.category === data
-            })[0].awayValue)
+        try{
+            return {
+                h: parseInt(landing?.summary?.teamGameStats.filter(stat => {
+                    return stat.category === data
+                })[0].homeValue), a: parseInt(landing?.summary.teamGameStats?.filter(stat => {
+                    return stat.category === data
+                })[0].awayValue)
+            }
+        }catch {
+            return {h:0,a:0}
         }
+
     }
     const ppcData = () => {
 
-        const home = landing?.summary.teamGameStats.filter(stat => {
-            return stat.category === "powerPlay"
-        })[0].homeValue.split("/")
+        try{
+            const home = landing?.summary.teamGameStats?.filter(stat => {
+                return stat.category === "powerPlay"
+            })[0].homeValue.split("/")
 
-        const away = landing?.summary.teamGameStats.filter(stat => {
-            return stat.category === "powerPlay"
-        })[0].awayValue.split("/")
+            const away = landing?.summary.teamGameStats?.filter(stat => {
+                return stat.category === "powerPlay"
+            })[0].awayValue.split("/")
 
-        return {
-            h: parseInt(home[0]) / parseInt(home[1]), a: parseInt(away[0]) / parseInt(away[1])}
+            return {
+                h: parseInt(home[0]) / parseInt(home[1]), a: parseInt(away[0]) / parseInt(away[1])}
+        }
+
+        catch {
+            return {h:0,a:0}
+        }
+
+
     }
 
 
@@ -780,8 +832,6 @@ function getPCTColor(teamCode) {
                                     }}
                                                animate={{
                                                    opacity: 1
-
-
                                                }}
                                                transition={{
                                                    type: 'timing',
@@ -795,8 +845,8 @@ function getPCTColor(teamCode) {
                                             opacity: 0
                                         }}
                                         animate={{
-                                            translateX: matchData?.home.score ? 0 : 5,
-                                            opacity: matchData?.home.score ? 1 : 0,
+                                            translateX: stat ? 0 : 5,
+                                            opacity: stat ? 1 : 0,
                                             delay: 300
 
                                         }}
@@ -914,7 +964,7 @@ function getPCTColor(teamCode) {
                     }}>
 
                         {
-                            route.params?.data['data']['gameState'] !== "FUT" ?
+                            route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" ?
                                 <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
                                                       setTab(0)
@@ -954,7 +1004,7 @@ function getPCTColor(teamCode) {
                                           }}
                         >
                             <Chart2 color={tab === 2 ? colors.background : colors.text}/>
-                            <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>{route.params?.data['data']['gameState'] !== 'FUT' ? "Game" : "Pregame"} Stats</Text>
+                            <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>{route.params?.data['data']['gameState'] !== 'FUT' || route.params?.data['data']['gameState'] !== "PRE" ? "Game" : "Pregame"} Stats</Text>
                         </TouchableOpacity>
 
                         {/*{*/}
@@ -969,7 +1019,7 @@ function getPCTColor(teamCode) {
                         {/*        </TouchableOpacity>*/}
                         {/*}*/}
                         {
-                            route.params?.data['data']['gameState'] !== "FUT" &&
+                            route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" &&
                                 <TouchableOpacity style={tab === 5 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
                                                       setTab(5)
@@ -980,7 +1030,7 @@ function getPCTColor(teamCode) {
                                 </TouchableOpacity>
                         }
                         {
-                            route.params?.data['data']['gameState'] !== "FUT" && <
+                            route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" && <
                                 TouchableOpacity style={tab === 4 ? styles.activeButton : styles.inactiveButton}
                                                  onPress={() => {
                                                      setTab(4)
@@ -992,9 +1042,22 @@ function getPCTColor(teamCode) {
                                 <Text style={tab === 4 ? styles.activeText : styles.inactiveText}>Scratches</Text>
                             </TouchableOpacity>
                         }
+                        {
+                            route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" && <
+                                TouchableOpacity style={tab === 7 ? styles.activeButton : styles.inactiveButton}
+                                                 onPress={() => {
+                                                     setTab(7)
+                                                     Haptics.selectionAsync()
+                                                 }}>
+
+                                <Map1 color={tab === 7 ? colors.background : colors.text}/>
+
+                                <Text style={tab === 7 ? styles.activeText : styles.inactiveText}>Rink Map</Text>
+                            </TouchableOpacity>
+                        }
 
                         {
-                            route.params?.data['data']['gameState'] !== "FINAL" && <
+                            route.params?.data['data']['gameState'] === "FINAL" && <
                                 TouchableOpacity style={tab === 6 ? styles.activeButton : styles.inactiveButton}
                                                  onPress={() => {
                                                      setTab(6)
@@ -1006,14 +1069,11 @@ function getPCTColor(teamCode) {
                                 <Text style={tab === 6 ? styles.activeText : styles.inactiveText}>Stars</Text>
                             </TouchableOpacity>
                         }
-
-
-
                     </ScrollView>
                 </View>
                 <View>
                     {
-                        !tab && route.params?.data['data']['gameState'] !== "FUT" ?
+                        !tab && route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" ?
                             <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false} horizontal>
                                 {goals?.map((goal, i)=>{
                                     return <View>
@@ -1113,10 +1173,10 @@ function getPCTColor(teamCode) {
 
 
 
-                                        
+
                                     </View>
                                 })}
-                            </ScrollView> : tab === 2 ? route.params?.data['data']['gameState'] !== "FUT" ?
+                            </ScrollView> : tab === 2 ? route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" ?
                                 <View>
 
                                     <TouchableOpacity onPress={() => {
@@ -1323,33 +1383,35 @@ function getPCTColor(teamCode) {
                                         <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
                                                       unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                       style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={landingData('pim').h / (landingData('pim').h + landingData('pim').a)}
+                                                      progress={isNaN(landingData('pim').h / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').a / (landingData('pim').h + landingData('pim').a)}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                         <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
                                                       unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                       style={{marginTop: 20}}
-                                                      progress={landingData('pim').a / (landingData('pim').h + landingData('pim').a)}
+                                                      progress={isNaN(landingData('pim').a / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').a / (landingData('pim').h + landingData('pim').a)}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                     </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                        <Text
-                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{ppcData().h.toFixed(2)*100}%</Text>
-                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>PP Conversions</Text>
-                                        <Text
-                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{ppcData().a.toFixed(2)*100}%</Text>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={ppcData().h}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20}}
-                                                      progress={ppcData().a}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                    </View>
+                                    {/*/!*FLAG*!/*/}
+                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>*/}
+                                    {/*    <Text*/}
+                                    {/*        style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{ppcData().h.toFixed(2)*100}%</Text>*/}
+                                    {/*    <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>PP Conversions</Text>*/}
+                                    {/*    <Text*/}
+                                    {/*        style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{ppcData().a.toFixed(2)*100}%</Text>*/}
+                                    {/*</View>*/}
+                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between'}}>*/}
+                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}*/}
+                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
+                                    {/*                  style={{marginTop: 20, transform: [{rotate: '180deg'}]}}*/}
+                                    {/*                  progress={isNaN(ppcData().h) ? 0 : ppcData().h}*/}
+                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
+                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}*/}
+                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
+                                    {/*                  style={{marginTop: 20}}*/}
+                                    {/*                  progress={isNaN(ppcData().a) ? 0 : ppcData()}*/}
+                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
+                                    {/*</View>*/}
+                                    {/*/!*FLAG*!/*/}
                                     <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
                                         <Text
                                             style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('blockedShots').h}</Text>
@@ -1361,12 +1423,12 @@ function getPCTColor(teamCode) {
                                         <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
                                                       unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                       style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={landingData('blockedShots').h / (landingData('blockedShots').h + landingData('blockedShots').a)}
+                                                      progress={isNaN(landingData('blockedShots').h) ? 0 : landingData('blockedShots').h / (landingData('blockedShots').h + landingData('blockedShots').a)}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                         <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
                                                       unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                       style={{marginTop: 20}}
-                                                      progress={landingData('blockedShots').a / (landingData('blockedShots').h + landingData('blockedShots').a)}
+                                                      progress={isNaN(landingData('blockedShots').h) ? 0 : landingData('blockedShots').a / (landingData('blockedShots').h + landingData('blockedShots').a)}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                     </View>
                                     <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
@@ -1380,12 +1442,12 @@ function getPCTColor(teamCode) {
                                         <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
                                                       unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                       style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={landingData('hits').h / (landingData('hits').h + landingData('hits').a)}
+                                                      progress={ isNaN(landingData('hits').h) ? 0 : landingData('hits').h / (landingData('hits').h + landingData('hits').a)}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                         <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
                                                       unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                       style={{marginTop: 20}}
-                                                      progress={landingData('hits').a / (landingData('hits').h + landingData('hits').a)}
+                                                      progress={ isNaN(landingData('hits').a) ? 0 : landingData('hits').a / (landingData('hits').h + landingData('hits').a)}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                     </View>
 
@@ -1736,6 +1798,7 @@ function getPCTColor(teamCode) {
 
                                         </ScrollView> : tab === 5 ?  <ScrollView horizontal>
                                             <View>
+
                                                 <Text style={{
                                                     fontFamily: 'Sora_600SemiBold',
                                                     fontSize: 16,
@@ -1814,6 +1877,7 @@ function getPCTColor(teamCode) {
                                                                 }} source={{uri: star.headshot}}/>
                                                             </View>
 
+
                                                             <Text style={{
                                                                 fontFamily: 'Sora_600SemiBold',
                                                                 fontSize: 16,
@@ -1830,8 +1894,6 @@ function getPCTColor(teamCode) {
                                                             }}>{star.points} points</Text>
                                                         </View>
                                                     </View>
-
-
                                                     {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i + 1]?.period && i !== route.params?.data['data']['goals'].length - 1) &&
                                                         <View style={{
                                                             height: '50%',
@@ -1843,7 +1905,48 @@ function getPCTColor(teamCode) {
                                                         }}/>}
                                                 </View>
                                             })}
-                                        </ScrollView> : <></>
+
+                                        </ScrollView> : tab === 7 ? <View>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10}}>
+                                                <TouchableOpacity onPress={() => {
+                                                    Haptics.selectionAsync().then(() => {
+                                                    })
+                                                    bottomSheetRef2.current.expand()
+                                                }} style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    gap: 4,
+                                                    backgroundColor: colors.card,
+                                                    borderRadius: 100,
+                                                    alignSelf: 'flex-start',
+                                                    paddingHorizontal: 15,
+                                                    paddingVertical: 10
+                                                }}>
+                                                    <Text style={{
+                                                        color: colors.text,
+                                                        fontSize: 16,
+                                                        fontFamily: 'Sora_500Medium'
+                                                    }}>{mapStatsSel}
+                                                    </Text>
+                                                    <ArrowDown2 color={colors.text} size={16}/>
+
+                                                </TouchableOpacity>
+
+
+
+                                            </View>
+                                            <View style={{height: Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)), width: Dimensions.get('window').width - 20, backgroundColor: 'white', marginLeft: 'auto', marginRight: 'auto', position: 'relative', borderRadius: 100, marginTop: 20}}>
+                                                <Image width={Dimensions.get('window').width - 20} height={Math.round((Dimensions.get('window').width - 20) * (42.5 / 100))} style={{
+                                                    position: 'absolute', borderRadius: 50, borderBottomWidth: 2, borderColor: 'lightgray'
+                                                }}
+                                                       source={{uri: "https://thumbs.dreamstime.com/b/ice-hockey-rink-regulation-nhl-to-exact-specifications-to-goal-line-trapezoid-goal-crease-blue-line-to-specs-made-54402082.jpg"}}/>
+                                                {mapStats.map(s=>{
+                                                    const pixelPosition = mapToPixel(s.x, s.y, Dimensions.get('window').width - 20, Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)), 10);
+                                                    return <View style={{height: 10, width: 10, backgroundColor: route.params?.data['data']['homeTeam']['id'] === s.d ? getPCTColor(route.params?.data['data']['homeTeam']['abbrev']) : getPCTColor(route.params?.data['data']['awayTeam']['abbrev']), borderRadius: 100, position: 'absolute', top: pixelPosition.y, left: pixelPosition.x}}/>
+                                                })}
+
+                                            </View>
+                                        </View> : <></>
 
 
 
@@ -1853,6 +1956,131 @@ function getPCTColor(teamCode) {
 
                 </View>
             </ScrollView>
+            <BottomSheet
+
+                ref={bottomSheetRef2}
+                index={-1}
+                snapPoints={snapPoints}
+                enablePanDownToClose
+                style={{
+                    paddingHorizontal: 20
+                }}
+                backgroundStyle={{
+                    backgroundColor: colors.background
+                }}
+            >
+                <View style={{flexDirection: 'column', gap: 20}}>
+                    <Text style={{
+                        color: colors.text,
+                        fontSize: 24,
+                        fontFamily: 'Sora_600SemiBold'
+                    }}>Select A Stat
+                    </Text>
+
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setMapStatsSel("Goals")
+                        getMapData('goal')
+                        bottomSheetRef2.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Goals
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setMapStatsSel("Shots")
+                        getMapData('shot-on-goal')
+                        bottomSheetRef2.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Shots
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setMapStatsSel("Blocked Shots")
+                        getMapData('blocked-shot')
+                        bottomSheetRef2.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Blocked Shots
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setMapStatsSel("Giveaways")
+                        getMapData('giveaway')
+                        bottomSheetRef2.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Giveaways
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setMapStatsSel("Takeaways")
+                        getMapData('takeaway')
+                        bottomSheetRef2.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Takeaways
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setMapStatsSel("Missed Shots")
+                        getMapData('missed-shot')
+                        bottomSheetRef2.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Missed Shots
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setMapStatsSel("Hits")
+                        getMapData('hit')
+                        bottomSheetRef2.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Hits
+                        </Text>
+                    </TouchableOpacity>
+
+
+
+                </View>
+
+            </BottomSheet>
 
 
         </SafeAreaView>

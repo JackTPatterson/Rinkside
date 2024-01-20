@@ -540,7 +540,7 @@ export default function Games({navigation}) {
                     justifyContent: 'space-between',
                     marginTop: 20
                 }}>
-                            <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24, color: colors.text}}>Games {formatDate("2024-01-16", dateOffset+2)}</Text>
+                            <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24, color: colors.text}}>Games {formatDate(getDate(0), dateOffset)}</Text>
                             <View style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
@@ -602,7 +602,7 @@ export default function Games({navigation}) {
                     color: colors.text
                 }}>Upcoming Games</Text>
                 {data.filter((g=>{
-                    return g.gameState === "FUT"
+                    return g.gameState === "FUT" || g.gameState === "PRE"
                 })).map((game, i) => {
                     return (
                         <Team game={game} keu={i}/>
@@ -616,7 +616,7 @@ export default function Games({navigation}) {
                     color: colors.text
                 }}>Finished Games</Text>
                 {data.filter((g=>{
-                   return g.gameState === "OFF"
+                   return g.gameState === "OFF" || g.gameState === "OVER" || g.gameState === "FINAL"
                 })).map((game, i) => {
                     return (
                             <Team game={game} keu={i}/>
