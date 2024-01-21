@@ -273,7 +273,7 @@ export default function Rankings() {
             alignItems: 'center',
             justifyContent: 'flex-start',
             height: '100%',
-            backgroundColor: colors.background, marginHorizontal: 10
+            backgroundColor: colors.background
         },
         inactiveButton: {
             backgroundColor: colors.card,
@@ -335,14 +335,14 @@ export default function Rankings() {
             <View style={styles.container}>
 
                 <SafeAreaView style={{width: '100%'}}>
-                    <Text style={{fontFamily: 'Sora_500Medium', marginBottom: 10, fontSize: 24, color: colors.text}}>Rankings</Text>
+                    <Text style={{fontFamily: 'Sora_500Medium', marginBottom: 10, fontSize: 24, color: colors.text, marginHorizontal: 10}}>Rankings</Text>
                     <View>
                         <View style={{
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'flex-start',
                             marginBottom: 20,
-                            marginTop: 10
+                            marginTop: 10, marginHorizontal: 10
                         }}>
                             <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                        onPress={() => {
@@ -364,7 +364,7 @@ export default function Rankings() {
                         </View>
                     </View>
                     <ScrollView showsVerticalScrollIndicator={false}
-                                style={{height: Dimensions.get('window').height - 215}}>
+                                style={{height: Dimensions.get('window').height - 215, marginHorizontal: 10}}>
                         <View style={{marginBottom: 5}}>
                             {data?.sort(sort_by(!tab ? 'madePlayoffs' : 'draftLottery', true, parseFloat)).map((rank, i) => {
                                 return rank.teamCode === favTeam ? <Home key={i} onClick={() => {
@@ -393,15 +393,16 @@ export default function Rankings() {
                     index={-1}
                     snapPoints={snapPoints}
                     enablePanDownToClose
+
                     style={{
                         paddingHorizontal: 20
                     }}
                     backgroundStyle={{
-                        backgroundColor: colors.background
+                        backgroundColor: colors.card
                     }}
                 >
-                    <View>
-                        <View>
+                    <View  >
+                        <View s>
                             <View style={{
                                 flexDirection: "row",
                                 width: '100%',
@@ -429,12 +430,6 @@ export default function Rankings() {
                                         color: colors.text
                                     }}>{team[0]?.name}</Text>
                                 </View>
-                                <View style={{backgroundColor: 'black', borderRadius: 100}}>
-                                    <Svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                                         xmlns="http://www.w3.org/2000/svg">
-                                        <Path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                    </Svg>
-                                </View>
                             </View>
                             <ScrollView showsVerticalScrollIndicator={false} horizontal snapToAlignment={"center"}
                                         decelerationRate={0} snapToInterval={Dimensions.get('window').width - 40}>
@@ -446,7 +441,7 @@ export default function Rankings() {
                                         marginBottom: 20,
                                         color: colors.text
                                     }}>Overall</Text>
-                                    <ScrollView style={{height: '100%'}}>
+                                    <ScrollView style={{height: '100%', marginRight: 10}}>
                                         <PCTStat teamCode={sel.teamCode} pct={sel.madePlayoffs}
                                                  rnd={'Playoff Percentage'}/>
                                         <PCTStat teamCode={sel.teamCode} pct={sel.round2} rnd={'Second Round'}/>

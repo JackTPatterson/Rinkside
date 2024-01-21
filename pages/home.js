@@ -5,6 +5,7 @@ import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {Activity, Calendar, User} from "iconsax-react-native";
 import {Skeleton} from "moti/skeleton";
+import {PlayerSkeleton} from "./components/Skeleton";
 import Papa from "papaparse";
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
@@ -535,7 +536,7 @@ export default function Home() {
                                         fontFamily: 'Sora_600SemiBold',
                                         fontSize: 24, color: colors.text
                                     }}>Season Wide Stats</Text>
-                                    <ScrollView style={{marginHorizontal: 10, marginTop: 20}}>
+                                    <ScrollView style={{marginTop: 20}}>
 
                                         <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, marginBottom: 10, color: colors.text, marginTop: 20}}>Goal Differential</Text>
                                         {timeline &&
@@ -552,19 +553,20 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
-                                                withHorizontalLines={true}
+                                                withHorizontalLines={false}
                                                 withVerticalLines={false}
                                                 withDots={false}
                                                 withShadow
                                                 chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: '#fff',
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
@@ -593,27 +595,25 @@ export default function Home() {
                                                     },
                                                 ]
                                             }}
-                                            width={Dimensions.get("window").width}
+                                            width={Dimensions.get("window").width + 20}
                                             height={220}
                                             yAxisInterval={1}
-                                            withHorizontalLines={true}
+                                            withHorizontalLines={false}
                                             withVerticalLines={false}
-                                            yAxisSuffix={"%"}
                                             withDots={false}
                                             withShadow
                                             chartConfig={{
-                                                backgroundColor: `rgba(255, 255, 255, 0)`,
-
+                                                backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                 useShadowColorFromDataset: true,
-                                                fillShadowGradientFromOpacity: 0,
+                                                fillShadowGradientFromOpacity: .5,
                                                 fillShadowGradientToOpacity: 0,
-                                                backgroundGradientFrom: "#fff",
+                                                backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                 backgroundGradientFromOpacity: 0,
                                                 backgroundGradientTo: "#fff",
                                                 backgroundGradientToOpacity: 0,
                                                 decimalPlaces: 0,
-                                                labelColor: (opacity = 1) => colors.text,
                                                 color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                labelColor: (opacity = 1) => colors.text,
                                                 strokeWidth: 2.5,
                                                 barPercentage: 10
                                             }}
@@ -638,26 +638,25 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
-                                                withHorizontalLines={true}
+                                                withHorizontalLines={false}
                                                 withVerticalLines={false}
                                                 withDots={false}
                                                 withShadow
                                                 chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
-
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
                                                     decimalPlaces: 0,
-                                                    labelColor: (opacity = 1) => colors.text,
                                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
                                                     strokeWidth: 2.5,
                                                     barPercentage: 10
                                                 }}
@@ -681,26 +680,25 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
-                                                withHorizontalLines={true}
+                                                withHorizontalLines={false}
                                                 withVerticalLines={false}
                                                 withDots={false}
                                                 withShadow
                                                 chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
-
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
                                                     decimalPlaces: 0,
-                                                    labelColor: (opacity = 1) => colors.text,
                                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
                                                     strokeWidth: 2.5,
                                                     barPercentage: 10
                                                 }}
@@ -724,26 +722,25 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
-                                                withHorizontalLines={true}
+                                                withHorizontalLines={false}
                                                 withVerticalLines={false}
                                                 withDots={false}
                                                 withShadow
                                                 chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
-
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
                                                     decimalPlaces: 0,
-                                                    labelColor: (opacity = 1) => colors.text,
                                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
                                                     strokeWidth: 2.5,
                                                     barPercentage: 10
                                                 }}
@@ -767,26 +764,26 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
                                                 withHorizontalLines={true}
                                                 withVerticalLines={false}
                                                 withDots={false}
                                                 withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
 
+                                                chartConfig={{
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
                                                     decimalPlaces: 0,
-                                                    labelColor: (opacity = 1) => colors.text,
                                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
                                                     strokeWidth: 2.5,
                                                     barPercentage: 10
                                                 }}
@@ -810,26 +807,26 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
                                                 withHorizontalLines={true}
                                                 withVerticalLines={false}
                                                 withDots={false}
                                                 withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
 
+                                                chartConfig={{
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
                                                     decimalPlaces: 0,
-                                                    labelColor: (opacity = 1) => colors.text,
                                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
                                                     strokeWidth: 2.5,
                                                     barPercentage: 10
                                                 }}
@@ -853,26 +850,26 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
                                                 withHorizontalLines={true}
                                                 withVerticalLines={false}
                                                 withDots={false}
                                                 withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
 
+                                                chartConfig={{
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
                                                     decimalPlaces: 0,
-                                                    labelColor: (opacity = 1) => colors.text,
                                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
                                                     strokeWidth: 2.5,
                                                     barPercentage: 10
                                                 }}
@@ -896,7 +893,7 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
 
@@ -905,17 +902,17 @@ export default function Home() {
                                                 withDots={false}
                                                 withShadow
                                                 chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
                                                     decimalPlaces: 0,
-                                                    labelColor: (opacity = 1) => colors.text,
                                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
                                                     strokeWidth: 2.5,
                                                     barPercentage: 10
                                                 }}
@@ -939,26 +936,25 @@ export default function Home() {
                                                         },
                                                     ]
                                                 }}
-                                                width={Dimensions.get("window").width}
+                                                width={Dimensions.get("window").width + 20}
                                                 height={220}
                                                 yAxisInterval={1}
-                                                withHorizontalLines={true}
+                                                withHorizontalLines={false}
                                                 withVerticalLines={false}
                                                 withDots={false}
                                                 withShadow
                                                 chartConfig={{
-                                                    backgroundColor: `rgba(255, 255, 255, 0)`,
-
+                                                    backgroundColor:`${getPCTColor(`${selectedTeam}`)}`,
                                                     useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: 0,
+                                                    fillShadowGradientFromOpacity: .5,
                                                     fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: "#fff",
+                                                    backgroundGradientFrom: `${getPCTColor(`${selectedTeam}`)}`,
                                                     backgroundGradientFromOpacity: 0,
                                                     backgroundGradientTo: "#fff",
                                                     backgroundGradientToOpacity: 0,
                                                     decimalPlaces: 0,
-                                                    labelColor: (opacity = 1) => colors.text,
                                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                    labelColor: (opacity = 1) => colors.text,
                                                     strokeWidth: 2.5,
                                                     barPercentage: 10
                                                 }}
@@ -985,7 +981,7 @@ export default function Home() {
                                     }}>Forwards</Text>
                                     <ScrollView style={{height: 175}} showsHorizontalScrollIndicator={false} horizontal>
 
-                                        {roster.forwards.map((player, i)=>{
+                                        {roster.forwards.length ? roster.forwards.map((player, i)=>{
                                             return <View style={{flexDirection: 'row'}}>
                                                 <View>
                                                     <View style={{
@@ -1023,14 +1019,16 @@ export default function Home() {
                                                     </View>
                                                 </View>
                                             </View>
-                                        })}
+                                        }) : <View style={{marginTop: 20}}>
+                                            <PlayerSkeleton colors={colors}/>
+                                        </View>}
                                     </ScrollView>
                                     <Text style={{
                                         fontFamily: 'Sora_600SemiBold',
                                         fontSize: 16, color: colors.text, marginTop: 20, marginBottom: 10
                                     }}>Defensemen</Text>
                                     <ScrollView style={{height: 175}} showsHorizontalScrollIndicator={false} horizontal>
-                                        {roster.defensemen.map((player, i)=>{
+                                        {roster.defensemen.length ? roster.defensemen.map((player, i)=>{
                                             return <View style={{flexDirection: 'row'}}>
                                                 <View>
                                                     <View style={{
@@ -1068,14 +1066,17 @@ export default function Home() {
                                                     </View>
                                                 </View>
                                             </View>
-                                        })}
+                                        }) : <View style={{marginTop: 20}}>
+                                            <PlayerSkeleton colors={colors}/>
+
+                                        </View>}
                                     </ScrollView>
                                         <Text style={{
                                             fontFamily: 'Sora_600SemiBold',
                                             fontSize: 16, color: colors.text, marginTop: 20, marginBottom: 10
                                         }}>Goalies</Text>
                                         <ScrollView style={{height: 175}} showsHorizontalScrollIndicator={false} horizontal>
-                                            {roster.goalies.map((player, i)=>{
+                                            {roster.goalies ? roster.goalies.map((player, i)=>{
                                                 return <View style={{flexDirection: 'row'}}>
                                                     <View>
                                                         <View style={{
@@ -1113,7 +1114,10 @@ export default function Home() {
                                                         </View>
                                                     </View>
                                                 </View>
-                                            })}
+                                            }) : <View style={{marginTop: 20}}>
+                                                <PlayerSkeleton colors={colors}/>
+
+                                            </View>}
                                         </ScrollView>
                                         <View style={{marginBottom: 450}}/>
                                     </ScrollView>

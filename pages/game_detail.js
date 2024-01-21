@@ -1,4 +1,4 @@
-import BottomSheet, {useBottomSheet} from "@gorhom/bottom-sheet";
+import BottomSheet from "@gorhom/bottom-sheet";
 import {useRoute, useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
@@ -11,24 +11,31 @@ import {
     CloseCircle,
     ExportCircle,
     Flash,
-    ImportCircle, Map1,
-    Profile2User, RowVertical, Star, Star1,
+    ImportCircle,
+    Map1,
+    Profile2User,
+    Star1,
     TimerPause,
     User,
-    UserRemove, VideoCircle
+    UserRemove,
+    VideoCircle
 } from "iconsax-react-native";
 import {MotiText, MotiView} from "moti";
 import Papa from "papaparse";
-import React, {useEffect, useMemo, useRef, useState} from "react";
+import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {LineChart} from "react-native-chart-kit";
 import * as Progress from 'react-native-progress';
-import Svg, {Circle, Line, SvgUri} from "react-native-svg";
+import Svg, {Circle, Line} from "react-native-svg";
 import {Row, Table} from 'react-native-table-component';
 import teamData from '../teams';
+import {PlayerSkeleton} from "./components/Skeleton";
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 
 export default function GamesDetail({navigation}) {
+
+
 
 
     const bottomSheetRef2 = useRef()
@@ -36,6 +43,28 @@ export default function GamesDetail({navigation}) {
 
 
     const {colors} = useTheme()
+
+    const teamAbbreviations = [
+        "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL",
+        "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR",
+        "OTT", "PHI", "PIT", "STL", "SJS", "SEA", "TBL", "TOR", "VAN", "VGK",
+        "WSH", "WPG"
+    ];
+
+    const teamAbbreviationsWithLightImages = [
+        require("../assets/ANA_light.png"), require("../assets/ARI_light.png"), require("../assets/BOS_light.png"), require("../assets/BUF_light.png"), require("../assets/CGY_light.png"),
+        require("../assets/CAR_light.png"), require("../assets/CHI_light.png"), require("../assets/COL_light.png"), require("../assets/CBJ_light.png"), require("../assets/DAL_light.png"),
+        require("../assets/DET_light.png"), require("../assets/EDM_light.png"), require("../assets/FLA_light.png"), require("../assets/LAK_light.png"), require("../assets/MIN_light.png"),
+        require("../assets/MTL_light.png"), require("../assets/NSH_light.png"), require("../assets/NJD_light.png"), require("../assets/NYI_light.png"), require("../assets/NYR_light.png"),
+        require("../assets/OTT_light.png"), require("../assets/PHI_light.png"), require("../assets/PIT_light.png"), require("../assets/STL_light.png"), require("../assets/SJS_light.png"),
+        require("../assets/SEA_light.png"), require("../assets/TBL_light.png"), require("../assets/TOR_light.png"), require("../assets/VAN_light.png"), require("../assets/VGK_light.png"),
+        require("../assets/WSH_light.png"), require("../assets/WPG_light.png")
+    ];
+
+    const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
+
+    const conRef = useRef();
+
 
 
     const styles = StyleSheet.create({
@@ -179,9 +208,7 @@ export default function GamesDetail({navigation}) {
             })
     }
 
-    useEffect(()=>{
-
-
+    const getData = () => {
         let myHeaders = new Headers();
         myHeaders.append("accept", "application/json");
 
@@ -203,9 +230,6 @@ export default function GamesDetail({navigation}) {
         fetch(`https://api-web.nhle.com/v1/gamecenter/${route.params?.data['data']['id']}/boxscore`, requestOptions)
             .then(response => response.text())
             .then(result => {
-
-
-
 
                 const pData = {h: [], a: [], g: {h: [], a: []}}
 
@@ -252,30 +276,15 @@ export default function GamesDetail({navigation}) {
                     h: JSON.parse(result)?.boxscore.shotsByPeriod[2].home,
                     a: JSON.parse(result)?.boxscore.shotsByPeriod[2].away
                 })
-                //
-                // setPPData({
-                //     h: {
-                //         t: JSON.parse(result)?.situation.timeRemaining,
-                //         a: JSON.parse(result)?.situation.homeTeam.strength
-                //     },
-                //     a: {
-                //         t: JSON.parse(result)?.situation.timeRemaining,
-                //         a: JSON.parse(result)?.situation.awayTeam.strength
-                //     }
-                // })
+
             })
 
         getMapData('shot-on-goal')
-
-
-
-
-
-
-
         getSIMData(0)
+    }
 
-
+    useEffect(()=>{
+            getData()
     }, [])
 
     const [matchData, setMatchData] = useState(null);
@@ -471,8 +480,16 @@ export default function GamesDetail({navigation}) {
 
     }
 
+    const [refreshing, setRefreshing] = useState(false);
 
-    const [assets, error] = useAssets(require("../assets/rink.png"));
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        setTimeout(() => {
+            getData()
+        }, 2000);
+    }, []);
+
+
 
     const [homeStat, setHomeStat] = useState(true);
     const [landing, setLanding] = useState(true);
@@ -616,6 +633,7 @@ function getPCTColor(teamCode) {
 
 
     return <View style={styles.container}>
+        <ConfettiCannon fadeOut count={50} origin={{x: -10, y: 0}} />
         <SafeAreaView style={{width: '100%', position: 'relative'}}>
             <View
                 style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
@@ -666,10 +684,13 @@ function getPCTColor(teamCode) {
 
                                 position: 'absolute', top: '50%', transform: [{translateY: -37}]
                             }}><Text style={{ fontFamily: 'Sora_600SemiBold',
-                            fontSize: 24, color: colors.text}}>{route.params?.data.data.awayTeam.abbrev} {matchData?.away.score} <Text style={{fontFamily: 'default'}}><Text style={{fontFamily: 'default'}}>•</Text></Text> {matchData?.home.score} {route.params?.data.data.homeTeam.abbrev}</Text></MotiView></View>
+                            fontSize: 24, color: colors.text
+                        }}>{route.params?.data.data.awayTeam.abbrev} {matchData?.away.score} <Text style={{fontFamily: ""}}>•</Text> {matchData?.home.score} {route.params?.data.data.homeTeam.abbrev}
+                        </Text></MotiView></View>
                 </View>
                 {
-                    route.params?.data['data'].gameOutcome?.lastPeriodType !== undefined ? <TouchableOpacity  style={{
+                   ( route.params?.data['data']['gameState'] === "FINAL" || route.params?.data['data']['gameState'] === "OVER" || route.params?.data['data']['gameState'] === "OFF") ?
+                        <TouchableOpacity style={{
                         backgroundColor: colors.card,
                         paddingHorizontal: 20,
                         paddingVertical: 10,
@@ -681,27 +702,37 @@ function getPCTColor(teamCode) {
                         Haptics.selectionAsync()
                     }}>
                         <Text style={styles.inactiveText}>Video Recap</Text>
-                    </TouchableOpacity> : <></>
+                    </TouchableOpacity> :  route.params?.data['data']['gameState'] === "LIVE" ? <MotiView  from={{
+                            opacity: 1
+                        }}
+                                                                                                           animate={{
+                                                                                                               opacity: .7
+
+                                                                                                           }}
+                                                                                                           transition={{
+                                                                                                               duration: 1000,
+                                                                                                               loop: true,
+                                                                                                           }}
+                                                                                                           style={{
+                                                                                                               backgroundColor: '#f54242',
+                                                                                                               paddingVertical: 10,
+                                                                                                               borderRadius: 15,
+                                                                                                               paddingHorizontal: 15,
+                                                                                                               opacity: 1
+
+                                                                                                           }}><Text style={{
+                           color: 'white',
+                           fontFamily: 'Sora_500Medium',
+                           fontSize: 12
+                       }}>LIVE</Text>
+                        </MotiView> : <></>
                 }
             </View>
-
-            <ScrollView scrollEventThrottle={16} onScroll={(s) => handleScroll(s.nativeEvent.contentOffset.y)}
+            <ScrollView refreshing={refreshing} onRefresh={onRefresh}  scrollEventThrottle={16} onScroll={(s) => handleScroll(s.nativeEvent.contentOffset.y)}
                         style={{height: !tab ? 1000 : '100%'}}>
                 <View style={{flexDirection: 'row', alignItems: 'start', marginTop: 20, justifyContent: 'center'}}>
-                    <MotiView from={{
-                        opacity: 0,
-                        translateX: -20
-                    }}
-                              animate={{
-                                  translateX: stat ? 0 : -20,
-                                  opacity: stat ? 1 : 0
-                              }}
-                              transition={{
-                                  type: 'timing',
-                                  duration: 500,
-                                  delay: 300
-                              }} style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
-                        <View style={{backgroundColor: colors.card, borderRadius: 100}}>
+                    <View style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
+                        {getTimeLabel() !== "Final" &&  <View style={{backgroundColor: colors.card, borderRadius: 100}}>
                             <Text style={{
                                 textAlign: "left",
                                 paddingHorizontal: 15,
@@ -709,14 +740,13 @@ function getPCTColor(teamCode) {
                                 fontFamily: 'Sora_500Medium',
                                 fontSize: 20,color: colors.text
                             }}>{(parseFloat(stat.home > 0.0 ? stat.home : route.params?.data.prob.h) * 100).toFixed(0)}%</Text>
-                        </View>
-                        <SvgUri width={70} height={70} style={{
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            marginTop: 10,
-                            marginLeft: 5
+                        </View>}
+                        {assets && <Image style={{
+                            height: 70, width: 100, transform: [{scale: .7}], flexDirection: 'column', marginTop: 10,
+                            marginLeft: 5,
+                            justifyContent: 'center'
                         }}
-                                uri={route.params?.data['data']['homeTeam']['logo']}/>
+                                          source={assets[teamAbbreviations.indexOf(route.params?.data['data']['homeTeam']['abbrev'])]}/>}
                         <Text style={{
                             fontFamily: 'Sora_600SemiBold',
                             fontSize: 18,
@@ -739,14 +769,14 @@ function getPCTColor(teamCode) {
                                 marginTop: 5,
                                 fontSize: 16,color: colors.text
                             }}>{ppData.h.t}</Text> : <></>}
-                    </MotiView>
+                    </View>
                     <View style={{flexDirection: 'column', alignItems: 'center', width: '33.3%'}}>
                         <View>
                             {route.params?.data['data'].period && getTimeLabel() !== "INT" && getTimeLabel() !== "Final" ?
                                 <View style={{
                                     backgroundColor: colors.card,
                                     width: 100,
-                                    paddingVertical: 5,
+                                    paddingVertical: 8,
                                     borderRadius: 5,
                                     paddingHorizontal: 15
                                 }}>
@@ -759,8 +789,8 @@ function getPCTColor(teamCode) {
                                 </View> : getTimeLabel() === "INT" && <View style={{
                                     backgroundColor: colors.card,
                                     width: 100,
-                                    paddingVertical: 5,
-                                    borderRadius: 5,
+                                    paddingVertical: 8,
+                                borderRadius: 30,
                                     paddingHorizontal: 15
                                 }}>
                                     <Text style={{
@@ -774,8 +804,8 @@ function getPCTColor(teamCode) {
                                 <View style={{
                                     backgroundColor: colors.card,
                                     width: 100,
-                                    paddingVertical: 5,
-                                    borderRadius: 5,
+                                    paddingVertical: 8,
+                                    borderRadius: 30,
                                     marginTop: route.params?.data['data'].period && !route.params?.data['data'].gameOutcome?.lastPeriodType ? 5 : 0,
                                     paddingHorizontal: 15
                                 }}>
@@ -788,8 +818,8 @@ function getPCTColor(teamCode) {
                                 </View> : getTimeLabel() === "INT" && <View style={{
                                     backgroundColor: colors.card,
                                     width: 100,
-                                    paddingVertical: 5,
-                                    borderRadius: 5,
+                                paddingVertical: 8,
+                                borderRadius: 30,
                                     marginTop: route.params?.data['data'].period ? 5 : 0,
                                     paddingHorizontal: 15
                                 }}>
@@ -801,70 +831,32 @@ function getPCTColor(teamCode) {
                                 </View> }
                         </View>
                         {matchData?.home.score !== undefined ?
-
                             <View
                                 style={{flexDirection: 'row', justifyContent: 'center', marginTop: 40, width: '100%'}}>
                                 <View
                                     style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10}}>
-                                <MotiText
-                                    from={{
-                                        opacity: 0,
-                                        translateX: -5
-                                    }}
-                                    animate={{
-                                        translateX: stat ? 0 : -5,
-                                        opacity: stat ? 1 : 0,
-                                        delay: 300
-
-                                    }}
-                                    transition={{
-                                        type: 'timing',
-                                        duration: 300
-                                    }} style={{
+                                    <Text
+                                        style={{
                                     textAlign: "center",
                                     paddingVertical: 4,
                                     fontFamily: 'Sora_800ExtraBold',
                                     fontSize: 32,color: colors.text
-                                }}>{matchData?.home.score}</MotiText>
+                                        }}>{matchData?.home.score}</Text>
 
-                                    <MotiView  from={{
-                                        opacity: 0,
-                                    }}
-                                               animate={{
-                                                   opacity: 1
-                                               }}
-                                               transition={{
-                                                   type: 'timing',
-                                                   duration: 300
-                                               }}>
+                                    <View>
                                     <Svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill={colors.text} stroke="currentColor" strokeWidth="0" strokeLinecap="round" strokeLinejoin="round" className="feather feather-circle"><Circle cx="12" cy="12" r="10"></Circle></Svg>
-                                    </MotiView>
-                                        <MotiText
-                                        from={{
-                                            translateX: 5,
-                                            opacity: 0
-                                        }}
-                                        animate={{
-                                            translateX: stat ? 0 : 5,
-                                            opacity: stat ? 1 : 0,
-                                            delay: 300
-
-                                        }}
-                                        transition={{
-                                            type: 'timing',
-                                            duration: 300
-                                        }}
-
+                                    </View>
+                                    <Text
                                    style={{
                                         textAlign: "center",
                                         paddingVertical: 4,
                                         fontFamily: 'Sora_800ExtraBold',
                                         fontSize: 32,color: colors.text
-                                    }}>{matchData?.away.score}</MotiText>
+                                   }}>{matchData?.away.score}</Text>
                                 </View>
                             </View> : !route.params?.data['data'].gameOutcome?.lastPeriodType &&  <View style={{
                                 backgroundColor: colors.card,
-                                paddingVertical: 5,
+                            paddingVertical: 7,
                                 paddingHorizontal: 20,
                                 borderRadius: 5,
                                 flexDirection: 'row',
@@ -892,24 +884,9 @@ function getPCTColor(teamCode) {
                     </View>
 
 
-                    <MotiView from={{
-                        opacity: 0,
-                        translateX: 20
-                    }}
-                              animate={{
-                                  translateX: stat ? 0 : 20,
-                                  opacity: stat ? 1 : 0
-
-
-                              }}
-                              transition={{
-                                  type: 'timing',
-                                  duration: 500,
-                                  delay: 300
-                              }}
-
+                    <View
                               style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
-                        <View style={{backgroundColor: colors.card, borderRadius: 100}}>
+                        {getTimeLabel() !== "Final" && <View style={{backgroundColor: colors.card, borderRadius: 100}}>
                             <Text style={{
                                 textAlign: "left",
                                 paddingHorizontal: 15,
@@ -917,14 +894,14 @@ function getPCTColor(teamCode) {
                                 fontFamily: 'Sora_500Medium',
                                 fontSize: 20,color: colors.text
                             }}>{(parseFloat(stat.away > 0.0 ? stat.away : route.params?.data.prob.a) * 100).toFixed(0)}%</Text>
-                        </View>
-                        <SvgUri width={70} height={70} style={{
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            marginTop: 10,
-                            marginLeft: 5
-                        }}
-                                uri={route.params?.data['data']['awayTeam']['logo']}/>
+                        </View>}
+                        {assets &&
+                            <Image style={{
+                                height: 70, width: 90, transform: [{scale: .7}], flexDirection: 'column', marginTop: 10,
+                                marginLeft: 5,
+                                justifyContent: 'center'
+                            }}
+                                   source={assets[teamAbbreviations.indexOf(route.params?.data['data']['awayTeam']['abbrev'])]}/>}
                         <Text style={{
                             fontFamily: 'Sora_600SemiBold',
                             fontSize: 18,
@@ -949,7 +926,7 @@ function getPCTColor(teamCode) {
                                 marginTop: 5,
                                 fontSize: 16
                             }}>{ppData.a.t}</Text>}
-                    </MotiView>
+                    </View>
 
                 </View>
 
@@ -1057,7 +1034,8 @@ function getPCTColor(teamCode) {
                         }
 
                         {
-                            route.params?.data['data']['gameState'] === "FINAL" && <
+                            (route.params?.data['data']['gameState'] === "FINAL" || route.params?.data['data']['gameState'] === "OFF" || route.params?.data['data']['gameState'] === "OVER") && landing?.summary?.threeStars ?
+                                <
                                 TouchableOpacity style={tab === 6 ? styles.activeButton : styles.inactiveButton}
                                                  onPress={() => {
                                                      setTab(6)
@@ -1067,7 +1045,7 @@ function getPCTColor(teamCode) {
                                 <Star1 color={tab === 6 ? colors.background : colors.text}/>
 
                                 <Text style={tab === 6 ? styles.activeText : styles.inactiveText}>Stars</Text>
-                            </TouchableOpacity>
+                                </TouchableOpacity> : <></>
                         }
                     </ScrollView>
                 </View>
@@ -1075,7 +1053,7 @@ function getPCTColor(teamCode) {
                     {
                         !tab && route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" ?
                             <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false} horizontal>
-                                {goals?.map((goal, i)=>{
+                                {goals.length ? goals?.map((goal, i) => {
                                     return <View>
                                         <View>
                                             {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i - 1]?.period) ?
@@ -1110,7 +1088,7 @@ function getPCTColor(teamCode) {
                                                     marginTop: 4,
                                                     textAlign: 'center',
                                                     opacity: .5,color: colors.text
-                                                }}>{goal.homeScore} <Text style={{fontFamily: 'default'}}>•</Text> {goal.awayScore}</Text>
+                                                }}>{goal.homeScore} <Text style={{fontFamily: ""}}>•</Text> {goal.awayScore}</Text>
                                                 <View style={{flexDirection: 'row', justifyContent: 'center'}}>
                                                     <Image style={{
                                                         borderRadius: 100,
@@ -1129,7 +1107,7 @@ function getPCTColor(teamCode) {
                                                     marginTop: 10,
                                                     textAlign: 'center',
                                                     color: colors.text
-                                                }}>{goal.name.default} <Text style={{fontFamily: 'default'}}>•</Text> {goal.goalsToDate}</Text>
+                                                }}>{goal.name.default} <Text style={{fontFamily: ""}}>•</Text> {goal.goalsToDate}</Text>
                                                 {
                                                     goal.assists.map(a=>{
                                                         return  <Text style={{
@@ -1138,7 +1116,7 @@ function getPCTColor(teamCode) {
                                                             marginTop: 4,
                                                             textAlign: 'center',
                                                             opacity: .5,color: colors.text
-                                                        }}>{a.name.default} <Text style={{fontFamily: 'default'}}>•</Text> {a.assistsToDate}</Text>
+                                                        }}>{a.name.default} <Text style={{fontFamily: ""}}>•</Text> {a.assistsToDate}</Text>
                                                     })
                                                 }
                                                 <Text style={{
@@ -1147,7 +1125,33 @@ function getPCTColor(teamCode) {
                                                     marginTop: 4,
                                                     textAlign: 'center',
                                                     opacity: .5,color: colors.text
-                                                }}>{goal.timeInPeriod} <Text style={{fontFamily: 'default'}}>•</Text> {goal.strength.toUpperCase()}</Text>
+                                                }}>{goal.timeInPeriod} <Text style={{fontFamily: ""}}>•</Text> {goal.strength.toUpperCase()}
+                                                </Text>
+                                                {
+                                                    goal.assists.length === 0 && <View><Text style={{
+                                                        fontFamily: 'Sora_600SemiBold',
+                                                        fontSize: 14,
+                                                        marginTop: 4,
+                                                        textAlign: 'center',
+                                                        opacity: .5,color: colors.text
+                                                    }}>‎ </Text><Text style={{
+                                                        fontFamily: 'Sora_600SemiBold',
+                                                        fontSize: 14,
+                                                        marginTop: 4,
+                                                        textAlign: 'center',
+                                                        opacity: .5,color: colors.text
+                                                    }}>‎ </Text></View>
+                                                }
+                                                {
+                                                    goal.assists.length === 1 && <View><Text style={{
+                                                        fontFamily: 'Sora_600SemiBold',
+                                                        fontSize: 14,
+                                                        marginTop: 4,
+                                                        textAlign: 'center',
+                                                        opacity: .5,color: colors.text
+                                                    }}>‎ </Text></View>
+                                                }
+                                                {goal.highlightClip &&
                                                 <TouchableOpacity onPress={() => {
                                                     Linking.openURL(`https://players.brightcove.net/6415718365001/EXtG1xJ7H_default/index.html?videoId=${goal.highlightClip}`).then(r => {
                                                     });
@@ -1166,7 +1170,7 @@ function getPCTColor(teamCode) {
                                                 }}>
                                                     <VideoCircle color={colors.text}/>
                                                     <Text style={styles.inactiveText}>Clip</Text>
-                                                </TouchableOpacity>
+                                                </TouchableOpacity>}
                                             </View>
 
                                         </View>
@@ -1175,7 +1179,10 @@ function getPCTColor(teamCode) {
 
 
                                     </View>
-                                })}
+                                }) : <View style={{marginTop: 20}}>
+                                    <PlayerSkeleton colors={colors}/>
+
+                                </View>}
                             </ScrollView> : tab === 2 ? route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" ?
                                 <View>
 
@@ -1383,12 +1390,12 @@ function getPCTColor(teamCode) {
                                         <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
                                                       unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                       style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={isNaN(landingData('pim').h / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').a / (landingData('pim').h + landingData('pim').a)}
+                                                      progress={isNaN(landingData('pim').h / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').h / ((landingData('pim').h + landingData('pim').a))}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                         <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
                                                       unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                       style={{marginTop: 20}}
-                                                      progress={isNaN(landingData('pim').a / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').a / (landingData('pim').h + landingData('pim').a)}
+                                                      progress={isNaN(landingData('pim').a / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').a / ((landingData('pim').h + landingData('pim').a))}
                                                       height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                     </View>
                                     {/*/!*FLAG*!/*/}
@@ -1523,15 +1530,16 @@ function getPCTColor(teamCode) {
                                         width={Dimensions.get("window").width}
                                         height={250}
                                         yAxisSuffix="%"
-                                        yAxisInterval={1}
-                                        withHorizontalLines={true}
+                                        yAxisInterval={10}
+                                        fromZero={true}
+                                        withHorizontalLines={false}
                                         withVerticalLines={false}
                                         withDots={false}
                                         withShadow
                                         chartConfig={{
-                                            backgroundColor: `rgba(255, 255, 255, 0)`,
+                                            backgroundColor: `${getPCTColor(homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev)}`,
                                             useShadowColorFromDataset: true,
-                                            fillShadowGradientFromOpacity: 0,
+                                            fillShadowGradientFromOpacity: .5,
                                             fillShadowGradientToOpacity: 0,
                                             backgroundGradientFrom: `${getPCTColor(homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev)}`,
                                             backgroundGradientFromOpacity: 0,
@@ -1742,7 +1750,7 @@ function getPCTColor(teamCode) {
                                         <ScrollView style={{height: 400}} horizontal
                                                     showsVerticalScrollIndicator={false}>
 
-                                            {gameInfo.home.map((player, i) => {
+                                            {gameInfo.home.length ? gameInfo.home.map((player, i) => {
                                                 return <View style={{flexDirection: 'row'}}>
                                                     <View>
                                                         {i === 0 ?
@@ -1763,7 +1771,10 @@ function getPCTColor(teamCode) {
                                                         <Player player={player} id={player.id}/>
                                                     </View>
                                                 </View>
-                                            })}
+                                            }) : <View style={{marginTop: 20}}>
+                                                <PlayerSkeleton colors={colors}/>
+
+                                            </View>}
                                             <View style={{
                                                 height: '50%',
                                                 borderWidth: 1,
@@ -1772,7 +1783,7 @@ function getPCTColor(teamCode) {
                                                 opacity: .3,
                                                 marginHorizontal: 10
                                             }}/>
-                                            {gameInfo.away.map((player, i) => {
+                                            {gameInfo.away.length ? gameInfo.away.map((player, i) => {
                                                 return <View style={{flexDirection: 'row'}}>
                                                     <View>
                                                         {i === 0 ?
@@ -1793,7 +1804,10 @@ function getPCTColor(teamCode) {
                                                         <Player player={player} id={player.id}/>
                                                     </View>
                                                 </View>
-                                            })}
+                                            }) : <View style={{marginTop: 20}}>
+                                                <PlayerSkeleton colors={colors}/>
+
+                                            </View>}
 
 
                                         </ScrollView> : tab === 5 ?  <ScrollView horizontal>
@@ -1847,7 +1861,7 @@ function getPCTColor(teamCode) {
 
 
                                         </ScrollView> : tab === 6 ? <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false} horizontal>
-                                            {landing?.summary.threeStars.map((star, i)=>{
+                                            {landing?.summary.threeStars ? landing?.summary.threeStars.map((star, i) => {
                                                 return <View>
                                                     <View>
 
@@ -1885,13 +1899,13 @@ function getPCTColor(teamCode) {
                                                                 textAlign: 'center',
                                                                 color: colors.text
                                                             }}>{star.firstName} {star.lastName}</Text>
-                                                            <Text style={{
+                                                            {star.points && <Text style={{
                                                                 fontFamily: 'Sora_600SemiBold',
                                                                 fontSize: 14,
                                                                 marginTop: 4,
                                                                 textAlign: 'center',
                                                                 opacity: .5,color: colors.text
-                                                            }}>{star.points} points</Text>
+                                                            }}>{star.points} points</Text> }
                                                         </View>
                                                     </View>
                                                     {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i + 1]?.period && i !== route.params?.data['data']['goals'].length - 1) &&
@@ -1904,7 +1918,7 @@ function getPCTColor(teamCode) {
                                                             marginHorizontal: 10
                                                         }}/>}
                                                 </View>
-                                            })}
+                                            }) : <PlayerSkeleton colors={colors}/>}
 
                                         </ScrollView> : tab === 7 ? <View>
                                             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10}}>
@@ -1935,15 +1949,53 @@ function getPCTColor(teamCode) {
 
 
                                             </View>
-                                            <View style={{height: Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)), width: Dimensions.get('window').width - 20, backgroundColor: 'white', marginLeft: 'auto', marginRight: 'auto', position: 'relative', borderRadius: 100, marginTop: 20}}>
+                                            <View style={{
+                                                height: Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)),
+                                                width: Dimensions.get('window').width - 20,
+                                                backgroundColor: 'white',
+                                                marginLeft: 'auto',
+                                                marginRight: 'auto',
+                                                position: 'relative',
+                                                borderRadius: 100,
+                                                marginTop: 20,
+                                                transform: [{rotateX: '45deg'}]
+                                            }}>
                                                 <Image width={Dimensions.get('window').width - 20} height={Math.round((Dimensions.get('window').width - 20) * (42.5 / 100))} style={{
-                                                    position: 'absolute', borderRadius: 50, borderBottomWidth: 2, borderColor: 'lightgray'
+                                                    position: 'absolute',
+                                                    borderRadius: 50,
+                                                    borderWidth: 1,
+                                                    borderColor: 'lightgray'
                                                 }}
                                                        source={{uri: "https://thumbs.dreamstime.com/b/ice-hockey-rink-regulation-nhl-to-exact-specifications-to-goal-line-trapezoid-goal-crease-blue-line-to-specs-made-54402082.jpg"}}/>
+
                                                 {mapStats.map(s=>{
                                                     const pixelPosition = mapToPixel(s.x, s.y, Dimensions.get('window').width - 20, Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)), 10);
-                                                    return <View style={{height: 10, width: 10, backgroundColor: route.params?.data['data']['homeTeam']['id'] === s.d ? getPCTColor(route.params?.data['data']['homeTeam']['abbrev']) : getPCTColor(route.params?.data['data']['awayTeam']['abbrev']), borderRadius: 100, position: 'absolute', top: pixelPosition.y, left: pixelPosition.x}}/>
+                                                    return <View style={{
+                                                        height: 10,
+                                                        width: 10,
+                                                        zIndex: 3,
+                                                        backgroundColor: route.params?.data['data']['homeTeam']['id'] === s.d ? getPCTColor(route.params?.data['data']['homeTeam']['abbrev']) : getPCTColor(route.params?.data['data']['awayTeam']['abbrev']),
+                                                        borderRadius: 100,
+                                                        position: 'absolute',
+                                                        top: pixelPosition.y,
+                                                        left: pixelPosition.x
+                                                    }}/>
                                                 })}
+                                                {assets && <Image style={{
+                                                    height: 50,
+                                                    width: 50,
+                                                    transform: [{scale: .7}],
+                                                    flexDirection: 'column',
+                                                    marginTop: 10,
+                                                    marginLeft: 5,
+                                                    justifyContent: 'center',
+                                                    position: 'absolute',
+                                                    left: ((Dimensions.get('window').width - 20) / 2) - 30,
+                                                    top: 45,
+                                                    zIndex: 2
+                                                }}
+                                                                  source={assets[teamAbbreviations.indexOf(route.params?.data['data']['homeTeam']['abbrev'])]}/>}
+                                                <View/>
 
                                             </View>
                                         </View> : <></>

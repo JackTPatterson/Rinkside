@@ -14,10 +14,23 @@ import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
-import {ArrowLeft, ArrowRight} from "iconsax-react-native";
+import moment from "moment/moment";
+import {MotiView} from "moti";
+import {Skeleton} from "moti/skeleton";
+import Calendar from "./components/Cal";
 import Papa from "papaparse";
 import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
-import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {
+    Dimensions,
+    Image,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from "react-native";
 import teamData from "../teams";
 
 
@@ -124,7 +137,25 @@ export default function Games({navigation}) {
             .then(response => response.text())
             .then(result => {
                 setData(JSON.parse(result)['games'])
-                console.log(`https://api-web.nhle.com/v1/score/${getDate(dateOffset)}`)
+            })
+
+        setIsLoading(false)
+    }
+
+    function getMatchDataWithCal(date){
+        let myHeaders = new Headers();
+        myHeaders.append("accept", "application/json");
+
+        let requestOptions = {
+            method: 'GET',
+            headers: myHeaders,
+            redirect: 'follow'
+        };
+
+        fetch(`https://api-web.nhle.com/v1/score/${date}`, requestOptions)
+            .then(response => response.text())
+            .then(result => {
+                setData(JSON.parse(result)['games'])
             })
 
         setIsLoading(false)
@@ -134,6 +165,7 @@ export default function Games({navigation}) {
 
     useEffect(() => {
         getMatchData(0)
+        setSelectedDate(moment().format('YYYY-MM-DD'))
     }, [])
 
     function getPCTColor(teamCode) {
@@ -166,6 +198,8 @@ export default function Games({navigation}) {
         let strTime = hours + ':' + minutes + ' ' + ampm;
         return strTime;
     }
+
+    const [selectedDate, setSelectedDate] = useState(null);
 
 
     const Team = (props) => {
@@ -334,6 +368,32 @@ export default function Games({navigation}) {
             borderRadius: 15,
 
         }}>
+            {
+                props.game.gameState === "LIVE" &&
+
+            <MotiView  from={{
+                opacity: 1
+            }}
+                       animate={{
+                           opacity: .4
+
+                       }}
+                       transition={{
+                           type: 'timing',
+                           duration: 1000,
+                           loop: true,
+                       }}
+                       style={{
+                           backgroundColor: '#f54242',
+                           paddingVertical: 0,
+                           borderRadius: 15,
+                           height: 10, width: 10,
+                           position: 'absolute',
+                           zIndex: 1000,
+                           top: 15,
+                           right: 15
+                       }}>
+            </MotiView>}
             <View style={{
                 flexDirection: 'row',
                 justifyContent: 'center',
@@ -349,8 +409,21 @@ export default function Games({navigation}) {
                     }} source={assets[teamAbbreviations.indexOf(game.homeTeam.abbrev)]}/>
 
                     {
-                        (pp?.a < pp?.h && !(game.gameOutcome?.lastPeriodType)) ?
-                            <View style={{
+                        (pp?.a < pp?.h && (game.gameState !== "OFF" && game.gameState !== "OVER" && game.gameState !== "FINAL")) ?
+                            <MotiView  from={{
+                                opacity: 1
+                            }}
+                                       animate={{
+                                           opacity: .4
+
+                                       }}
+                                       transition={{
+                                           type: 'timing',
+                                           duration: 1000,
+                                           loop: true,
+                                       }}
+
+                                      style={{
                                 backgroundColor: '#f54242',
                                 paddingVertical: 0,
                                 borderRadius: 15,
@@ -360,10 +433,10 @@ export default function Games({navigation}) {
 
                             }}>
                                 <Text style={{
-                                    color: colors.background,
+                                    color: 'white',
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>{game.homeTeam.abbrev}</Text>
-                            </View> : <Text style={{color: colors.text, fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
+                            </MotiView> : <Text style={{color: colors.text, fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
 
 
                     }
@@ -386,7 +459,7 @@ export default function Games({navigation}) {
                     </View>
                     {
 
-                        props.game.homeTeam.score !== undefined && !(getTimeLabel() === "Final") ? <View>
+                       game.gameState === "LIVE" ? <View>
                             <View style={{
                                 backgroundColor: colors.background,
                                 paddingVertical: 5,
@@ -414,7 +487,7 @@ export default function Games({navigation}) {
                         </View> : <View style={{
                             backgroundColor: colors.background,
                             paddingVertical: 5,
-                            borderRadius: 5,
+                            borderRadius: 30,
                             paddingHorizontal: 15,
                             marginTop: 0
                         }}>
@@ -446,7 +519,7 @@ export default function Games({navigation}) {
                         justifyContent: 'center'
                     }} source={assets[teamAbbreviations.indexOf(game.awayTeam.abbrev)]}/>
                     {
-                        (pp?.a > pp?.h && !(game.gameOutcome?.lastPeriodType)) ?
+                        (pp?.a > pp?.h && (game.gameState !== "OFF" && game.gameState !== "OVER" && game.gameState !== "FINAL")) ?
                              <View style={{
                                 backgroundColor: '#f54242',
                                 paddingVertical: 0,
@@ -457,7 +530,7 @@ export default function Games({navigation}) {
 
                             }}>
                                 <Text style={{
-                                    color: colors.background,
+                                    color: 'white',
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>{game.awayTeam.abbrev}</Text>
                             </View> : <Text style={{color: colors.text, fontFamily: 'Sora_500Medium' }}>{game.awayTeam.abbrev}</Text>
@@ -476,7 +549,7 @@ export default function Games({navigation}) {
             setRefreshing(true);
             setTimeout(() => {
                 setRefreshing(false);
-                getMatchData(0)
+                getMatchData(dateOffset)
 
             }, 2000);
         }, []);
@@ -529,54 +602,27 @@ export default function Games({navigation}) {
         }
     }
 
+
+
+
     if(!fontsLoaded){
         return <></>
     }
     else return <View style={styles.container}>
         <SafeAreaView style={{width: '100%'}}>
-                <View style={{
-                    flexDirection: 'row',paddingHorizontal: 10,
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginTop: 20
-                }}>
-                            <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24, color: colors.text}}>Games {formatDate(getDate(0), dateOffset)}</Text>
-                            <View style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'flex-end',
-                            }}>
+            <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24, marginLeft: 10, color: colors.text}}>Games</Text>
 
-                                <TouchableOpacity  onLongPress={()=>{
-                                    Haptics.notificationAsync()
-                                    setDateOffset(0)
-                                    getMatchData(0)
+            <View style={{marginBottom: 10}}>
+                <Calendar colors={colors} onSelectDate={(d)=>{
+                    Haptics.selectionAsync().then(()=>{})
+                    setSelectedDate(d)
+                    getMatchDataWithCal(d)
+                }} selected={selectedDate} />
+            </View>
 
-                                }} onPress={() => {
-                                    setDateOffset(v=>v-1)
-                                    getMatchData(dateOffset-1)
-                                    Haptics.selectionAsync()
-                                }} style={{backgroundColor: colors.card, marginRight: 10, paddingHorizontal: 15, paddingVertical: 15, borderRadius: 100}}>
-                                    <ArrowLeft color={colors.text}/>
-                                </TouchableOpacity>
-                                <TouchableOpacity onLongPress={()=>{
-                                    Haptics.notificationAsync()
-                                    setDateOffset(0)
-                                    getMatchData(0)
-                                }} onPress={() => {
-                                    setDateOffset(v=>v+1)
-
-                                    getMatchData(dateOffset+1)
-                                    Haptics.selectionAsync()
-                                }} style={{backgroundColor: colors.card, paddingHorizontal: 15, paddingVertical: 15, borderRadius: 100}}>
-                                    <ArrowRight color={colors.text}/>
-                                </TouchableOpacity>
-                            </View>
-
-
-                </View>
             {isLoading ? <></> :
             <ScrollView showsVerticalScrollIndicator={false} style={{height: Dimensions.get('window').height - 215, paddingHorizontal: 10,}}>
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 <Text style={{
                     marginBottom: 20,
                     fontFamily: 'Sora_600SemiBold',
@@ -584,15 +630,20 @@ export default function Games({navigation}) {
                     color: colors.text
                 }}>Live Games</Text>
 
-                {data.filter((g=>{
+                {data.length ? data.filter((g=>{
                     return g.gameState === "LIVE" || g.gameState === "CRIT"
                 })).map((game, i) => {
                     return (
                         <View style={{width: Dimensions.get('window').width - 20}}>
-                        <Team game={game} keu={i}/>
+                            <Team game={game} keu={i}/>
                         </View>
                     )
-                })}
+                }) : <View style={{gap: 10}}>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+
+                </View>}
 
                 <Text style={{
                     marginBottom: 20,
@@ -601,13 +652,18 @@ export default function Games({navigation}) {
                     fontSize: 16,
                     color: colors.text
                 }}>Upcoming Games</Text>
-                {data.filter((g=>{
+                {data.length ? data.filter((g=>{
                     return g.gameState === "FUT" || g.gameState === "PRE"
                 })).map((game, i) => {
                     return (
                         <Team game={game} keu={i}/>
                     )
-                })}
+                }) : <View style={{gap: 10}}>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+
+                </View>}
                 <Text style={{
                     marginBottom: 20,
                     marginTop: 20,
@@ -615,14 +671,19 @@ export default function Games({navigation}) {
                     fontSize: 16,
                     color: colors.text
                 }}>Finished Games</Text>
-                {data.filter((g=>{
+                {data.length ? data.filter((g=>{
                    return g.gameState === "OFF" || g.gameState === "OVER" || g.gameState === "FINAL"
                 })).map((game, i) => {
                     return (
                             <Team game={game} keu={i}/>
                     )
-                })}
-                <View style={{marginBottom: 80}}/>
+                }) : <View style={{gap: 10}}>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+
+                </View>}
+                <View style={{marginBottom: 100}}/>
             </ScrollView> }
         </SafeAreaView>
         <BottomSheet

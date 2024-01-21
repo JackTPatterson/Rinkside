@@ -590,7 +590,7 @@ export default function Players() {
                                         </Text>
                                     </View>
                                     {
-                                        data.map((rank, i) => {
+                                        data.length ? data.map((rank, i) => {
                                             return <TouchableOpacity
                                                 onPress={()=>{
                                                     Haptics.selectionAsync()
@@ -703,7 +703,12 @@ export default function Players() {
                                                 </View>
 
                                             </TouchableOpacity>
-                                        })
+                                        }) :  <View style={{gap: 10}}>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+
+                                        </View>
                                     }
                                 </View>}
                         </View>
