@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-import { StyleSheet, Text, View, ScrollView } from 'react-native'
 import moment from 'moment'
+import {useEffect, useState} from 'react'
+import {ScrollView, StyleSheet, View} from 'react-native'
 import Date from './Date'
 
 const Calendar = ({ onSelectDate, selected, colors }) => {

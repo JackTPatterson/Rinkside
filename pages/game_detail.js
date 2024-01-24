@@ -1,41 +1,26 @@
 import BottomSheet from "@gorhom/bottom-sheet";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {useRoute, useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import * as Linking from 'expo-linking';
-import {
-    ArrowDown2,
-    ArrowLeft,
-    Chart2,
-    Clock,
-    CloseCircle,
-    ExportCircle,
-    Flash,
-    ImportCircle,
-    Map1,
-    Profile2User,
-    Star1,
-    TimerPause,
-    User,
-    UserRemove,
-    VideoCircle
-} from "iconsax-react-native";
+import {ArrowDown2, ArrowLeft, Chart2, Map1, Star1, User, UserRemove, VideoCircle} from "iconsax-react-native";
 import {MotiText, MotiView} from "moti";
 import Papa from "papaparse";
 import React, {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {LineChart} from "react-native-chart-kit";
+import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Progress from 'react-native-progress';
 import Svg, {Circle, Line} from "react-native-svg";
 import {Row, Table} from 'react-native-table-component';
+import {PlayerSkeleton} from "../components/Skeleton";
+import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
+import {sort_by} from "../helpers/dataHandlers";
+import {getTeamColor} from "../helpers/UI";
 import teamData from '../teams';
-import {PlayerSkeleton} from "./components/Skeleton";
-import ConfettiCannon from 'react-native-confetti-cannon';
-
 
 export default function GamesDetail({navigation}) {
-
-
 
 
     const bottomSheetRef2 = useRef()
@@ -44,27 +29,71 @@ export default function GamesDetail({navigation}) {
 
     const {colors} = useTheme()
 
-    const teamAbbreviations = [
-        "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL",
-        "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR",
-        "OTT", "PHI", "PIT", "STL", "SJS", "SEA", "TBL", "TOR", "VAN", "VGK",
-        "WSH", "WPG"
-    ];
-
-    const teamAbbreviationsWithLightImages = [
-        require("../assets/ANA_light.png"), require("../assets/ARI_light.png"), require("../assets/BOS_light.png"), require("../assets/BUF_light.png"), require("../assets/CGY_light.png"),
-        require("../assets/CAR_light.png"), require("../assets/CHI_light.png"), require("../assets/COL_light.png"), require("../assets/CBJ_light.png"), require("../assets/DAL_light.png"),
-        require("../assets/DET_light.png"), require("../assets/EDM_light.png"), require("../assets/FLA_light.png"), require("../assets/LAK_light.png"), require("../assets/MIN_light.png"),
-        require("../assets/MTL_light.png"), require("../assets/NSH_light.png"), require("../assets/NJD_light.png"), require("../assets/NYI_light.png"), require("../assets/NYR_light.png"),
-        require("../assets/OTT_light.png"), require("../assets/PHI_light.png"), require("../assets/PIT_light.png"), require("../assets/STL_light.png"), require("../assets/SJS_light.png"),
-        require("../assets/SEA_light.png"), require("../assets/TBL_light.png"), require("../assets/TOR_light.png"), require("../assets/VAN_light.png"), require("../assets/VGK_light.png"),
-        require("../assets/WSH_light.png"), require("../assets/WPG_light.png")
-    ];
+    const route = useRoute()
 
     const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
-    const conRef = useRef();
+    const [teamWon, setTeamWon] = useState(null)
 
+    const [stat, setStat] = useState({home: 0, away: 0});
+
+    const [sim, setSim] = useState({h: {w: 0, l: 0}, a: {w: 0, l: 0}});
+
+
+    const [playerStats, setPlayerStats] = useState({h: [], a: [], g: {h: [], a: []}})
+
+    const [scratches, setScratches] = useState({home: [], away: []})
+    const [shotsP, setShotsP] = useState({totalH: 0, totalA: 0, h: [], a: []});
+
+    const [goals, setGoals] = useState(null)
+
+    const [mapStats, setMapStats] = useState([])
+    const [mapStatsSel, setMapStatsSel] = useState("")
+
+    const [matchData, setMatchData] = useState(null);
+    const [ppData, setPPData] = useState({t: 0, h: 5, a: 5});
+
+    const [winData, setWinData] = useState([]);
+
+    const [fullData, setFullData] = useState(null);
+
+    // const [playByPlay, setPlayByPlay] = useState([{}]);
+
+    const [isReg, setIsReg] = useState(true);
+
+    const [gameState, setGameState] = useState({
+        type: "FUT",
+        TR: "20:00",
+        isINT: false,
+        period: 1,
+        endPeriod: 3,
+        endType: "REG"
+    });
+
+
+    const [homeStat, setHomeStat] = useState(true);
+    const [landing, setLanding] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const [selP, setSelP] = useState(0);
+
+    const [tab, setTab] = useState(route.params?.data['data']['goals'] !== undefined ? 0 : 2);
+
+    // const [selectedEvent, setSelectedEvent] = useState(1);
+
+    const [scrollView, setScrollView] = useState(false);
+
+
+    const getSavedTeamData = async () => {
+        try {
+            const value = await AsyncStorage.getItem('team');
+            if (value !== null) {
+                setTeamWon(value)
+            }
+        } catch (e) {
+            return e
+        }
+    };
 
 
     const styles = StyleSheet.create({
@@ -73,7 +102,7 @@ export default function GamesDetail({navigation}) {
             justifyContent: 'flex-start',
             height: '100%',
             backgroundColor: colors.background,
-            paddingHorizontal: 10,
+            paddingHorizontal: 10
         },
         inactiveButton: {
             backgroundColor: colors.card,
@@ -109,8 +138,6 @@ export default function GamesDetail({navigation}) {
     });
 
 
-    const route = useRoute()
-
     function formatAMPM(date) {
         var hours = date.getHours();
         var minutes = date.getMinutes();
@@ -122,19 +149,6 @@ export default function GamesDetail({navigation}) {
         return strTime;
     }
 
-    const getTimeLabel = () => {
-
-
-        if (route.params?.data['data'].homeTeam.score !== undefined) {
-            if (route.params?.data['data'].clock?.timeRemaining === "00:00" || route.params?.data['data'].gameOutcome?.lastPeriodType) {
-                return "Final"
-            } else if (route.params?.data['data'].clock?.inIntermission) {
-                return "INT"
-            } else return route.params?.data['data'].clock?.timeRemaining
-        }
-
-    }
-
 
     const AwayTeamName = teamData.filter((item) => {
         return (item.abbreviation === route.params?.data['data']['awayTeam']['abbrev']);
@@ -144,52 +158,18 @@ export default function GamesDetail({navigation}) {
         return (item.abbreviation === route.params?.data['data']['homeTeam']['abbrev']);
     })
 
-    const [stat, setStat] = useState({home: 0, away: 0});
-
-    const [sim, setSim] = useState({h: {w: 0, l: 0}, a: {w: 0, l: 0}});
-
-
-    const [playerStats, setPlayerStats] = useState({h: [], a: [], g: {h: [], a: []}})
 
     const commonConfig = {delimiter: ","};
 
-
-    const sort_by = (field, reverse, primer) => {
-
-        const key = primer ?
-            function (x) {
-                return primer(x[field])
-            } :
-            function (x) {
-                return x[field]
-            };
-
-        reverse = !reverse ? 1 : -1;
-
-        return function (a, b) {
-            return a = key(a), b = key(b), reverse * ((a > b) - (b > a));
-        }
-    }
-
-    const [gameInfo, setGameInfo] = useState({home: [], away: []})
-    const [shotsP1, setShotsP1] = useState({h: 0, a: 0});
-    const [shotsP2, setShotsP2] = useState({h: 0, a: 0});
-    const [shotsP3, setShotsP3] = useState({h: 0, a: 0});
-
-    const [goals, setGoals] = useState([])
-
-    const [mapStats, setMapStats] = useState([])
-    const [mapStatsSel, setMapStatsSel] = useState("shot-on-goal")
 
     function mapToPixel(x, y, width, height, elementSize) {
         let halfElementSize = elementSize / 2;
         let pixelX = (x + 100) / 200 * width - halfElementSize;
         let pixelY = (1 - (y + 42.5) / 85) * height - halfElementSize; // Flip y-axis for typical graph orientation
-        return { x: pixelX, y: pixelY };
+        return {x: pixelX, y: pixelY};
     }
 
     const getMapData = (type) => {
-        setMapStatsSel("Shots")
         let myHeaders = new Headers();
         myHeaders.append("accept", "application/json");
 
@@ -201,14 +181,18 @@ export default function GamesDetail({navigation}) {
         fetch(`https://api-web.nhle.com/v1/gamecenter/${route.params?.data['data']['id']}/play-by-play`, requestOptions)
             .then(response => response.text())
             .then(result => {
-                const d = JSON.parse(result).plays.filter(shot=>{
+                const d = JSON.parse(result).plays.filter(shot => {
                     return shot.typeDescKey === type
                 })
-                setMapStats(d.map(s=>{return{x: s.details.xCoord, y: s.details.yCoord, d: s.details.eventOwnerTeamId}}))
+                setMapStats(d.map(s => {
+                    return {x: s.details.xCoord, y: s.details.yCoord, d: s.details.eventOwnerTeamId}
+                }))
             })
     }
 
+
     const getData = () => {
+        console.log("Test")
         let myHeaders = new Headers();
         myHeaders.append("accept", "application/json");
 
@@ -218,64 +202,94 @@ export default function GamesDetail({navigation}) {
             redirect: 'follow'
         };
 
+
         fetch(`https://api-web.nhle.com/v1/gamecenter/${route.params?.data['data']['id']}/landing`, requestOptions)
             .then(response => response.text())
             .then(result => {
-                setLanding(JSON.parse(result))
-                let g = JSON.parse(result).summary.scoring.flatMap(period => period.goals);
 
-                setGoals(g)
+                const res = JSON.parse(result)
+
+                setLanding(res)
+                if (res.gameState.type !== "FUT") {
+                    let g = res.summary?.scoring.flatMap(period => period.goals);
+                    setGoals(g)
+                }
+
+                const situation = JSON.parse(result).situation
+
+                setPPData({
+                    t: situation ? situation.timeRemaining : 0,
+                    h: situation ? situation.homeTeam.strength : 5,
+                    a: situation ? situation.awayTeam.strength : 5
+                })
+
+
             })
 
         fetch(`https://api-web.nhle.com/v1/gamecenter/${route.params?.data['data']['id']}/boxscore`, requestOptions)
             .then(response => response.text())
             .then(result => {
 
+                const res = JSON.parse(result)
+
+                setGameState({
+                    type: res.gameState,
+                    TR: res.clock.timeRemaining,
+                    isINT: res.clock.inIntermission,
+                    period: res.period,
+                    endPeriod: gameState.type === "FINAL" || gameState.type === "OVER" || gameState.type === "OFF" ? res.gameOutcome.otPeriods : 0,
+                    endType: gameState.type === "FINAL" || gameState.type === "OVER" || gameState.type === "OFF" ? res.gameOutcome.lastPeriodType : 0
+                })
+
                 const pData = {h: [], a: [], g: {h: [], a: []}}
 
-                JSON.parse(result).boxscore.playerByGameStats.homeTeam.forwards.map(player => {
-                    pData.h.push(player)
-                })
-                JSON.parse(result).boxscore.playerByGameStats.homeTeam.defense.map(player => {
-                    pData.h.push(player)
-                })
+                if (res.gameState.type !== "FUT") {
+                    res.boxscore.playerByGameStats.homeTeam.forwards.map(player => {
+                        pData.h.push(player)
+                    })
+                    res.boxscore.playerByGameStats.homeTeam.defense.map(player => {
+                        pData.h.push(player)
+                    })
 
-                JSON.parse(result).boxscore.playerByGameStats.awayTeam.forwards.map(player => {
-                    pData.a.push(player)
-                })
-                JSON.parse(result).boxscore.playerByGameStats.awayTeam.defense.map(player => {
-                    pData.a.push(player)
-                })
-
-
-                JSON.parse(result).boxscore.playerByGameStats.homeTeam.goalies.map(player => {
-                    pData.g.h.push(player)
-                })
-                JSON.parse(result).boxscore.playerByGameStats.awayTeam.goalies.map(player => {
-                    pData.g.a.push(player)
-                })
-
-                setPlayerStats(pData)
+                    res.boxscore.playerByGameStats.awayTeam.forwards.map(player => {
+                        pData.a.push(player)
+                    })
+                    res.boxscore.playerByGameStats.awayTeam.defense.map(player => {
+                        pData.a.push(player)
+                    })
 
 
-                setMatchData({home: JSON.parse(result)['homeTeam'], away: JSON.parse(result)['awayTeam']})
-                setGameInfo({
-                    home: JSON.parse(result).boxscore.gameInfo.homeTeam.scratches,
-                    away: JSON.parse(result).boxscore.gameInfo.awayTeam.scratches
-                })
+                    res.boxscore.playerByGameStats.homeTeam.goalies.map(player => {
+                        pData.g.h.push(player)
+                    })
+                    res.boxscore.playerByGameStats.awayTeam.goalies.map(player => {
+                        pData.g.a.push(player)
+                    })
 
-                setShotsP1({
-                    h: JSON.parse(result)?.boxscore.shotsByPeriod[0].home,
-                    a: JSON.parse(result)?.boxscore.shotsByPeriod[0].away
-                })
-                setShotsP2({
-                    h: JSON.parse(result)?.boxscore.shotsByPeriod[1].home,
-                    a: JSON.parse(result)?.boxscore.shotsByPeriod[1].away
-                })
-                setShotsP3({
-                    h: JSON.parse(result)?.boxscore.shotsByPeriod[2].home,
-                    a: JSON.parse(result)?.boxscore.shotsByPeriod[2].away
-                })
+                    setPlayerStats(pData)
+
+
+                    setMatchData({home: res['homeTeam'], away: res['awayTeam']})
+                    setScratches({
+                        home: res.boxscore.gameInfo.homeTeam.scratches,
+                        away: res.boxscore.gameInfo.awayTeam.scratches
+                    })
+
+
+                    setShotsP({
+                        totalH: 0,
+                        totalA: 0,
+                        h: res?.boxscore.shotsByPeriod.map((s) => {
+                            return s.home
+                        }),
+                        a: res?.boxscore.shotsByPeriod.map((s) => {
+                            return s.away
+                        })
+                    })
+
+
+                }
+
 
             })
 
@@ -283,36 +297,16 @@ export default function GamesDetail({navigation}) {
         getSIMData(0)
     }
 
-    useEffect(()=>{
-            getData()
+    useEffect(() => {
+        setMapStatsSel("Shots")
+        getData()
+        getSavedTeamData()
     }, [])
 
-    const [matchData, setMatchData] = useState(null);
-    const [ppData, setPPData] = useState({h: {t: 0, a: 5}, a: {t: 0, a: 5}});
 
-    const getDate = (offset) => {
-        const today = new Date();
-        today.setDate(today.getDate() + offset);
-        today.setHours(today.getHours() - 4)
-
-        const year = today.getFullYear();
-        const month = (today.getMonth() + 1).toString().padStart(2, '0'); // Adding 1 because months are zero-based
-        const day = today.getDate().toString().padStart(2, '0');
-
-        return `${year}-${month}-${day}`;
-    }
-
-    const [winData, setWinData] = useState([]);
-    const [ptsData, setPTSData] = useState([{}]);
-
-    const [fullData, setFullData] = useState(null);
-
-    const [playByPlay, setPlayByPlay] = useState([{}]);
-
-
-    if(matchData){
-        if(!stat.home){
-            if (route.params?.data['data']['goals'] !== undefined) {
+    if (matchData) {
+        if (!stat.home) {
+            if (gameState.type !== "PRE" && gameState.type !== "FUT") {
                 Papa.parse(
                     `https://moneypuck.com/moneypuck/gameData/${route.params?.data['data']['season']}/${route.params?.data['data']['id']}.csv`,
                     {
@@ -320,37 +314,20 @@ export default function GamesDetail({navigation}) {
                         header: true,
                         download: true,
                         complete: (result) => {
-                            const chartData = result.data.map((d, i)=>{
+                            const chartData = result.data.map((d, i) => {
                                 return parseFloat(d?.homeWinProbability) * 100
                             })
-                            const pointsData = result.data.map((d, i) => {
-                                return parseFloat(d?.homeTeamExpectedGoals)
-                            })
-                            const pointsDataAway = result.data.map((d, i) => {
-                                return parseFloat(d?.awayTeamExpectedGoals)
-                            })
-                            const playData = result.data.map((d, i)=>{
-                                return {
-                                    raw: d.eventDescriptionRaw,
-                                    type: d.event,
-                                    shot: d.shot,
-                                    time: d.time,
-                                    x: d.xCord,
-                                    y: d.yCord
-                                }
-                            })
-
-
-                            setPlayByPlay(playData.slice(playData.length - 10, playData.length))
                             setWinData(chartData)
-                            setPTSData({h: pointsData, a: pointsDataAway})
-                            setStat({p: 0, home: (result.data.slice(-2)[0]).homeWinProbability, away: 1 - (result.data.slice(-2)[0]).homeWinProbability});
+                            setStat({
+                                p: 0,
+                                home: (result.data.slice(-2)[0]).homeWinProbability,
+                                away: 1 - (result.data.slice(-2)[0]).homeWinProbability
+                            });
                             setFullData(result.data.slice(-2)[0])
                         }
                     }
                 );
-            }
-            else{
+            } else {
                 Papa.parse(
                     `https://moneypuck.com/moneypuck/predictions/${route.params?.data['data']['id']}.csv`,
                     {
@@ -358,7 +335,11 @@ export default function GamesDetail({navigation}) {
                         header: true,
                         download: true,
                         complete: (result) => {
-                            setStat({p: 1, home: parseFloat((result.data.slice(-2)[0]).preGameHomeTeamWinOverallScore), away: 1-parseFloat((result.data.slice(-2)[0]).preGameHomeTeamWinOverallScore)});
+                            setStat({
+                                p: 1,
+                                home: parseFloat((result.data.slice(-2)[0]).preGameHomeTeamWinOverallScore),
+                                away: 1 - parseFloat((result.data.slice(-2)[0]).preGameHomeTeamWinOverallScore)
+                            });
                         }
                     }
                 );
@@ -367,8 +348,6 @@ export default function GamesDetail({navigation}) {
 
         }
     }
-
-    const [isReg, setIsReg] = useState(true);
 
 
     const getSIMData = (type) => {
@@ -418,69 +397,47 @@ export default function GamesDetail({navigation}) {
         );
     }
 
-    function findMinMax(arr) {
-        let min = arr[0];
-        let max = arr[0];
-        for (let i = 1; i < arr.length; i++) {
-            if (arr[i] > max) {
-                max = arr[i];
-            }
-            if (arr[i] < min) {
-                min = arr[i];
-            }
-        }
-        return {min: min, max: max};
-    }
 
-    const data = {
-        // Your data points here
-        xAxis: [0, 1, 2, 3, 4],
-        yAxis: [0, 5, 2, 7, 4]
-    };
+    // const parseEvent = (event) => {
+    //
+    //     switch (event) {
+    //         case "FAC":
+    //             return "Faceoff Won";
+    //         case "SHOT":
+    //             return "Shot Taken"
+    //         case "TAKE":
+    //             return "Takeaway"
+    //         case "GIVE":
+    //             return "Giveaway"
+    //         case "STOP":
+    //             return "Play Stopped"
+    //         case "BLOCK":
+    //             return "Shot Blocked"
+    //         case "HIT":
+    //             return "Hit"
+    //         case "MISS":
+    //             return "Shot Missed"
+    //         case "GOA":
+    //             return "Goalie Stopped"
+    //         case "GEND":
+    //             return "Game Ended"
+    //         case "PEND":
+    //             return "Period Ended"
+    //         case "GOAL":
+    //             return "Goal Scored"
+    //         case "GSTR":
+    //             return "Game Started"
+    //         case "PSTR":
+    //             return "Period Started"
+    //         case "PENL":
+    //             return "Penalty"
+    //     }
+    //
+    //
+    //     return event;
+    //
+    // }
 
-
-
-    const parseEvent = (event) => {
-
-        switch (event) {
-            case "FAC":
-                return "Faceoff Won";
-            case "SHOT":
-                return "Shot Taken"
-            case "TAKE":
-                return "Takeaway"
-            case "GIVE":
-                return "Giveaway"
-            case "STOP":
-                return "Play Stopped"
-            case "BLOCK":
-                return "Shot Blocked"
-            case "HIT":
-                return "Hit"
-            case "MISS":
-                return "Shot Missed"
-            case "GOA":
-                return "Goalie Stopped"
-            case "GEND":
-                return "Game Ended"
-            case "PEND":
-                return "Period Ended"
-            case "GOAL":
-                return "Goal Scored"
-            case "GSTR":
-                return "Game Started"
-            case "PSTR":
-                return "Period Started"
-            case "PENL":
-                return "Penalty"
-        }
-
-
-        return event;
-
-    }
-
-    const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -490,14 +447,8 @@ export default function GamesDetail({navigation}) {
     }, []);
 
 
-
-    const [homeStat, setHomeStat] = useState(true);
-    const [landing, setLanding] = useState(true);
-
-    const [selP, setSelP] = useState(0);
-
     const landingData = (data) => {
-        try{
+        try {
             return {
                 h: parseInt(landing?.summary?.teamGameStats.filter(stat => {
                     return stat.category === data
@@ -505,59 +456,16 @@ export default function GamesDetail({navigation}) {
                     return stat.category === data
                 })[0].awayValue)
             }
-        }catch {
-            return {h:0,a:0}
+        } catch {
+            return {h: 0, a: 0}
         }
 
     }
-    const ppcData = () => {
 
-        try{
-            const home = landing?.summary.teamGameStats?.filter(stat => {
-                return stat.category === "powerPlay"
-            })[0].homeValue.split("/")
-
-            const away = landing?.summary.teamGameStats?.filter(stat => {
-                return stat.category === "powerPlay"
-            })[0].awayValue.split("/")
-
-            return {
-                h: parseInt(home[0]) / parseInt(home[1]), a: parseInt(away[0]) / parseInt(away[1])}
-        }
-
-        catch {
-            return {h:0,a:0}
-        }
-
-
-    }
-
-
-
-function getPCTColor(teamCode) {
-        let team = teamData.filter((item) => {
-            return (item.abbreviation === teamCode);
-        })
-        return team[0]?.primary_color;
-    }
-
-    function scaleCoordinates(originalX, originalY, newWidth, newHeight) {
-        const scaledX = (originalX / 100) * newWidth;
-        const scaledY = (originalY / 100) * newHeight;
-
-        return {scaledX, scaledY};
-    }
-
-    const [tab, setTab] = useState(route.params?.data['data']['goals'] !== undefined ? 0 : 2);
-
-    const [selectedEvent, setSelectedEvent] = useState(1);
-
-    const [scrollView, setScrollView] = useState(false);
 
     const handleScroll = (pos) => {
         setScrollView(pos > 100)
     }
-
 
 
     const Player = (props) => {
@@ -586,8 +494,6 @@ function getPCTColor(teamCode) {
         })
 
 
-
-
         return <TouchableOpacity onPress={() => {
         }} style={{
             marginBottom: 4,
@@ -601,7 +507,7 @@ function getPCTColor(teamCode) {
                 fontFamily: 'Sora_700Bold',
                 fontSize: 16,
                 textAlign: 'center',
-                width: 100,color: colors.text
+                width: 100, color: colors.text
             }}></Text>
             <View style={{flexDirection: 'row', justifyContent: 'center'}}>
                 {data ?
@@ -611,7 +517,7 @@ function getPCTColor(teamCode) {
                         height: 80,
                         width: 80,
                         marginTop: 10,
-                        borderColor: `${getPCTColor(data.currentTeamAbbrev)}`,
+                        borderColor: `${getTeamColor(data.currentTeamAbbrev, colors)}`,
                         backgroundColor: colors.card
                     }} source={{uri: data.headshot}}/> : <></>}
             </View>
@@ -620,12 +526,12 @@ function getPCTColor(teamCode) {
                 fontFamily: 'Sora_600SemiBold',
                 fontSize: 16,
                 marginTop: 10,
-                textAlign: 'center',color: colors.text
+                textAlign: 'center', color: colors.text
             }}>{props.player.firstName.default}</Text>
             <Text style={{
                 fontFamily: 'Sora_600SemiBold',
                 fontSize: 16,
-                textAlign: 'center',color: colors.text
+                textAlign: 'center', color: colors.text
             }}>{props.player.lastName.default}</Text>
 
         </TouchableOpacity>
@@ -633,7 +539,9 @@ function getPCTColor(teamCode) {
 
 
     return <View style={styles.container}>
-        <ConfettiCannon fadeOut count={50} origin={{x: -10, y: 0}} />
+        {
+            (matchData?.away.score > matchData?.home.score && route.params?.data.data.awayTeam.abbrev === teamWon) || (matchData?.home.score > matchData?.away.score && route.params?.data.data.homeTeam.abbrev === teamWon) ?
+                <ConfettiCannon fadeOut count={50} origin={{x: -10, y: 0}}/> : <></>}
         <SafeAreaView style={{width: '100%', position: 'relative'}}>
             <View
                 style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
@@ -642,7 +550,13 @@ function getPCTColor(teamCode) {
                     <TouchableOpacity onPress={() => {
                         navigation.goBack()
                         Haptics.selectionAsync()
-                    }} style={{backgroundColor: colors.card, marginRight: 15, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 100}}>
+                    }} style={{
+                        backgroundColor: colors.card,
+                        marginRight: 15,
+                        paddingHorizontal: 10,
+                        paddingVertical: 10,
+                        borderRadius: 100
+                    }}>
                         <ArrowLeft color={colors.text}/>
                     </TouchableOpacity>
 
@@ -663,10 +577,11 @@ function getPCTColor(teamCode) {
                         style={{
                             fontFamily: 'Sora_600SemiBold',
                             fontSize: 24, position: 'absolute', top: '50%', transform: [{translateY: -37}]
-                        }}><Text style={{ fontFamily: 'Sora_600SemiBold',
-                        fontSize: 24, color: colors.text}}>{route.params?.data.data.awayTeam.abbrev} @ {route.params?.data.data.homeTeam.abbrev}</Text></MotiText>
+                        }}><Text style={{
+                        fontFamily: 'Sora_600SemiBold',
+                        fontSize: 24, color: colors.text
+                    }}>{route.params?.data.data.awayTeam.abbrev} @ {route.params?.data.data.homeTeam.abbrev}</Text></MotiText>
                         <MotiView
-
                             from={{
                                 opacity: !scrollView ? 1 : 0
                             }}
@@ -678,69 +593,70 @@ function getPCTColor(teamCode) {
                                 type: 'timing',
                                 duration: 150
                             }}
-
                             style={{
-
-
                                 position: 'absolute', top: '50%', transform: [{translateY: -37}]
-                            }}><Text style={{ fontFamily: 'Sora_600SemiBold',
+                            }}><Text style={{
+                            fontFamily: 'Sora_600SemiBold',
                             fontSize: 24, color: colors.text
-                        }}>{route.params?.data.data.awayTeam.abbrev} {matchData?.away.score} <Text style={{fontFamily: ""}}>•</Text> {matchData?.home.score} {route.params?.data.data.homeTeam.abbrev}
+                        }}>{route.params?.data.data.awayTeam.abbrev} {matchData?.away.score} <Text
+                            style={{fontFamily: ""}}>•</Text> {matchData?.home.score} {route.params?.data.data.homeTeam.abbrev}
                         </Text></MotiView></View>
                 </View>
                 {
-                   ( route.params?.data['data']['gameState'] === "FINAL" || route.params?.data['data']['gameState'] === "OVER" || route.params?.data['data']['gameState'] === "OFF") ?
+                    (gameState.type === "FINAL" || gameState.type === "OVER" || gameState.type === "OFF") ?
                         <TouchableOpacity style={{
-                        backgroundColor: colors.card,
-                        paddingHorizontal: 20,
-                        paddingVertical: 10,
-                        borderRadius: 100,
-                        marginRight: 10
-                    }} onPress={() => {
-                        Linking.openURL(`https://www.nhl.com${route.params?.data['data'].threeMinRecap}`).then(r => {
-                        });
-                        Haptics.selectionAsync()
-                    }}>
-                        <Text style={styles.inactiveText}>Video Recap</Text>
-                    </TouchableOpacity> :  route.params?.data['data']['gameState'] === "LIVE" ? <MotiView  from={{
+                            backgroundColor: colors.card,
+                            paddingHorizontal: 20,
+                            paddingVertical: 10,
+                            borderRadius: 100,
+                            marginRight: 10
+                        }} onPress={() => {
+                            Linking.openURL(`https://www.nhl.com${route.params?.data['data'].threeMinRecap}`).then(r => {
+                            });
+                            Haptics.selectionAsync()
+                        }}>
+                            <Text style={styles.inactiveText}>Video Recap</Text>
+                        </TouchableOpacity> : gameState.type === "LIVE" ? <MotiView from={{
                             opacity: 1
                         }}
-                                                                                                           animate={{
-                                                                                                               opacity: .7
+                                                                                    animate={{
+                                                                                        opacity: .7
 
-                                                                                                           }}
-                                                                                                           transition={{
-                                                                                                               duration: 1000,
-                                                                                                               loop: true,
-                                                                                                           }}
-                                                                                                           style={{
-                                                                                                               backgroundColor: '#f54242',
-                                                                                                               paddingVertical: 10,
-                                                                                                               borderRadius: 15,
-                                                                                                               paddingHorizontal: 15,
-                                                                                                               opacity: 1
+                                                                                    }}
+                                                                                    transition={{
+                                                                                        duration: 1000,
+                                                                                        loop: true
+                                                                                    }}
+                                                                                    style={{
+                                                                                        backgroundColor: '#f54242',
+                                                                                        paddingVertical: 10,
+                                                                                        borderRadius: 15,
+                                                                                        paddingHorizontal: 15,
+                                                                                        opacity: 1
 
-                                                                                                           }}><Text style={{
-                           color: 'white',
-                           fontFamily: 'Sora_500Medium',
-                           fontSize: 12
-                       }}>LIVE</Text>
+                                                                                    }}><Text style={{
+                            color: 'white',
+                            fontFamily: 'Sora_500Medium',
+                            fontSize: 12
+                        }}>LIVE</Text>
                         </MotiView> : <></>
                 }
             </View>
-            <ScrollView refreshing={refreshing} onRefresh={onRefresh}  scrollEventThrottle={16} onScroll={(s) => handleScroll(s.nativeEvent.contentOffset.y)}
+            <ScrollView refreshing={refreshing} onRefresh={onRefresh} scrollEventThrottle={16}
+                        onScroll={(s) => handleScroll(s.nativeEvent.contentOffset.y)}
                         style={{height: !tab ? 1000 : '100%'}}>
-                <View style={{flexDirection: 'row', alignItems: 'start', marginTop: 20, justifyContent: 'center'}}>
+                <View style={{flexDirection: 'row', alignItems: 'flex-start', marginTop: 20, justifyContent: 'center'}}>
                     <View style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
-                        {getTimeLabel() !== "Final" &&  <View style={{backgroundColor: colors.card, borderRadius: 100}}>
-                            <Text style={{
-                                textAlign: "left",
-                                paddingHorizontal: 15,
-                                paddingVertical: 4,
-                                fontFamily: 'Sora_500Medium',
-                                fontSize: 20,color: colors.text
-                            }}>{(parseFloat(stat.home > 0.0 ? stat.home : route.params?.data.prob.h) * 100).toFixed(0)}%</Text>
-                        </View>}
+                        {gameState.type !== "FINAL" && gameState.type !== "OFF" && gameState.type !== "OVER" ?
+                            <View style={{backgroundColor: colors.card, borderRadius: 100}}>
+                                <Text style={{
+                                    textAlign: "left",
+                                    paddingHorizontal: 15,
+                                    paddingVertical: 4,
+                                    fontFamily: 'Sora_500Medium',
+                                    fontSize: 20, color: colors.text
+                                }}>{(parseFloat(stat?.home > 0.0 ? stat?.home : route.params?.data.prob.h) * 100).toFixed(0)}%</Text>
+                            </View> : <></>}
                         {assets && <Image style={{
                             height: 70, width: 100, transform: [{scale: .7}], flexDirection: 'column', marginTop: 10,
                             marginLeft: 5,
@@ -750,151 +666,149 @@ function getPCTColor(teamCode) {
                         <Text style={{
                             fontFamily: 'Sora_600SemiBold',
                             fontSize: 18,
-                            textAlign: 'center',color: colors.text
+                            textAlign: 'center', color: colors.text
                         }}>{HomeTeamName[0]['name']}</Text>
-                        {ppData.h.a > ppData.a.a ??
+                        {ppData.h > ppData.a ??
                             <View style={{backgroundColor: '#f54242', borderRadius: 100, marginTop: 10}}>
                                 <Text style={{
                                     textAlign: "left",
                                     paddingHorizontal: 15,
                                     paddingVertical: 4,
                                     fontFamily: 'Sora_500Medium',
-                                    fontSize: 20,color: colors.text
-                                }}>{ppData.h.a} on {ppData.a.a}</Text>
-                            </View> }
+                                    fontSize: 20, color: colors.text
+                                }}>{ppData.h} on {ppData.a}</Text>
+                            </View>}
                         {ppData.h.a > ppData.a.a ?
                             <Text style={{
                                 textAlign: "center",
                                 fontFamily: 'Sora_400Regular',
                                 marginTop: 5,
-                                fontSize: 16,color: colors.text
-                            }}>{ppData.h.t}</Text> : <></>}
+                                fontSize: 16, color: colors.text
+                            }}>{ppData.t}</Text> : <></>}
                     </View>
                     <View style={{flexDirection: 'column', alignItems: 'center', width: '33.3%'}}>
                         <View>
-                            {route.params?.data['data'].period && getTimeLabel() !== "INT" && getTimeLabel() !== "Final" ?
+                            {gameState.type === "PRE" || gameState.type === "FUT" &&
                                 <View style={{
                                     backgroundColor: colors.card,
-                                    width: 100,
-                                    paddingVertical: 8,
-                                    borderRadius: 5,
-                                    paddingHorizontal: 15
-                                }}>
-                                    <Text style={{
-                                        marginTop: route.params?.data['data'].period ? 0 : 5,
-                                        textAlign: 'center',
-                                        fontFamily: 'Sora_500Medium',color: colors.text
-                                    }}>{route.params?.data['data'].period > 3 ? "OT" : `P${route.params?.data['data'].period}`}</Text>
-
-                                </View> : getTimeLabel() === "INT" && <View style={{
-                                    backgroundColor: colors.card,
-                                    width: 100,
-                                    paddingVertical: 8,
-                                borderRadius: 30,
-                                    paddingHorizontal: 15
-                                }}>
-                                    <Text style={{
-                                        marginTop: route.params?.data['data'].period ? 0 : 5,
-                                        textAlign: 'center',
-                                        fontFamily: 'Sora_500Medium',color: colors.text
-                                    }}>INT</Text>
-
-                                </View> }
-                            {route.params?.data['data'].period && getTimeLabel() !== "INT" ?
-                                <View style={{
-                                    backgroundColor: colors.card,
-                                    width: 100,
                                     paddingVertical: 8,
                                     borderRadius: 30,
-                                    marginTop: route.params?.data['data'].period && !route.params?.data['data'].gameOutcome?.lastPeriodType ? 5 : 0,
-                                    paddingHorizontal: 15
+                                    paddingHorizontal: 15,
+                                    marginTop: 70
                                 }}>
+                                    <Text style={{
+                                        textAlign: 'center',
+                                        fontFamily: 'Sora_500Medium', color: colors.text
+                                    }}>{formatAMPM(new Date(route.params.data?.data?.startTimeUTC))}</Text>
+                                </View>
 
-                                    <Text style={{
-                                        marginTop: !route.params?.data['data'].period || route.params?.data['data'].gameOutcome?.lastPeriodType ? 0 : 5,
-                                        textAlign: 'center',
-                                        fontFamily: 'Sora_500Medium',color: colors.text
-                                    }}>{getTimeLabel()}</Text>
-                                </View> : getTimeLabel() === "INT" && <View style={{
+                            }
+                            {
+                                !gameState.isINT && (gameState.type === "LIVE" || gameState.type === "CRIT") &&
+                                <View style={{
                                     backgroundColor: colors.card,
-                                    width: 100,
-                                paddingVertical: 8,
-                                borderRadius: 30,
-                                    marginTop: route.params?.data['data'].period ? 5 : 0,
+                                    paddingVertical: 6.5,
+                                    borderRadius: 30,
                                     paddingHorizontal: 15
                                 }}>
                                     <Text style={{
-                                        marginTop: !route.params?.data['data'].period ? 0 : 5,
+
                                         textAlign: 'center',
-                                        fontFamily: 'Sora_500Medium',color: colors.text
-                                    }}>{route.params?.data['data'].clock?.timeRemaining}</Text>
-                                </View> }
+                                        fontFamily: 'Sora_500Medium', color: colors.text, fontSize: 16
+                                    }}> {gameState.period < 4 ? `P${gameState.period}` : `${gameState.period - 3}OT`}
+                                        <Text style={{fontFamily: ""}}>•</Text> {gameState.TR}</Text>
+                                </View>
+
+                            }
+                            {
+                                gameState.type === "FINAL" || gameState.type === "OVER" || gameState.type === "OFF" &&
+                                <View style={{
+                                    backgroundColor: colors.card,
+                                    paddingVertical: 6.5,
+                                    borderRadius: 30,
+                                    paddingHorizontal: 15
+                                }}>
+                                    <Text style={{
+
+                                        textAlign: 'center',
+                                        fontFamily: 'Sora_500Medium', color: colors.text, fontSize: 16
+                                    }}>Final<Text
+                                        style={{fontFamily: ""}}> {gameState.endType !== "REG" ? "•" : ""}</Text> {gameState.endType !== "REG" ? gameState.endType : ""}
+                                    </Text>
+                                </View>
+
+                            }
+                            {
+                                gameState.isINT && <View style={{
+                                    backgroundColor: colors.card,
+                                    paddingVertical: 6.5,
+                                    borderRadius: 30,
+
+                                    paddingHorizontal: 15
+                                }}>
+                                    <Text style={{
+
+                                        textAlign: 'center',
+                                        fontFamily: 'Sora_500Medium', color: colors.text, fontSize: 16
+                                    }}>INT <Text style={{fontFamily: ""}}>•</Text> {gameState.TR}</Text>
+                                </View>
+
+                            }
+
                         </View>
-                        {matchData?.home.score !== undefined ?
+
+                        {gameState.type !== "PRE" && gameState.type !== "FUT" ?
                             <View
-                                style={{flexDirection: 'row', justifyContent: 'center', marginTop: 40, width: '100%'}}>
+                                style={{
+                                    flexDirection: 'row',
+                                    justifyContent: 'center',
+                                    marginTop: (gameState.type === "FINAL" || gameState.type === "OVER" || gameState.type === "OFF") ? 20 : 40,
+                                    width: '100%'
+                                }}>
                                 <View
-                                    style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10}}>
+                                    style={{
+                                        flexDirection: 'row',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        gap: 10
+                                    }}>
                                     <Text
                                         style={{
-                                    textAlign: "center",
-                                    paddingVertical: 4,
-                                    fontFamily: 'Sora_800ExtraBold',
-                                    fontSize: 32,color: colors.text
+                                            textAlign: "center",
+                                            paddingVertical: 4,
+                                            fontFamily: 'Sora_800ExtraBold',
+                                            fontSize: 32, color: colors.text
                                         }}>{matchData?.home.score}</Text>
-
                                     <View>
-                                    <Svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill={colors.text} stroke="currentColor" strokeWidth="0" strokeLinecap="round" strokeLinejoin="round" className="feather feather-circle"><Circle cx="12" cy="12" r="10"></Circle></Svg>
+                                        <Svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"
+                                             viewBox="0 0 24 24" fill={colors.text} stroke="currentColor"
+                                             strokeWidth="0" strokeLinecap="round" strokeLinejoin="round"
+                                             className="feather feather-circle"><Circle cx="12" cy="12" r="10"></Circle></Svg>
                                     </View>
                                     <Text
-                                   style={{
-                                        textAlign: "center",
-                                        paddingVertical: 4,
-                                        fontFamily: 'Sora_800ExtraBold',
-                                        fontSize: 32,color: colors.text
-                                   }}>{matchData?.away.score}</Text>
+                                        style={{
+                                            textAlign: "center",
+                                            paddingVertical: 4,
+                                            fontFamily: 'Sora_800ExtraBold',
+                                            fontSize: 32, color: colors.text
+                                        }}>{matchData?.away.score}</Text>
                                 </View>
-                            </View> : !route.params?.data['data'].gameOutcome?.lastPeriodType &&  <View style={{
-                                backgroundColor: colors.card,
-                            paddingVertical: 7,
-                                paddingHorizontal: 20,
-                                borderRadius: 5,
-                                flexDirection: 'row',
-                                justifyContent: 'center'
-                            }}>
-                                <Text style={{
-                                    fontFamily: 'Sora_500Medium',color: colors.text
-                                }}>{formatAMPM(new Date(route.params.data?.data?.startTimeUTC))}</Text>
-                            </View>
+                            </View> : <></>
 
                         }
-                        <View style={{
-                            backgroundColor: colors.card,
-                            width: 100,
-                            paddingVertical: 5,
-                            borderRadius: 5,
-                            paddingHorizontal: 15,
-                            opacity: 0
-                        }}>
-                            <Text style={{
-                                textAlign: 'center',
-                                fontFamily: 'Sora_500Medium',color: colors.text
-                            }}>{route.params?.data['data']?.period > 3 ? "OT" : `P${route.params?.data['data'].period}`}</Text>
-                        </View>
                     </View>
-
-
                     <View
-                              style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
-                        {getTimeLabel() !== "Final" && <View style={{backgroundColor: colors.card, borderRadius: 100}}>
-                            <Text style={{
-                                textAlign: "left",
-                                paddingHorizontal: 15,
-                                paddingVertical: 4,
-                                fontFamily: 'Sora_500Medium',
-                                fontSize: 20,color: colors.text
-                            }}>{(parseFloat(stat.away > 0.0 ? stat.away : route.params?.data.prob.a) * 100).toFixed(0)}%</Text>
-                        </View>}
+                        style={{flexDirection: 'column', alignItems: 'center', width: '33%'}}>
+                        {gameState.type !== "FINAL" && gameState.type !== "OFF" && gameState.type !== "OVER" &&
+                            <View style={{backgroundColor: colors.card, borderRadius: 100}}>
+                                <Text style={{
+                                    textAlign: "left",
+                                    paddingHorizontal: 15,
+                                    paddingVertical: 4,
+                                    fontFamily: 'Sora_500Medium',
+                                    fontSize: 20, color: colors.text
+                                }}>{(parseFloat(stat.away > 0.0 ? stat.away : route.params?.data.prob.a) * 100).toFixed(0)}%</Text>
+                            </View>}
                         {assets &&
                             <Image style={{
                                 height: 70, width: 90, transform: [{scale: .7}], flexDirection: 'column', marginTop: 10,
@@ -905,35 +819,37 @@ function getPCTColor(teamCode) {
                         <Text style={{
                             fontFamily: 'Sora_600SemiBold',
                             fontSize: 18,
-                            textAlign: 'center',color: colors.text
+                            textAlign: 'center', color: colors.text
                         }}>{AwayTeamName[0]['name']}</Text>
-                        {ppData.a.a > ppData.h.a &&
+                        {ppData.a > ppData.h &&
                             <View style={{backgroundColor: '#f54242', borderRadius: 100, marginTop: 10}}>
                                 <Text style={{
                                     textAlign: "left",
                                     paddingHorizontal: 15,
                                     paddingVertical: 4,
-                                    fontFamily: 'Sora_500Medium',color: colors.background,
+                                    fontFamily: 'Sora_500Medium', color: colors.background,
                                     fontSize: 20
-                                }}>{ppData.h.a} on {ppData.a.a}</Text>
+                                }}>{ppData.a} on {ppData.a}</Text>
 
                             </View>}
-                        {ppData.a.a > ppData.h.a &&
+                        {ppData.a > ppData.h &&
                             <Text style={{
                                 textAlign: "center",
                                 fontFamily: 'Sora_400Regular'
-                                ,color: colors.text,
+                                , color: colors.text,
                                 marginTop: 5,
                                 fontSize: 16
-                            }}>{ppData.a.t}</Text>}
+                            }}>{ppData.t}</Text>}
                     </View>
 
                 </View>
 
-                <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                              unfilledColor={getPCTColor(route.params?.data.data.awayTeam.abbrev)} borderRadius={100}
+                <Progress.Bar color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                              unfilledColor={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                              borderRadius={100}
                               borderWidth={0} style={{marginTop: 20}}
-                              progress={stat.home > 0.0 ? stat.home : route.params.data.prob.h} height={12}
+                              progress={gameState.type === "FINAL" || gameState.type === "OFF" || gameState.type === "OVER" ? (matchData?.home.score > matchData?.away.score ? 1 : 0) : stat?.home > 0.0 ? stat?.home : route.params.data.prob.h}
+                              height={10}
                               width={Dimensions.get('window').width - 20}/>
                 <View style={{marginTop: 20}}>
                     <ScrollView showsHorizontalScrollIndicator={false} horizontal style={{
@@ -941,7 +857,7 @@ function getPCTColor(teamCode) {
                     }}>
 
                         {
-                            route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" ?
+                            gameState.type !== "FUT" && gameState.type !== "PRE" ?
                                 <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
                                                       setTab(0)
@@ -972,16 +888,18 @@ function getPCTColor(teamCode) {
                                 </TouchableOpacity> : <></>
                         }
 
-                        <TouchableOpacity style={tab === 2 ? styles.activeButton : styles.inactiveButton} onPress={() => {
-                            setTab(2)
-                            Haptics.selectionAsync()
-                        }}
+                        <TouchableOpacity style={tab === 2 ? styles.activeButton : styles.inactiveButton}
+                                          onPress={() => {
+                                              setTab(2)
+                                              Haptics.selectionAsync()
+                                          }}
                                           onLongPress={() => {
                                               setHomeStat(!homeStat)
                                           }}
                         >
                             <Chart2 color={tab === 2 ? colors.background : colors.text}/>
-                            <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>{route.params?.data['data']['gameState'] !== 'FUT' || route.params?.data['data']['gameState'] !== "PRE" ? "Game" : "Pregame"} Stats</Text>
+                            <Text
+                                style={tab === 2 ? styles.activeText : styles.inactiveText}>{gameState.type !== 'FUT' && gameState.type !== "PRE" ? "Game" : "Pregame"} Stats</Text>
                         </TouchableOpacity>
 
                         {/*{*/}
@@ -996,18 +914,18 @@ function getPCTColor(teamCode) {
                         {/*        </TouchableOpacity>*/}
                         {/*}*/}
                         {
-                            route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" &&
-                                <TouchableOpacity style={tab === 5 ? styles.activeButton : styles.inactiveButton}
-                                                  onPress={() => {
-                                                      setTab(5)
-                                                      Haptics.selectionAsync()
-                                                  }}>
-                                    <User color={tab === 5 ? colors.background : colors.text}/>
-                                    <Text style={tab === 5 ? styles.activeText : styles.inactiveText}>Player Stats</Text>
-                                </TouchableOpacity>
+                            gameState.type !== "FUT" && gameState.type !== "PRE" &&
+                            <TouchableOpacity style={tab === 5 ? styles.activeButton : styles.inactiveButton}
+                                              onPress={() => {
+                                                  setTab(5)
+                                                  Haptics.selectionAsync()
+                                              }}>
+                                <User color={tab === 5 ? colors.background : colors.text}/>
+                                <Text style={tab === 5 ? styles.activeText : styles.inactiveText}>Player Stats</Text>
+                            </TouchableOpacity>
                         }
                         {
-                            route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" && <
+                            gameState.type !== "FUT" && gameState.type !== "PRE" && <
                                 TouchableOpacity style={tab === 4 ? styles.activeButton : styles.inactiveButton}
                                                  onPress={() => {
                                                      setTab(4)
@@ -1020,7 +938,7 @@ function getPCTColor(teamCode) {
                             </TouchableOpacity>
                         }
                         {
-                            route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" && <
+                            gameState.type !== "FUT" && gameState.type !== "PRE" && <
                                 TouchableOpacity style={tab === 7 ? styles.activeButton : styles.inactiveButton}
                                                  onPress={() => {
                                                      setTab(7)
@@ -1034,26 +952,26 @@ function getPCTColor(teamCode) {
                         }
 
                         {
-                            (route.params?.data['data']['gameState'] === "FINAL" || route.params?.data['data']['gameState'] === "OFF" || route.params?.data['data']['gameState'] === "OVER") && landing?.summary?.threeStars ?
+                            (gameState.type === "FINAL" || gameState.type === "OFF" || gameState.type === "OVER") && landing?.summary?.threeStars ?
                                 <
-                                TouchableOpacity style={tab === 6 ? styles.activeButton : styles.inactiveButton}
-                                                 onPress={() => {
-                                                     setTab(6)
-                                                     Haptics.selectionAsync()
-                                                 }}>
+                                    TouchableOpacity style={tab === 6 ? styles.activeButton : styles.inactiveButton}
+                                                     onPress={() => {
+                                                         setTab(6)
+                                                         Haptics.selectionAsync()
+                                                     }}>
 
-                                <Star1 color={tab === 6 ? colors.background : colors.text}/>
+                                    <Star1 color={tab === 6 ? colors.background : colors.text}/>
 
-                                <Text style={tab === 6 ? styles.activeText : styles.inactiveText}>Stars</Text>
+                                    <Text style={tab === 6 ? styles.activeText : styles.inactiveText}>Stars</Text>
                                 </TouchableOpacity> : <></>
                         }
                     </ScrollView>
                 </View>
                 <View>
                     {
-                        !tab && route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" ?
+                        !tab && gameState.type !== "FUT" && gameState.type !== "PRE" ?
                             <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false} horizontal>
-                                {goals.length ? goals?.map((goal, i) => {
+                                {goals ? goals?.map((goal, i) => {
                                     return <View>
                                         <View>
                                             {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i - 1]?.period) ?
@@ -1061,12 +979,13 @@ function getPCTColor(teamCode) {
                                                     fontFamily: 'Sora_600SemiBold',
                                                     fontSize: 16,
                                                     marginBottom: 10,
-                                                    textAlign: 'center',color: colors.text
-                                                }}>Period {route.params?.data['data']['goals'][i]?.period}</Text> : <Text style={{
+                                                    textAlign: 'center', color: colors.text
+                                                }}>Period {route.params?.data['data']['goals'][i]?.period}</Text> :
+                                                <Text style={{
                                                     fontFamily: 'Sora_600SemiBold',
                                                     fontSize: 16,
                                                     marginBottom: 10,
-                                                    textAlign: 'left',color: colors.text
+                                                    textAlign: 'left', color: colors.text
                                                 }}>‎ </Text>}
                                             <View style={{
                                                 marginBottom: 4,
@@ -1087,8 +1006,9 @@ function getPCTColor(teamCode) {
                                                     fontSize: 14,
                                                     marginTop: 4,
                                                     textAlign: 'center',
-                                                    opacity: .5,color: colors.text
-                                                }}>{goal.homeScore} <Text style={{fontFamily: ""}}>•</Text> {goal.awayScore}</Text>
+                                                    opacity: .5, color: colors.text
+                                                }}>{goal.homeScore} <Text
+                                                    style={{fontFamily: ""}}>•</Text> {goal.awayScore}</Text>
                                                 <View style={{flexDirection: 'row', justifyContent: 'center'}}>
                                                     <Image style={{
                                                         borderRadius: 100,
@@ -1096,7 +1016,7 @@ function getPCTColor(teamCode) {
                                                         height: 80,
                                                         width: 80,
                                                         marginTop: 10,
-                                                        borderColor: `${getPCTColor(goal.teamAbbrev.default)}`,
+                                                        borderColor: `${getTeamColor(goal.teamAbbrev.default, colors)}`,
                                                         backgroundColor: colors.card
                                                     }} source={{uri: goal.headshot}}/>
                                                 </View>
@@ -1107,16 +1027,18 @@ function getPCTColor(teamCode) {
                                                     marginTop: 10,
                                                     textAlign: 'center',
                                                     color: colors.text
-                                                }}>{goal.name.default} <Text style={{fontFamily: ""}}>•</Text> {goal.goalsToDate}</Text>
+                                                }}>{goal.name.default} <Text
+                                                    style={{fontFamily: ""}}>•</Text> {goal.goalsToDate}</Text>
                                                 {
-                                                    goal.assists.map(a=>{
-                                                        return  <Text style={{
+                                                    goal.assists.map(a => {
+                                                        return <Text style={{
                                                             fontFamily: 'Sora_600SemiBold',
                                                             fontSize: 14,
                                                             marginTop: 4,
                                                             textAlign: 'center',
-                                                            opacity: .5,color: colors.text
-                                                        }}>{a.name.default} <Text style={{fontFamily: ""}}>•</Text> {a.assistsToDate}</Text>
+                                                            opacity: .5, color: colors.text
+                                                        }}>{a.name.default} <Text
+                                                            style={{fontFamily: ""}}>•</Text> {a.assistsToDate}</Text>
                                                     })
                                                 }
                                                 <Text style={{
@@ -1124,8 +1046,10 @@ function getPCTColor(teamCode) {
                                                     fontSize: 14,
                                                     marginTop: 4,
                                                     textAlign: 'center',
-                                                    opacity: .5,color: colors.text
-                                                }}>{goal.timeInPeriod} <Text style={{fontFamily: ""}}>•</Text> {goal.strength.toUpperCase()}
+                                                    opacity: .5, color: colors.text
+                                                }}>{goal.shotType === "wrist" ? 'Wrist' : goal.shotType === "tip-in" ? "Tip In" : goal.shotType === "slap" ? "Slapshot" : "Snap"}
+                                                    <Text style={{fontFamily: ""}}>•</Text> {goal.timeInPeriod} <Text
+                                                        style={{fontFamily: ""}}>•</Text> {goal.strength.toUpperCase()}
                                                 </Text>
                                                 {
                                                     goal.assists.length === 0 && <View><Text style={{
@@ -1133,13 +1057,13 @@ function getPCTColor(teamCode) {
                                                         fontSize: 14,
                                                         marginTop: 4,
                                                         textAlign: 'center',
-                                                        opacity: .5,color: colors.text
+                                                        opacity: .5, color: colors.text
                                                     }}>‎ </Text><Text style={{
                                                         fontFamily: 'Sora_600SemiBold',
                                                         fontSize: 14,
                                                         marginTop: 4,
                                                         textAlign: 'center',
-                                                        opacity: .5,color: colors.text
+                                                        opacity: .5, color: colors.text
                                                     }}>‎ </Text></View>
                                                 }
                                                 {
@@ -1148,34 +1072,32 @@ function getPCTColor(teamCode) {
                                                         fontSize: 14,
                                                         marginTop: 4,
                                                         textAlign: 'center',
-                                                        opacity: .5,color: colors.text
+                                                        opacity: .5, color: colors.text
                                                     }}>‎ </Text></View>
                                                 }
                                                 {goal.highlightClip &&
-                                                <TouchableOpacity onPress={() => {
-                                                    Linking.openURL(`https://players.brightcove.net/6415718365001/EXtG1xJ7H_default/index.html?videoId=${goal.highlightClip}`).then(r => {
-                                                    });
-                                                    Haptics.selectionAsync()
-                                                }} style={{
-                                                    backgroundColor: colors.card,
-                                                    alignSelf: 'center',
-                                                    marginTop: 10,
-                                                    paddingHorizontal: 20,
-                                                    paddingVertical: 10,
-                                                    borderRadius: 100,
-                                                    marginRight: 10,
-                                                    flexDirection: 'row',
-                                                    gap: 5,
-                                                    alignItems: 'center'
-                                                }}>
-                                                    <VideoCircle color={colors.text}/>
-                                                    <Text style={styles.inactiveText}>Clip</Text>
-                                                </TouchableOpacity>}
+                                                    <TouchableOpacity onPress={() => {
+                                                        Linking.openURL(`https://players.brightcove.net/6415718365001/EXtG1xJ7H_default/index.html?videoId=${goal.highlightClip}`).then(r => {
+                                                        });
+                                                        Haptics.selectionAsync()
+                                                    }} style={{
+                                                        backgroundColor: colors.card,
+                                                        alignSelf: 'center',
+                                                        marginTop: 10,
+                                                        paddingHorizontal: 20,
+                                                        paddingVertical: 10,
+                                                        borderRadius: 100,
+                                                        marginRight: 10,
+                                                        flexDirection: 'row',
+                                                        gap: 5,
+                                                        alignItems: 'center'
+                                                    }}>
+                                                        <VideoCircle color={colors.text}/>
+                                                        <Text style={styles.inactiveText}>Clip</Text>
+                                                    </TouchableOpacity>}
                                             </View>
 
                                         </View>
-
-
 
 
                                     </View>
@@ -1183,412 +1105,461 @@ function getPCTColor(teamCode) {
                                     <PlayerSkeleton colors={colors}/>
 
                                 </View>}
-                            </ScrollView> : tab === 2 ? route.params?.data['data']['gameState'] !== "FUT" && route.params?.data['data']['gameState'] !== "PRE" ?
-                                <View>
+                            </ScrollView> : tab === 2 ? gameState.type !== "FUT" && gameState.type !== "PRE" ?
+                                    <View>
 
-                                    <TouchableOpacity onPress={() => {
-                                        getSIMData(!isReg)
-                                        setIsReg(!isReg)
-                                    }}>
-
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,
-                                                width: 60,color: colors.text
-                                            }}>{Math.round(parseFloat(sim.h.w).toFixed(2) * 100)}%</Text>
-                                            <Text
-                                                style={{fontFamily: 'Sora_500Medium', fontSize: 16,color: colors.text}}>{isReg ? "Reg." : "OT"} Win
-                                                Playoff %</Text>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,
-                                                width: 60,color: colors.text
-                                            }}>{Math.round(parseFloat(sim.a.w).toFixed(2) * 100)}%</Text>
-                                        </View>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                          progress={parseFloat(sim.h.w).toFixed(2) ?? 0} height={6}
-                                                          width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20}} progress={parseFloat(sim.a.w).toFixed(2) ?? 0}
-                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        </View>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity onPress={() => {
-                                        getSIMData(!isReg)
-                                        setIsReg(!isReg)
-                                    }}>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,
-                                                width: 60,color: colors.text
-                                            }}>{Math.round(parseFloat(sim.h.l).toFixed(2) * 100)}%</Text>
-                                            <Text
-                                                style={{fontFamily: 'Sora_500Medium', fontSize: 16,color: colors.text}}>{isReg ? "Reg." : "OT"} Loss
-                                                Playoff %</Text>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,
-                                                width: 60,color: colors.text
-                                            }}>{Math.round(parseFloat(sim.a.l).toFixed(2) * 100)}%</Text>
-                                        </View>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                          progress={parseFloat(sim.h.l).toFixed(2) ?? 0} height={6}
-                                                          width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20}} progress={parseFloat(sim.a.l).toFixed(2) ?? 0}
-                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        </View>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => {
-                                        setSelP(selP === 0 ? 1 : selP === 1 ? 2 : selP === 2 ? 3 : 0)
-                                    }}>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,color: colors.text
-                                            }}>{selP === 0 ? matchData?.home.sog : selP === 1 ? shotsP1.h : selP === 2 ? shotsP2.h : shotsP3.h}</Text>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,color: colors.text
-                                            }}>{selP === 0 ? "Shots On Goal" : selP === 1 ? "Period 1 Shots On Goal" : selP === 2 ? "Period 2 Shots On Goal" : "Period 3 Shots On Goal"}</Text>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,color: colors.text
-                                            }}>{selP === 0 ? matchData?.away.sog : selP === 1 ? shotsP1.a : selP === 2 ? shotsP2.a : shotsP3.a}</Text>
-                                        </View>
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                          progress={parseFloat(matchData?.home.sog) / (parseFloat(matchData?.home.sog) + parseFloat(matchData?.away.sog)) ?? 0}
-                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20}}
-                                                          progress={parseFloat(matchData?.away.sog) / (parseFloat(matchData?.home.sog) + parseFloat(matchData?.away.sog)) ?? 0}
-                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        </View>
-                                    </TouchableOpacity>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,color: colors.text
-                                        }}>{Math.round((parseFloat(fullData?.homeFaceoffWinPercentage)).toFixed(2) * 100)}%</Text>
-                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16,color: colors.text}}>Faceoff Win Percentage</Text>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,color: colors.text
-                                        }}>{Math.round((parseFloat(1 - fullData?.homeFaceoffWinPercentage)).toFixed(2) * 100)}%</Text>
-                                    </View>
-
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <Progress.Bar animationType={"spring"}
-                                                      color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={(parseFloat(fullData?.homeFaceoffWinPercentage)) ?? 0
-
-                                                      } height={6}
-                                                      width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20}}
-                                                      progress={1 - (parseFloat(fullData?.homeFaceoffWinPercentage)) ?? 0}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,color: colors.text
-                                        }}>{Math.round((parseFloat(fullData?.homePercentOfEventsInOffensiveZone)) * 100)}%</Text>
-                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16,color: colors.text}}>Offensive Zone Time</Text>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,color: colors.text
-                                        }}>{Math.round((parseFloat(1 - fullData?.homePercentOfEventsInOffensiveZone)) * 100)}%</Text>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={((parseFloat(fullData?.homePercentOfEventsInOffensiveZone))) ?? 0}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20}}
-                                                      progress={(parseFloat(1 - fullData?.homePercentOfEventsInOffensiveZone)) ?? 0}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,color: colors.text
-                                        }}>{parseFloat(fullData?.homeTeamExpectedGoals).toFixed(2)}</Text>
-                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16,color: colors.text}}>Expected Goals</Text>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,color: colors.text
-                                        }}>{parseFloat(fullData?.awayTeamExpectedGoals).toFixed(2)}</Text>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={matchData?.home.score / parseFloat(fullData?.homeTeamExpectedGoals).toFixed(2) ?? 0}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20}}
-                                                      progress={matchData?.away.score / parseFloat(fullData?.awayTeamExpectedGoals).toFixed(2) ?? 0}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                    </View>
-                                    {matchData?.home.powerPlayConversion || matchData?.away.powerPlayConversion ?
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,color: colors.text
-                                            }}>{Math.round((parseFloat(matchData?.home.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.home.powerPlayConversion.split("/")[1])).toFixed(2) * 100)}%</Text>
-                                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Power Play</Text>
-                                            <Text style={{
-                                                fontFamily: 'Sora_500Medium',
-                                                fontSize: 16,color: colors.text
-                                            }}>{Math.round((parseFloat(matchData?.away.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1])) * 100)}%</Text>
-                                        </View> : <></>
-                                    }
-                                    {matchData?.home.powerPlayConversion || matchData?.away.powerPlayConversion ?
-                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                          progress={parseFloat(matchData?.home.powerPlayConversion.split("/")[0]) / parseFloat(matchData?.home.powerPlayConversion.split("/")[1]) ?? 0}
-                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                            <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                          style={{marginTop: 20}}
-                                                          progress={parseFloat(matchData?.away.powerPlayConversion.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1]) ?? 0}
-                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        </View> : <></>}
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                        <Text
-                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('pim').h}</Text>
-                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>PIM</Text>
-                                        <Text
-                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('pim').a}</Text>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={isNaN(landingData('pim').h / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').h / ((landingData('pim').h + landingData('pim').a))}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20}}
-                                                      progress={isNaN(landingData('pim').a / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').a / ((landingData('pim').h + landingData('pim').a))}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                    </View>
-                                    {/*/!*FLAG*!/*/}
-                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>*/}
-                                    {/*    <Text*/}
-                                    {/*        style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{ppcData().h.toFixed(2)*100}%</Text>*/}
-                                    {/*    <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>PP Conversions</Text>*/}
-                                    {/*    <Text*/}
-                                    {/*        style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{ppcData().a.toFixed(2)*100}%</Text>*/}
-                                    {/*</View>*/}
-                                    {/*<View style={{flexDirection: 'row', justifyContent: 'space-between'}}>*/}
-                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}*/}
-                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
-                                    {/*                  style={{marginTop: 20, transform: [{rotate: '180deg'}]}}*/}
-                                    {/*                  progress={isNaN(ppcData().h) ? 0 : ppcData().h}*/}
-                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
-                                    {/*    <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}*/}
-                                    {/*                  unfilledColor={colors.card} borderRadius={100} borderWidth={0}*/}
-                                    {/*                  style={{marginTop: 20}}*/}
-                                    {/*                  progress={isNaN(ppcData().a) ? 0 : ppcData()}*/}
-                                    {/*                  height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>*/}
-                                    {/*</View>*/}
-                                    {/*/!*FLAG*!/*/}
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                        <Text
-                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('blockedShots').h}</Text>
-                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Blocked Shots</Text>
-                                        <Text
-                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('blockedShots').a}</Text>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={isNaN(landingData('blockedShots').h) ? 0 : landingData('blockedShots').h / (landingData('blockedShots').h + landingData('blockedShots').a)}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20}}
-                                                      progress={isNaN(landingData('blockedShots').h) ? 0 : landingData('blockedShots').a / (landingData('blockedShots').h + landingData('blockedShots').a)}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
-                                        <Text
-                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('hits').h}</Text>
-                                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Hits</Text>
-                                        <Text
-                                            style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>{landingData('hits').a}</Text>
-                                    </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                      progress={ isNaN(landingData('hits').h) ? 0 : landingData('hits').h / (landingData('hits').h + landingData('hits').a)}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                        <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                      unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                      style={{marginTop: 20}}
-                                                      progress={ isNaN(landingData('hits').a) ? 0 : landingData('hits').a / (landingData('hits').h + landingData('hits').a)}
-                                                      height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                    </View>
-
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 24,
-                                            marginTop: 20,color: colors.text
-                                        }}>% {homeStat ? route.params?.data.data.homeTeam.abbrev : route.params ? route.params.data.data.awayTeam.abbrev : undefined} Wins</Text>
-                                        <View style={{
-                                            flexDirection: 'row',
-                                            justifyContent: 'flex-end',
-                                            alignItems: 'center',
-                                            gap: 10,
-                                            marginTop: 20
-                                        }}>
-
-                                            <TouchableOpacity onPress={() => {
-                                                Haptics.selectionAsync().then(r => {
-                                                    setHomeStat(true)
-                                                });
-
-                                            }}
-                                                              style={{
-                                                                  backgroundColor: homeStat ? colors.text : colors.card,
-                                                                  borderRadius: 100
-                                                              }}>
-                                                <Text style={{
-                                                    textAlign: "left",
-                                                    paddingHorizontal: 15,
-                                                    paddingVertical: 4,
-                                                    fontFamily: 'Sora_500Medium',
-                                                    fontSize: 20,
-                                                    color: homeStat ? colors.background : colors.text
-                                                }}>{route.params?.data.data.homeTeam.abbrev}</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => {
-                                                Haptics.selectionAsync().then(r => {
-                                                    setHomeStat(false)
-                                                });
-
-                                            }}
-                                                              style={{
-                                                                  backgroundColor: !homeStat ? colors.text : colors.card,
-                                                                  borderRadius: 100
-                                                              }}>
-                                                <Text style={{
-                                                    textAlign: "left",
-                                                    paddingHorizontal: 15,
-                                                    paddingVertical: 4,
-                                                    fontFamily: 'Sora_500Medium',
-                                                    fontSize: 20,
-                                                    color: !homeStat ? colors.background : colors.text
-                                                }}>{route.params?.data.data.awayTeam.abbrev}</Text>
-                                            </TouchableOpacity>
-
-                                        </View>
-                                    </View>
-
-                                    <LineChart
-                                        data={{
-
-                                            datasets: [
-                                                {
-                                                    color: (opacity) => `${getPCTColor(homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev)}`,
-                                                    strokeWidth: 2.5,
-                                                    data: winData.map((r, i) => {
-                                                        return isNaN(r) ? homeStat ? winData[i - 1] : (1 - (winData[i - 1] / 100)) * 100 : homeStat ? r : (1 - (r / 100)) * 100
-                                                    })
-                                                },
-                                            ]
-                                        }}
-                                        width={Dimensions.get("window").width}
-                                        height={250}
-                                        yAxisSuffix="%"
-                                        yAxisInterval={10}
-                                        fromZero={true}
-                                        withHorizontalLines={false}
-                                        withVerticalLines={false}
-                                        withDots={false}
-                                        withShadow
-                                        chartConfig={{
-                                            backgroundColor: `${getPCTColor(homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev)}`,
-                                            useShadowColorFromDataset: true,
-                                            fillShadowGradientFromOpacity: .5,
-                                            fillShadowGradientToOpacity: 0,
-                                            backgroundGradientFrom: `${getPCTColor(homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev)}`,
-                                            backgroundGradientFromOpacity: 0,
-                                            backgroundGradientTo: "#fff",
-                                            backgroundGradientToOpacity: 0,
-                                            decimalPlaces: 0,
-                                            color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                            labelColor: (opacity = 1) => colors.text,
-                                            strokeWidth: 3,
-                                            barPercentage: 10
-                                        }}
-                                        bezier
-                                        style={{
-                                            marginVertical: 8,
-                                            marginLeft: -20,
-                                            marginBottom: 30
-                                        }}
-                                    />
-
-                                </View> : <View>
                                         <TouchableOpacity onPress={() => {
                                             getSIMData(!isReg)
                                             setIsReg(!isReg)
                                         }}>
+
                                             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
                                                 <Text style={{
                                                     fontFamily: 'Sora_500Medium',
                                                     fontSize: 16,
-                                                    width: 60,color: colors.text
+                                                    width: 60, color: colors.text
                                                 }}>{Math.round(parseFloat(sim.h.w).toFixed(2) * 100)}%</Text>
                                                 <Text
-                                                    style={{fontFamily: 'Sora_500Medium', fontSize: 16,color: colors.text}}>{isReg ? "REG" : "OT"} Win
+                                                    style={{
+                                                        fontFamily: 'Sora_500Medium',
+                                                        fontSize: 16,
+                                                        color: colors.text
+                                                    }}>{isReg ? "Reg." : "OT"} Win
                                                     Playoff %</Text>
                                                 <Text style={{
                                                     fontFamily: 'Sora_500Medium',
                                                     fontSize: 16,
-                                                    width: 60,color: colors.text
+                                                    width: 60, color: colors.text
                                                 }}>{Math.round(parseFloat(sim.a.w).toFixed(2) * 100)}%</Text>
                                             </View>
                                             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                                <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                              unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                              style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                              progress={parseFloat(sim.h.w).toFixed(2) ?? 0} height={6}
-                                                              width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                                <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                              unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                              style={{marginTop: 20}} progress={parseFloat(sim.a.w).toFixed(2) ?? 0}
-                                                              height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                    progress={parseFloat(sim.h.w).toFixed(2) ?? 0} height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20}}
+                                                    progress={parseFloat(sim.a.w).toFixed(2) ?? 0}
+                                                    height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            </View>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity onPress={() => {
+                                            getSIMData(!isReg)
+                                            setIsReg(!isReg)
+                                        }}>
+                                            <View
+                                                style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    width: 60, color: colors.text
+                                                }}>{Math.round(parseFloat(sim.h.l).toFixed(2) * 100)}%</Text>
+                                                <Text
+                                                    style={{
+                                                        fontFamily: 'Sora_500Medium',
+                                                        fontSize: 16,
+                                                        color: colors.text
+                                                    }}>{isReg ? "Reg." : "OT"} Loss
+                                                    Playoff %</Text>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    width: 60, color: colors.text
+                                                }}>{Math.round(parseFloat(sim.a.l).toFixed(2) * 100)}%</Text>
+                                            </View>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                    progress={parseFloat(sim.h.l).toFixed(2) ?? 0} height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20}}
+                                                    progress={parseFloat(sim.a.l).toFixed(2) ?? 0}
+                                                    height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            </View>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => {
+                                            setSelP(val => val < gameState.period ? val + 1 : 0)
+                                        }}>
+                                            <View
+                                                style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16, color: colors.text
+                                                }}>{selP === 0 ? shotsP.h.reduce((a, b) => a + b, 0) : shotsP.h[selP - 1]}</Text>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16, color: colors.text
+                                                }}>{selP === 0 ? "Shots On Goal" : `Period ${selP} Shots On Goal`}</Text>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16, color: colors.text
+                                                }}>{selP === 0 ? shotsP.a.reduce((a, b) => a + b, 0) : shotsP.a[selP - 1]}</Text>
+                                            </View>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                    progress={parseFloat(matchData?.home.sog) / (parseFloat(matchData?.home.sog) + parseFloat(matchData?.away.sog)) ?? 0}
+                                                    height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20}}
+                                                    progress={parseFloat(matchData?.away.sog) / (parseFloat(matchData?.home.sog) + parseFloat(matchData?.away.sog)) ?? 0}
+                                                    height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            </View>
+                                        </TouchableOpacity>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16, color: colors.text
+                                            }}>{Math.round((parseFloat(fullData?.homeFaceoffWinPercentage)).toFixed(2) * 100)}%</Text>
+                                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Faceoff
+                                                Win Percentage</Text>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16, color: colors.text
+                                            }}>{Math.round((parseFloat(1 - fullData?.homeFaceoffWinPercentage)).toFixed(2) * 100)}%</Text>
+                                        </View>
+
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                            <Progress.Bar animationType={"spring"}
+                                                          color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                          progress={(parseFloat(fullData?.homeFaceoffWinPercentage)) ?? 0
+
+                                                          } height={6}
+                                                          width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20}}
+                                                          progress={1 - (parseFloat(fullData?.homeFaceoffWinPercentage)) ?? 0}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16, color: colors.text
+                                            }}>{Math.round((parseFloat(fullData?.homePercentOfEventsInOffensiveZone)) * 100)}%</Text>
+                                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Offensive
+                                                Zone Time</Text>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16, color: colors.text
+                                            }}>{Math.round((parseFloat(1 - fullData?.homePercentOfEventsInOffensiveZone)) * 100)}%</Text>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                          progress={((parseFloat(fullData?.homePercentOfEventsInOffensiveZone))) ?? 0}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20}}
+                                                          progress={(parseFloat(1 - fullData?.homePercentOfEventsInOffensiveZone)) ?? 0}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16, color: colors.text
+                                            }}>{parseFloat(fullData?.homeTeamExpectedGoals).toFixed(2)}</Text>
+                                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Expected
+                                                Goals</Text>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16, color: colors.text
+                                            }}>{parseFloat(fullData?.awayTeamExpectedGoals).toFixed(2)}</Text>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                          progress={matchData?.home.score / parseFloat(fullData?.homeTeamExpectedGoals).toFixed(2) ?? 0}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20}}
+                                                          progress={matchData?.away.score / parseFloat(fullData?.awayTeamExpectedGoals).toFixed(2) ?? 0}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        </View>
+
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16, color: colors.text
+                                            }}>{matchData?.home.powerPlayConversion !== undefined ? Math.round(isNaN(parseFloat(matchData?.home.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.home.powerPlayConversion.split("/")[1])) ? 0 : parseFloat(matchData?.home.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.home.powerPlayConversion.split("/")[1]).toFixed(2) * 100) : 0}%</Text>
+                                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Power
+                                                Play</Text>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16, color: colors.text
+                                            }}>{matchData?.away.powerPlayConversion !== undefined ? Math.round(isNaN(parseFloat(matchData?.away.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1])) ? 0 : parseFloat(matchData?.away.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1]).toFixed(2) * 100) : 0}%</Text>
+                                        </View>
+
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                          progress={matchData?.home.powerPlayConversion !== undefined ? (isNaN(parseFloat(matchData?.home.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.home.powerPlayConversion.split("/")[1])) ? 0 : parseFloat(matchData?.home.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.home.powerPlayConversion.split("/")[1])) : 0}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20}}
+                                                          progress={matchData?.away.powerPlayConversion !== undefined ? (isNaN(parseFloat(matchData?.away.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1])) ? 0 : parseFloat(matchData?.away.powerPlayConversion?.split("/")[0]) / parseFloat(matchData?.away.powerPlayConversion.split("/")[1]) * 100) : 0}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                            <Text
+                                                style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    color: colors.text
+                                                }}>{landingData('pim').h}</Text>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16,
+                                                color: colors.text
+                                            }}>PIM</Text>
+                                            <Text
+                                                style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    color: colors.text
+                                                }}>{landingData('pim').a}</Text>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                          progress={isNaN(landingData('pim').h / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').h / ((landingData('pim').h + landingData('pim').a))}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20}}
+                                                          progress={isNaN(landingData('pim').a / (landingData('pim').h + landingData('pim').a)) ? 0 : landingData('pim').a / ((landingData('pim').h + landingData('pim').a))}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                            <Text
+                                                style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    color: colors.text
+                                                }}>{landingData('blockedShots').h}</Text>
+                                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Blocked
+                                                Shots</Text>
+                                            <Text
+                                                style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    color: colors.text
+                                                }}>{landingData('blockedShots').a}</Text>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                          progress={isNaN(landingData('blockedShots').h) ? 0 : landingData('blockedShots').h / (landingData('blockedShots').h + landingData('blockedShots').a)}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20}}
+                                                          progress={isNaN(landingData('blockedShots').h) ? 0 : landingData('blockedShots').a / (landingData('blockedShots').h + landingData('blockedShots').a)}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                            <Text
+                                                style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    color: colors.text
+                                                }}>{landingData('hits').h}</Text>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 16,
+                                                color: colors.text
+                                            }}>Hits</Text>
+                                            <Text
+                                                style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    color: colors.text
+                                                }}>{landingData('hits').a}</Text>
+                                        </View>
+                                        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                          progress={isNaN(landingData('hits').h) ? 0 : landingData('hits').h / (landingData('hits').h + landingData('hits').a)}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                            <Progress.Bar color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                          unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                          style={{marginTop: 20}}
+                                                          progress={isNaN(landingData('hits').a) ? 0 : landingData('hits').a / (landingData('hits').h + landingData('hits').a)}
+                                                          height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                        </View>
+
+                                        <View style={{
+                                            flexDirection: 'row',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <Text style={{
+                                                fontFamily: 'Sora_500Medium',
+                                                fontSize: 24,
+                                                marginTop: 20, color: colors.text
+                                            }}>% {homeStat ? route.params?.data.data.homeTeam.abbrev : route.params ? route.params.data.data.awayTeam.abbrev : undefined} Wins</Text>
+                                            <View style={{
+                                                flexDirection: 'row',
+                                                justifyContent: 'flex-end',
+                                                alignItems: 'center',
+                                                gap: 10,
+                                                marginTop: 20
+                                            }}>
+
+                                                <TouchableOpacity onPress={() => {
+                                                    Haptics.selectionAsync().then(r => {
+                                                        setHomeStat(true)
+                                                    });
+
+                                                }}
+                                                                  style={{
+                                                                      backgroundColor: homeStat ? colors.text : colors.card,
+                                                                      borderRadius: 100
+                                                                  }}>
+                                                    <Text style={{
+                                                        textAlign: "left",
+                                                        paddingHorizontal: 15,
+                                                        paddingVertical: 4,
+                                                        fontFamily: 'Sora_500Medium',
+                                                        fontSize: 20,
+                                                        color: homeStat ? colors.background : colors.text
+                                                    }}>{route.params?.data.data.homeTeam.abbrev}</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity onPress={() => {
+                                                    Haptics.selectionAsync().then(r => {
+                                                        setHomeStat(false)
+                                                    });
+
+                                                }}
+                                                                  style={{
+                                                                      backgroundColor: !homeStat ? colors.text : colors.card,
+                                                                      borderRadius: 100
+                                                                  }}>
+                                                    <Text style={{
+                                                        textAlign: "left",
+                                                        paddingHorizontal: 15,
+                                                        paddingVertical: 4,
+                                                        fontFamily: 'Sora_500Medium',
+                                                        fontSize: 20,
+                                                        color: !homeStat ? colors.background : colors.text
+                                                    }}>{route.params?.data.data.awayTeam.abbrev}</Text>
+                                                </TouchableOpacity>
+
+                                            </View>
+                                        </View>
+
+                                        <LineChart
+                                            data={{
+                                                datasets: [
+                                                    {
+                                                        color: (opacity) => `${getTeamColor(homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev, colors)}`,
+                                                        strokeWidth: 2.5,
+                                                        data: winData.map((r, i) => {
+                                                            return isNaN(r) ? homeStat ? winData[i - 1] : (1 - (winData[i - 1] / 100)) * 100 : homeStat ? r : (1 - (r / 100)) * 100
+                                                        })
+                                                    }
+                                                ]
+                                            }}
+                                            width={Dimensions.get("window").width}
+                                            height={250}
+                                            yAxisSuffix="%"
+                                            yAxisInterval={10}
+                                            fromZero={true}
+                                            withHorizontalLines={false}
+                                            withVerticalLines={false}
+                                            withDots={false}
+                                            withShadow
+                                            chartConfig={{
+                                                backgroundColor: `${getTeamColor(homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev, colors)}`,
+                                                useShadowColorFromDataset: true,
+                                                fillShadowGradientFromOpacity: .5,
+                                                fillShadowGradientToOpacity: 0,
+                                                backgroundGradientFrom: `${getTeamColor(homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev, colors)}`,
+                                                backgroundGradientFromOpacity: 0,
+                                                backgroundGradientTo: "#fff",
+                                                backgroundGradientToOpacity: 0,
+                                                decimalPlaces: 0,
+                                                color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
+                                                labelColor: (opacity = 1) => colors.text,
+                                                strokeWidth: 3,
+                                                barPercentage: 10
+                                            }}
+                                            bezier
+                                            style={{
+                                                marginVertical: 8,
+                                                marginLeft: -20,
+                                                marginBottom: 30
+                                            }}
+                                        />
+
+                                    </View>
+                                    : <View>
+                                        <TouchableOpacity onPress={() => {
+                                            getSIMData(!isReg)
+                                            setIsReg(!isReg)
+                                        }}>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    width: 60, color: colors.text
+                                                }}>{Math.round(parseFloat(sim.h.w).toFixed(2) * 100)}%</Text>
+                                                <Text
+                                                    style={{
+                                                        fontFamily: 'Sora_500Medium',
+                                                        fontSize: 16,
+                                                        color: colors.text
+                                                    }}>{isReg ? "Regulation" : "OT"} Win
+                                                    Playoff %</Text>
+                                                <Text style={{
+                                                    fontFamily: 'Sora_500Medium',
+                                                    fontSize: 16,
+                                                    width: 60, color: colors.text
+                                                }}>{Math.round(parseFloat(sim.a.w).toFixed(2) * 100)}%</Text>
+                                            </View>
+                                            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                    progress={parseFloat(sim.h.w).toFixed(2) ?? 0} height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20}}
+                                                    progress={parseFloat(sim.a.w).toFixed(2) ?? 0}
+                                                    height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                             </View>
                                         </TouchableOpacity>
                                         <TouchableOpacity onPress={() => {
@@ -1596,36 +1567,44 @@ function getPCTColor(teamCode) {
                                             setIsReg(!isReg)
 
                                         }}>
-                                            <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
+                                            <View
+                                                style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 20}}>
                                                 <Text style={{
                                                     fontFamily: 'Sora_500Medium',
                                                     fontSize: 16,
-                                                    width: 60,color: colors.text
+                                                    width: 60, color: colors.text
                                                 }}>{Math.round(parseFloat(sim.h.l).toFixed(2) * 100)}%</Text>
                                                 <Text
-                                                    style={{fontFamily: 'Sora_500Medium', fontSize: 16}}>{isReg ? "REG" : "OT"} Loss
+                                                    style={{
+                                                        fontFamily: 'Sora_500Medium',
+                                                        fontSize: 16, color: colors.text
+                                                    }}>{isReg ? "Regulation" : "OT"} Loss
                                                     Playoff %</Text>
                                                 <Text style={{
                                                     fontFamily: 'Sora_500Medium',
                                                     fontSize: 16,
-                                                    width: 60,color: colors.text
+                                                    width: 60, color: colors.text
                                                 }}>{Math.round(parseFloat(sim.a.l).toFixed(2) * 100)}%</Text>
                                             </View>
                                             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                                                <Progress.Bar color={getPCTColor(route.params?.data.data.homeTeam.abbrev)}
-                                                              unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                              style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                              progress={parseFloat(sim.h.l).toFixed(2) ?? 0} height={6}
-                                                              width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
-                                                <Progress.Bar color={getPCTColor(route.params?.data.data.awayTeam.abbrev)}
-                                                              unfilledColor={colors.card} borderRadius={100} borderWidth={0}
-                                                              style={{marginTop: 20}} progress={parseFloat(sim.a.l).toFixed(2) ?? 0}
-                                                              height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
+                                                    progress={parseFloat(sim.h.l).toFixed(2) ?? 0} height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
+                                                <Progress.Bar
+                                                    color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
+                                                    unfilledColor={colors.card} borderRadius={100} borderWidth={0}
+                                                    style={{marginTop: 20}}
+                                                    progress={parseFloat(sim.a.l).toFixed(2) ?? 0}
+                                                    height={6}
+                                                    width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                             </View>
                                         </TouchableOpacity>
                                     </View>
 
-                                 : tab === 3 ?
+                                : tab === 3 ?
 
                                     <ScrollView>
 
@@ -1646,111 +1625,111 @@ function getPCTColor(teamCode) {
                                         {/*        borderRadius: 10*/}
                                         {/*    }}></View>*/}
                                         {/*</View>*/}
-                                        {
-                                            playByPlay ? playByPlay.reverse().map((play, i) => {
-                                                if (play.type !== "PGSTR" && play.type !== "PGEND" && play.type !== "ANTHEM") {
-                                                    return play.type && <TouchableOpacity key={play.type + i} onPress={() => {
-                                                        Haptics.selectionAsync().then(r => {
-                                                            setSelectedEvent(i + 1)
-                                                        });
+                                        {/*{*/}
+                                        {/*    playByPlay ? playByPlay.reverse().map((play, i) => {*/}
+                                        {/*        if (play.type !== "PGSTR" && play.type !== "PGEND" && play.type !== "ANTHEM") {*/}
+                                        {/*            return play.type && <TouchableOpacity key={play.type + i} onPress={() => {*/}
+                                        {/*                Haptics.selectionAsync().then(r => {*/}
+                                        {/*                    setSelectedEvent(i + 1)*/}
+                                        {/*                });*/}
 
-                                                    }} style={{
-                                                        backgroundColor: colors.card,
-                                                        marginBottom: 4,
-                                                        paddingVertical: 15,
-                                                        paddingHorizontal: 10,
-                                                        borderRadius: 15
-                                                    }}>
+                                        {/*            }} style={{*/}
+                                        {/*                backgroundColor: colors.card,*/}
+                                        {/*                marginBottom: 4,*/}
+                                        {/*                paddingVertical: 15,*/}
+                                        {/*                paddingHorizontal: 10,*/}
+                                        {/*                borderRadius: 15*/}
+                                        {/*            }}>*/}
 
-                                                        <View style={{
-                                                            flexDirection: 'row',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between'
-                                                        }}>
-                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                                <Text style={{
-                                                                    fontFamily: 'Sora_700Bold',
-                                                                    fontSize: 16,
-                                                                    color: `${play.raw.split(' ')[0].length === 3 ? getPCTColor(play.raw.split(' ')[0]) : colors.text}`
-                                                                }}>{play.raw.split(' ')[0]}</Text>
+                                        {/*                <View style={{*/}
+                                        {/*                    flexDirection: 'row',*/}
+                                        {/*                    alignItems: 'center',*/}
+                                        {/*                    justifyContent: 'space-between'*/}
+                                        {/*                }}>*/}
+                                        {/*                    <View style={{flexDirection: 'row', alignItems: 'center'}}>*/}
+                                        {/*                        <Text style={{*/}
+                                        {/*                            fontFamily: 'Sora_700Bold',*/}
+                                        {/*                            fontSize: 16,*/}
+                                        {/*                            color: `${play.raw.split(' ')[0].length === 3 ? getPCTColor(play.raw.split(' ')[0]) : colors.text}`*/}
+                                        {/*                        }}>{play.raw.split(' ')[0]}</Text>*/}
 
 
-                                                                {play.type === "SHOT" ?
-                                                                    <Svg style={{marginHorizontal: 5}}
-                                                                         xmlns="http://www.w3.org/2000/svg"
-                                                                         width="24" height="24"
-                                                                         viewBox="0 0 24 24" fill="none" stroke="black"
-                                                                         strokeWidth="1.5"
-                                                                         strokeLinecap="round" strokeLinejoin="round"
-                                                                         className="feather feather-crosshair">
-                                                                        <Circle cx="12" cy="12" r="10"></Circle>
-                                                                        <Line x1="22" y1="12" x2="18" y2="12"></Line>
-                                                                        <Line x1="6" y1="12" x2="2" y2="12"></Line>
-                                                                        <Line x1="12" y1="6" x2="12" y2="2"></Line>
-                                                                        <Line x1="12" y1="22" x2="12" y2="18"></Line>
-                                                                    </Svg>
-                                                                    : play.type === "HIT" ? <Flash style={{marginHorizontal: 5}}
-                                                                                                   color={"#000"}/> : play.type === "MISS" ?
-                                                                        <CloseCircle style={{marginHorizontal: 5}}
-                                                                                     color={"#000"}/> : play.type === "BLOCK" ?
-                                                                            <User style={{marginHorizontal: 5}}
-                                                                                  color={"#000"}/> : play.type === "FAC" ?
-                                                                                <Profile2User style={{marginHorizontal: 5}}
-                                                                                              color={"#000"}/> : play.type === "STOP" ?
-                                                                                    <TimerPause style={{marginHorizontal: 5}}
-                                                                                                color={"#000"}/> : (play.type === "GEND" || play.type === "PEND") ?
-                                                                                        <Clock style={{marginHorizontal: 5}}
-                                                                                               color={"#000"}/> : play.type === "GIVE" ?
-                                                                                            <ExportCircle
-                                                                                                style={{marginHorizontal: 5}}
-                                                                                                color={"#000"}/> : play.type === "TAKE" ?
-                                                                                                <ImportCircle
-                                                                                                    style={{marginHorizontal: 5}}
-                                                                                                    color={"#000"}/> : play.type === "GOAL" &&
-                                                                                                    <Svg
-                                                                                                        style={{marginHorizontal: 5}}
-                                                                                                        xmlns="http://www.w3.org/2000/svg"
-                                                                                                        width="24" height="24"
-                                                                                                        viewBox="0 0 24 24"
-                                                                                                        fill="none"
-                                                                                                        stroke="red"
-                                                                                                        strokeWidth="1.5"
-                                                                                                        strokeLinecap="round"
-                                                                                                        strokeLinejoin="round"
-                                                                                                        className="feather feather-crosshair">
-                                                                                                        <Circle cx="12" cy="12"
-                                                                                                                r="10"></Circle>
-                                                                                                        <Line x1="22" y1="12"
-                                                                                                              x2="18"
-                                                                                                              y2="12"></Line>
-                                                                                                        <Line x1="6" y1="12" x2="2"
-                                                                                                              y2="12"></Line>
-                                                                                                        <Line x1="12" y1="6" x2="12"
-                                                                                                              y2="2"></Line>
-                                                                                                        <Line x1="12" y1="22"
-                                                                                                              x2="12"
-                                                                                                              y2="18"></Line>
-                                                                                                    </Svg>
-                                                                }
+                                        {/*                        {play.type === "SHOT" ?*/}
+                                        {/*                            <Svg style={{marginHorizontal: 5}}*/}
+                                        {/*                                 xmlns="http://www.w3.org/2000/svg"*/}
+                                        {/*                                 width="24" height="24"*/}
+                                        {/*                                 viewBox="0 0 24 24" fill="none" stroke="black"*/}
+                                        {/*                                 strokeWidth="1.5"*/}
+                                        {/*                                 strokeLinecap="round" strokeLinejoin="round"*/}
+                                        {/*                                 className="feather feather-crosshair">*/}
+                                        {/*                                <Circle cx="12" cy="12" r="10"></Circle>*/}
+                                        {/*                                <Line x1="22" y1="12" x2="18" y2="12"></Line>*/}
+                                        {/*                                <Line x1="6" y1="12" x2="2" y2="12"></Line>*/}
+                                        {/*                                <Line x1="12" y1="6" x2="12" y2="2"></Line>*/}
+                                        {/*                                <Line x1="12" y1="22" x2="12" y2="18"></Line>*/}
+                                        {/*                            </Svg>*/}
+                                        {/*                            : play.type === "HIT" ? <Flash style={{marginHorizontal: 5}}*/}
+                                        {/*                                                           color={"#000"}/> : play.type === "MISS" ?*/}
+                                        {/*                                <CloseCircle style={{marginHorizontal: 5}}*/}
+                                        {/*                                             color={"#000"}/> : play.type === "BLOCK" ?*/}
+                                        {/*                                    <User style={{marginHorizontal: 5}}*/}
+                                        {/*                                          color={"#000"}/> : play.type === "FAC" ?*/}
+                                        {/*                                        <Profile2User style={{marginHorizontal: 5}}*/}
+                                        {/*                                                      color={"#000"}/> : play.type === "STOP" ?*/}
+                                        {/*                                            <TimerPause style={{marginHorizontal: 5}}*/}
+                                        {/*                                                        color={"#000"}/> : (play.type === "GEND" || play.type === "PEND") ?*/}
+                                        {/*                                                <Clock style={{marginHorizontal: 5}}*/}
+                                        {/*                                                       color={"#000"}/> : play.type === "GIVE" ?*/}
+                                        {/*                                                    <ExportCircle*/}
+                                        {/*                                                        style={{marginHorizontal: 5}}*/}
+                                        {/*                                                        color={"#000"}/> : play.type === "TAKE" ?*/}
+                                        {/*                                                        <ImportCircle*/}
+                                        {/*                                                            style={{marginHorizontal: 5}}*/}
+                                        {/*                                                            color={"#000"}/> : play.type === "GOAL" &&*/}
+                                        {/*                                                            <Svg*/}
+                                        {/*                                                                style={{marginHorizontal: 5}}*/}
+                                        {/*                                                                xmlns="http://www.w3.org/2000/svg"*/}
+                                        {/*                                                                width="24" height="24"*/}
+                                        {/*                                                                viewBox="0 0 24 24"*/}
+                                        {/*                                                                fill="none"*/}
+                                        {/*                                                                stroke="red"*/}
+                                        {/*                                                                strokeWidth="1.5"*/}
+                                        {/*                                                                strokeLinecap="round"*/}
+                                        {/*                                                                strokeLinejoin="round"*/}
+                                        {/*                                                                className="feather feather-crosshair">*/}
+                                        {/*                                                                <Circle cx="12" cy="12"*/}
+                                        {/*                                                                        r="10"></Circle>*/}
+                                        {/*                                                                <Line x1="22" y1="12"*/}
+                                        {/*                                                                      x2="18"*/}
+                                        {/*                                                                      y2="12"></Line>*/}
+                                        {/*                                                                <Line x1="6" y1="12" x2="2"*/}
+                                        {/*                                                                      y2="12"></Line>*/}
+                                        {/*                                                                <Line x1="12" y1="6" x2="12"*/}
+                                        {/*                                                                      y2="2"></Line>*/}
+                                        {/*                                                                <Line x1="12" y1="22"*/}
+                                        {/*                                                                      x2="12"*/}
+                                        {/*                                                                      y2="18"></Line>*/}
+                                        {/*                                                            </Svg>*/}
+                                        {/*                        }*/}
 
-                                                                <Text style={{
-                                                                    fontFamily: 'Sora_400Regular',
-                                                                    fontSize: 16,
-                                                                    color: colors.text
-                                                                }}>{parseEvent(play.type)}</Text>
-                                                            </View>
-                                                            <Text style={{color: colors.text}}>{play.shot}</Text>
-                                                        </View>
-                                                    </TouchableOpacity>
-                                                }
-                                            }) : <></>
-                                        }
+                                        {/*                        <Text style={{*/}
+                                        {/*                            fontFamily: 'Sora_400Regular',*/}
+                                        {/*                            fontSize: 16,*/}
+                                        {/*                            color: colors.text*/}
+                                        {/*                        }}>{parseEvent(play.type)}</Text>*/}
+                                        {/*                    </View>*/}
+                                        {/*                    <Text style={{color: colors.text}}>{play.shot}</Text>*/}
+                                        {/*                </View>*/}
+                                        {/*            </TouchableOpacity>*/}
+                                        {/*        }*/}
+                                        {/*    }) : <></>*/}
+                                        {/*}*/}
                                         <View style={{height: 100}}></View>
                                     </ScrollView> : tab === 4 ?
                                         <ScrollView style={{height: 400}} horizontal
                                                     showsVerticalScrollIndicator={false}>
 
-                                            {gameInfo.home.length ? gameInfo.home.map((player, i) => {
+                                            {scratches?.home.length ? scratches?.home.map((player, i) => {
                                                 return <View style={{flexDirection: 'row'}}>
                                                     <View>
                                                         {i === 0 ?
@@ -1783,7 +1762,7 @@ function getPCTColor(teamCode) {
                                                 opacity: .3,
                                                 marginHorizontal: 10
                                             }}/>
-                                            {gameInfo.away.length ? gameInfo.away.map((player, i) => {
+                                            {scratches.away.length ? scratches.away.map((player, i) => {
                                                 return <View style={{flexDirection: 'row'}}>
                                                     <View>
                                                         {i === 0 ?
@@ -1810,7 +1789,7 @@ function getPCTColor(teamCode) {
                                             </View>}
 
 
-                                        </ScrollView> : tab === 5 ?  <ScrollView horizontal>
+                                        </ScrollView> : tab === 5 ? <ScrollView horizontal>
                                             <View>
 
                                                 <Text style={{
@@ -1821,33 +1800,94 @@ function getPCTColor(teamCode) {
                                                     color: colors.text
                                                 }}>{route.params.data.data.homeTeam.abbrev}</Text>
                                                 <Table>
-                                                    <Row textStyle={{fontFamily: 'Sora_600SemiBold', color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={["Pos", "Name", "Goals", "Assists", "Shots", "TOI", "Blocks", "Hits", "+/-"]}/>
+                                                    <Row textStyle={{
+                                                        fontFamily: 'Sora_600SemiBold',
+                                                        color: colors.text,
+                                                        fontSize: 14, opacity: .5
+                                                    }}
+                                                         widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]}
+                                                         data={["POS", "NAME", "GOALS", "ASSISTS", "SHOTS", "TOI", "BLOCKS", "HITS", "+/-"]}/>
                                                     {playerStats.h && playerStats.h?.sort(sort_by('goals', true, parseInt)).map((player) => {
-                                                        return <Row textStyle={{fontFamily: 'Sora_500Medium', marginTop: 10,color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={[ player.position, player.name.default, player.goals, player.assists, player.shots, player.toi, player.blockedShots, player.hits, player.plusMinus]}/>
+                                                        return <Row textStyle={{
+                                                            fontFamily: 'Sora_500Medium',
+                                                            marginTop: 10,
+                                                            color: colors.text
+                                                        }} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]}
+                                                                    data={[player.position, player.name.default, player.goals, player.assists, player.shots, player.toi, player.blockedShots, player.hits, player.plusMinus]}/>
                                                     })}
-                                                    <View style={{width: '100%', borderWidth: 2, borderColor: 'black', opacity: .5, borderStyle: 'dotted', marginVertical: 10}}/>
-                                                    <Row textStyle={{fontFamily: 'Sora_600SemiBold',color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100]} data={["Pos", "Name", "Save %", "Saved", "GA", "TOI"]}/>
+                                                    <View style={{
+                                                        width: '100%',
+                                                        borderWidth: 2,
+                                                        borderColor: 'black',
+                                                        opacity: .5,
+                                                        borderStyle: 'dotted',
+                                                        marginVertical: 10
+                                                    }}/>
+                                                    <Row textStyle={{
+                                                        fontFamily: 'Sora_600SemiBold',
+                                                        color: colors.text,
+                                                        fontSize: 14, opacity: .5
+                                                    }}
+                                                         widthArr={[60, 120, 100, 100, 100, 100]}
+                                                         data={["POS", "NAME", "SAVE %", "SAVED", "GA", "TOI"]}/>
 
                                                     {playerStats.g.h && playerStats.g.h?.sort(sort_by('goalsAgainst', true, parseFloat)).map((player) => {
-                                                        return <Row textStyle={{fontFamily: 'Sora_500Medium', marginTop: 10,color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100]} data={[ player.position, player.name.default, player.savePctg ?? 0, player.saveShotsAgainst, player.goalsAgainst, player.toi]}/>
+                                                        return <Row textStyle={{
+                                                            fontFamily: 'Sora_500Medium',
+                                                            marginTop: 10,
+                                                            color: colors.text
+                                                        }} widthArr={[60, 120, 100, 100, 100, 100]}
+                                                                    data={[player.position, player.name.default, player.savePctg ?? 0, player.saveShotsAgainst, player.goalsAgainst, player.toi]}/>
                                                     })}
                                                 </Table>
                                                 <View style={{marginTop: 40}}>
                                                     <Text style={{
                                                         fontFamily: 'Sora_600SemiBold',
                                                         fontSize: 16,
-                                                        textAlign: 'left',color: colors.text
+                                                        marginBottom: 10,
+                                                        textAlign: 'left', color: colors.text
                                                     }}>{route.params.data.data.awayTeam.abbrev}</Text>
                                                     <Table>
-                                                        <Row textStyle={{fontFamily: 'Sora_600SemiBold', color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={["Pos", "Name", "Goals", "Assists", "Shots", "TOI", "Blocks", "Hits", "+/-"]}/>
+                                                        <Row
+                                                            textStyle={{
+                                                                fontFamily: 'Sora_600SemiBold',
+                                                                color: colors.text,
+                                                                fontSize: 14, opacity: .5
+                                                            }}
+                                                            widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]}
+                                                            data={["POS", "NAME", "GOALS", "ASSISTS", "SHOTS", "TOI", "BLOCKS", "HITS", "+/-"]}/>
                                                         {playerStats.a && playerStats.a?.sort(sort_by('goals', true, parseInt)).map((player) => {
-                                                            return <Row textStyle={{fontFamily: 'Sora_500Medium', color: colors.text, marginTop: 10}} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]} data={[ player.position, player.name.default, player.goals, player.assists, player.shots, player.toi, player.blockedShots, player.hits, player.plusMinus]}/>
+                                                            return <Row textStyle={{
+                                                                fontFamily: 'Sora_500Medium',
+                                                                color: colors.text,
+                                                                marginTop: 10
+                                                            }} widthArr={[60, 120, 100, 100, 100, 100, 100, 100, 100]}
+                                                                        data={[player.position, player.name.default, player.goals, player.assists, player.shots, player.toi, player.blockedShots, player.hits, player.plusMinus]}/>
                                                         })}
-                                                        <View style={{width: '100%', borderWidth: 2, borderColor: 'black', opacity: .5, borderStyle: 'dotted', marginVertical: 10}}/>
-                                                        <Row textStyle={{fontFamily: 'Sora_600SemiBold', color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100]} data={["Pos", "Name", "Save %", "Saved", "GA", "TOI"]}/>
+                                                        <View style={{
+                                                            width: '100%',
+                                                            borderWidth: 2,
+                                                            borderColor: 'black',
+                                                            opacity: .5,
+                                                            borderStyle: 'dotted',
+                                                            marginVertical: 10
+                                                        }}/>
+                                                        <Row
+                                                            textStyle={{
+                                                                fontFamily: 'Sora_600SemiBold',
+                                                                color: colors.text,
+                                                                fontSize: 14, opacity: .5
+                                                            }}
+                                                            widthArr={[60, 120, 100, 100, 100, 100]}
+                                                            data={["POS", "NAME", "SAVE %", "SAVED", "GA", "TOI"]}/>
 
                                                         {playerStats.g.a && playerStats.g.a?.sort(sort_by('goalsAgainst', true, parseFloat)).map((player) => {
-                                                            return <Row textStyle={{fontFamily: 'Sora_500Medium', marginTop: 10,color: colors.text}} widthArr={[60, 120, 100, 100, 100, 100]} data={[ player.position, player.name.default, player.savePctg ?? 0, player.saveShotsAgainst, player.goalsAgainst, player.toi]}/>
+                                                            return <Row textStyle={{
+                                                                fontFamily: 'Sora_500Medium',
+                                                                marginTop: 10,
+                                                                color: colors.text
+                                                            }} widthArr={[60, 120, 100, 100, 100, 100]}
+                                                                        data={[player.position, player.name.default, player.savePctg ?? 0, player.saveShotsAgainst, player.goalsAgainst, player.toi]}/>
                                                         })}
                                                     </Table>
 
@@ -1857,149 +1897,169 @@ function getPCTColor(teamCode) {
                                             </View>
 
 
+                                        </ScrollView> : tab === 6 ?
+                                            <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false}
+                                                        horizontal>
+                                                {landing?.summary.threeStars ? landing?.summary.threeStars.map((star, i) => {
+                                                    return <View>
+                                                        <View>
+
+                                                            <View style={{
+                                                                marginBottom: 4,
+                                                                alignSelf: 'center',
+                                                                height: 80,
+                                                                borderRadius: 100,
+                                                                marginHorizontal: 20
+                                                            }}>
+                                                                <Text style={{
+                                                                    fontFamily: 'Sora_700Bold',
+                                                                    fontSize: 16,
+                                                                    textAlign: 'center',
+                                                                    color: colors.text
+                                                                }}>{star.teamAbbrev}</Text>
+
+                                                                <View style={{
+                                                                    flexDirection: 'row',
+                                                                    justifyContent: 'center'
+                                                                }}>
+                                                                    <Image style={{
+                                                                        borderRadius: 100,
+                                                                        borderWidth: 3,
+                                                                        height: 80,
+                                                                        width: 80,
+                                                                        marginTop: 10,
+                                                                        borderColor: `${getTeamColor(star.teamAbbrev, colors)}`,
+                                                                        backgroundColor: colors.card
+                                                                    }} source={{uri: star.headshot}}/>
+                                                                </View>
 
 
+                                                                <Text style={{
+                                                                    fontFamily: 'Sora_600SemiBold',
+                                                                    fontSize: 16,
+                                                                    marginTop: 10,
+                                                                    textAlign: 'center',
+                                                                    color: colors.text
+                                                                }}>{star.firstName} {star.lastName}</Text>
+                                                                {star.points && <Text style={{
+                                                                    fontFamily: 'Sora_600SemiBold',
+                                                                    fontSize: 14,
+                                                                    marginTop: 4,
+                                                                    textAlign: 'center',
+                                                                    opacity: .5, color: colors.text
+                                                                }}>{star.points} points</Text>}
+                                                            </View>
+                                                        </View>
+                                                        {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i + 1]?.period && i !== route.params?.data['data']['goals'].length - 1) &&
+                                                            <View style={{
+                                                                height: '50%',
+                                                                borderWidth: 1,
+                                                                borderStyle: 'dotted',
+                                                                borderColor: 'black',
+                                                                opacity: .3,
+                                                                marginHorizontal: 10
+                                                            }}/>}
+                                                    </View>
+                                                }) : <PlayerSkeleton colors={colors}/>}
 
-                                        </ScrollView> : tab === 6 ? <ScrollView style={{height: '100%'}} showsHorizontalScrollIndicator={false} horizontal>
-                                            {landing?.summary.threeStars ? landing?.summary.threeStars.map((star, i) => {
-                                                return <View>
-                                                    <View>
-
+                                            </ScrollView> : tab === 7 ? <View>
+                                                <View style={{
+                                                    flexDirection: 'row',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    marginTop: 10
+                                                }}>
+                                                    <TouchableOpacity onPress={() => {
+                                                        Haptics.selectionAsync().then(() => {
+                                                        })
+                                                        bottomSheetRef2.current.expand()
+                                                    }} style={{
+                                                        width: '100%',
+                                                        flexDirection: 'row',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        paddingVertical: 20,
+                                                        paddingHorizontal: 20,
+                                                        borderRadius: 15,
+                                                        backgroundColor: colors.card,
+                                                        marginBottom: 4
+                                                    }}>
+                                                        <Text style={{
+                                                            color: colors.text,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_500Medium'
+                                                        }}>Stat</Text>
                                                         <View style={{
-                                                            marginBottom: 4,
-                                                            alignSelf: 'center',
-                                                            height: 80,
-                                                            borderRadius: 100,
-                                                            marginHorizontal: 20
+                                                            flexDirection: 'row',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                            gap: 4
                                                         }}>
                                                             <Text style={{
-                                                                fontFamily: 'Sora_700Bold',
+                                                                color: colors.text,
+                                                                opacity: .5,
                                                                 fontSize: 16,
-                                                                textAlign: 'center',
-                                                                color: colors.text
-                                                            }}>{star.teamAbbrev}</Text>
-
-                                                            <View style={{flexDirection: 'row', justifyContent: 'center'}}>
-                                                                <Image style={{
-                                                                    borderRadius: 100,
-                                                                    borderWidth: 3,
-                                                                    height: 80,
-                                                                    width: 80,
-                                                                    marginTop: 10,
-                                                                    borderColor: `${getPCTColor(star.teamAbbrev)}`,
-                                                                    backgroundColor: colors.card
-                                                                }} source={{uri: star.headshot}}/>
-                                                            </View>
-
-
-                                                            <Text style={{
-                                                                fontFamily: 'Sora_600SemiBold',
-                                                                fontSize: 16,
-                                                                marginTop: 10,
-                                                                textAlign: 'center',
-                                                                color: colors.text
-                                                            }}>{star.firstName} {star.lastName}</Text>
-                                                            {star.points && <Text style={{
-                                                                fontFamily: 'Sora_600SemiBold',
-                                                                fontSize: 14,
-                                                                marginTop: 4,
-                                                                textAlign: 'center',
-                                                                opacity: .5,color: colors.text
-                                                            }}>{star.points} points</Text> }
+                                                                fontFamily: 'Sora_500Medium'
+                                                            }}>{mapStatsSel}</Text>
+                                                            <ArrowDown2 style={{opacity: .7}} size={16}
+                                                                        color={colors.text}/>
                                                         </View>
-                                                    </View>
-                                                    {(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i + 1]?.period && i !== route.params?.data['data']['goals'].length - 1) &&
-                                                        <View style={{
-                                                            height: '50%',
-                                                            borderWidth: 1,
-                                                            borderStyle: 'dotted',
-                                                            borderColor: 'black',
-                                                            opacity: .3,
-                                                            marginHorizontal: 10
-                                                        }}/>}
+                                                    </TouchableOpacity>
+
+
                                                 </View>
-                                            }) : <PlayerSkeleton colors={colors}/>}
-
-                                        </ScrollView> : tab === 7 ? <View>
-                                            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10}}>
-                                                <TouchableOpacity onPress={() => {
-                                                    Haptics.selectionAsync().then(() => {
-                                                    })
-                                                    bottomSheetRef2.current.expand()
-                                                }} style={{
-                                                    flexDirection: 'row',
-                                                    alignItems: 'center',
-                                                    gap: 4,
-                                                    backgroundColor: colors.card,
+                                                <View style={{
+                                                    height: Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)),
+                                                    width: Dimensions.get('window').width - 20,
+                                                    backgroundColor: 'white',
+                                                    marginLeft: 'auto',
+                                                    marginRight: 'auto',
+                                                    position: 'relative',
                                                     borderRadius: 100,
-                                                    alignSelf: 'flex-start',
-                                                    paddingHorizontal: 15,
-                                                    paddingVertical: 10
+                                                    marginTop: 20,
+                                                    transform: [{rotateX: '45deg'}]
                                                 }}>
-                                                    <Text style={{
-                                                        color: colors.text,
-                                                        fontSize: 16,
-                                                        fontFamily: 'Sora_500Medium'
-                                                    }}>{mapStatsSel}
-                                                    </Text>
-                                                    <ArrowDown2 color={colors.text} size={16}/>
+                                                    <Image width={Dimensions.get('window').width - 20}
+                                                           height={Math.round((Dimensions.get('window').width - 20) * (42.5 / 100))}
+                                                           style={{
+                                                               position: 'absolute',
+                                                               borderRadius: 50,
+                                                               borderWidth: 1,
+                                                               borderColor: 'lightgray'
+                                                           }}
+                                                           source={{uri: "https://thumbs.dreamstime.com/b/ice-hockey-rink-regulation-nhl-to-exact-specifications-to-goal-line-trapezoid-goal-crease-blue-line-to-specs-made-54402082.jpg"}}/>
 
-                                                </TouchableOpacity>
-
-
-
-                                            </View>
-                                            <View style={{
-                                                height: Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)),
-                                                width: Dimensions.get('window').width - 20,
-                                                backgroundColor: 'white',
-                                                marginLeft: 'auto',
-                                                marginRight: 'auto',
-                                                position: 'relative',
-                                                borderRadius: 100,
-                                                marginTop: 20,
-                                                transform: [{rotateX: '45deg'}]
-                                            }}>
-                                                <Image width={Dimensions.get('window').width - 20} height={Math.round((Dimensions.get('window').width - 20) * (42.5 / 100))} style={{
-                                                    position: 'absolute',
-                                                    borderRadius: 50,
-                                                    borderWidth: 1,
-                                                    borderColor: 'lightgray'
-                                                }}
-                                                       source={{uri: "https://thumbs.dreamstime.com/b/ice-hockey-rink-regulation-nhl-to-exact-specifications-to-goal-line-trapezoid-goal-crease-blue-line-to-specs-made-54402082.jpg"}}/>
-
-                                                {mapStats.map(s=>{
-                                                    const pixelPosition = mapToPixel(s.x, s.y, Dimensions.get('window').width - 20, Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)), 10);
-                                                    return <View style={{
-                                                        height: 10,
-                                                        width: 10,
-                                                        zIndex: 3,
-                                                        backgroundColor: route.params?.data['data']['homeTeam']['id'] === s.d ? getPCTColor(route.params?.data['data']['homeTeam']['abbrev']) : getPCTColor(route.params?.data['data']['awayTeam']['abbrev']),
-                                                        borderRadius: 100,
+                                                    {mapStats.map(s => {
+                                                        const pixelPosition = mapToPixel(s.x, s.y, Dimensions.get('window').width - 20, Math.round((Dimensions.get('window').width - 20) * (42.5 / 100)), 10);
+                                                        return <View style={{
+                                                            height: 10,
+                                                            width: 10,
+                                                            zIndex: 3,
+                                                            backgroundColor: route.params?.data['data']['homeTeam']['id'] === s.d ? getTeamColor(route.params?.data['data']['homeTeam']['abbrev'], colors) : getTeamColor(route.params?.data['data']['awayTeam']['abbrev'], colors),
+                                                            borderRadius: 100,
+                                                            position: 'absolute',
+                                                            top: pixelPosition.y,
+                                                            left: pixelPosition.x
+                                                        }}/>
+                                                    })}
+                                                    {assets && <Image style={{
+                                                        height: 50,
+                                                        width: 50,
+                                                        transform: [{scale: .7}],
+                                                        flexDirection: 'column',
+                                                        marginTop: 10,
+                                                        marginLeft: 5,
+                                                        justifyContent: 'center',
                                                         position: 'absolute',
-                                                        top: pixelPosition.y,
-                                                        left: pixelPosition.x
-                                                    }}/>
-                                                })}
-                                                {assets && <Image style={{
-                                                    height: 50,
-                                                    width: 50,
-                                                    transform: [{scale: .7}],
-                                                    flexDirection: 'column',
-                                                    marginTop: 10,
-                                                    marginLeft: 5,
-                                                    justifyContent: 'center',
-                                                    position: 'absolute',
-                                                    left: ((Dimensions.get('window').width - 20) / 2) - 30,
-                                                    top: 45,
-                                                    zIndex: 2
-                                                }}
-                                                                  source={assets[teamAbbreviations.indexOf(route.params?.data['data']['homeTeam']['abbrev'])]}/>}
-                                                <View/>
+                                                        left: ((Dimensions.get('window').width - 20) / 2) - 30,
+                                                        top: 45,
+                                                        zIndex: 2
+                                                    }}
+                                                                      source={assets[teamAbbreviations.indexOf(route.params?.data['data']['homeTeam']['abbrev'])]}/>}
+                                                    <View/>
 
-                                            </View>
-                                        </View> : <></>
-
+                                                </View>
+                                            </View> : <></>
 
 
                     }
@@ -2028,21 +2088,6 @@ function getPCTColor(teamCode) {
                         fontFamily: 'Sora_600SemiBold'
                     }}>Select A Stat
                     </Text>
-
-                    <TouchableOpacity onPress={() => {
-                        Haptics.selectionAsync().then(() => {
-                        })
-                        setMapStatsSel("Goals")
-                        getMapData('goal')
-                        bottomSheetRef2.current.close()
-                    }}>
-                        <Text style={{
-                            color: colors.text,
-                            fontSize: 20,
-                            fontFamily: 'Sora_600SemiBold'
-                        }}>Goals
-                        </Text>
-                    </TouchableOpacity>
                     <TouchableOpacity onPress={() => {
                         Haptics.selectionAsync().then(() => {
                         })
@@ -2055,6 +2100,20 @@ function getPCTColor(teamCode) {
                             fontSize: 20,
                             fontFamily: 'Sora_600SemiBold'
                         }}>Shots
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setMapStatsSel("Goals")
+                        getMapData('goal')
+                        bottomSheetRef2.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Goals
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => {
@@ -2127,7 +2186,6 @@ function getPCTColor(teamCode) {
                         }}>Hits
                         </Text>
                     </TouchableOpacity>
-
 
 
                 </View>

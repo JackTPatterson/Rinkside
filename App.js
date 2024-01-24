@@ -20,6 +20,7 @@ import * as SplashScreen from "expo-splash-screen";
 import {ArrowRight, Brodcast, TickCircle} from "iconsax-react-native";
 import React, {useEffect, useState} from "react";
 import {
+    Appearance,
     Dimensions,
     Image,
     LogBox,
@@ -28,7 +29,6 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    useColorScheme,
     View
 } from 'react-native';
 import 'react-native-gesture-handler'
@@ -38,10 +38,8 @@ import GamesStackManager from "./pages/games_stack_manager";
 import Home from "./pages/home"
 import Players from "./pages/players";
 import Rankings from "./pages/rankings";
-import SettingsStackManager from "./pages/settings/settings";
+import SettingsStackManager from "./pages/settings";
 import teamData from "./teams";
-import {Appearance} from 'react-native';
-
 
 
 LogBox.ignoreLogs(['Warning: ...']);
@@ -53,8 +51,6 @@ SplashScreen.preventAutoHideAsync()
 export const Onboarding = ({navigation}) => {
 
     const {colors} = useTheme()
-
-
 
 
     const storeData = async (value) => {
@@ -95,7 +91,7 @@ export const Onboarding = ({navigation}) => {
 
         inactiveButton: {
             left: '50%',
-            transform: [{translateX: ((Dimensions.get('window').width / 2)-40)*-1}],
+            transform: [{translateX: ((Dimensions.get('window').width / 2) - 40) * -1}],
             position: 'absolute',
             bottom: 10,
             paddingHorizontal: 20,
@@ -106,18 +102,18 @@ export const Onboarding = ({navigation}) => {
             gap: 10,
             alignItems: 'center',
             width: '100%',
-            justifyContent: 'center',
+            justifyContent: 'center'
         },
 
         inactiveText: {
             color: 'gray',
-            fontFamily: 'Sora_500Medium',
+            fontFamily: 'Sora_500Medium'
         },
 
         activeButton: {
             backgroundColor: colors.text,
             left: '50%',
-            transform: [{translateX: ((Dimensions.get('window').width / 2)-40)*-1}],
+            transform: [{translateX: ((Dimensions.get('window').width / 2) - 40) * -1}],
             position: 'absolute',
             bottom: 10,
             paddingHorizontal: 20,
@@ -154,7 +150,7 @@ export const Onboarding = ({navigation}) => {
         }
     };
 
-    useEffect(()=>{
+    useEffect(() => {
         getData()
     })
 
@@ -177,11 +173,20 @@ export const Onboarding = ({navigation}) => {
                 }}>Choose your favorite team</Text>
                 <ScrollView style={{paddingTop: 20, width: Dimensions.get('window').width - 20, marginTop: 20}}>
                     {teamData.map((team, i) => {
-                        return <TouchableOpacity style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 2, borderColor: selectedTeam === team.abbreviation ? team.primary_color : colors.background, borderRadius: 15, padding:  selectedTeam === team.abbreviation ? 10: 0}} onPress={() => {
+                        return <TouchableOpacity style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderWidth: 2,
+                            borderColor: selectedTeam === team.abbreviation ? team.primary_color : colors.background,
+                            borderRadius: 15,
+                            padding: selectedTeam === team.abbreviation ? 10 : 0
+                        }} onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
                             setSelectedTeam(team.abbreviation)
-                            storeData(team.abbreviation).then(r => {})
+                            storeData(team.abbreviation).then(r => {
+                            })
                         }}>
                             <View style={{
                                 flexDirection: 'row',
@@ -193,9 +198,13 @@ export const Onboarding = ({navigation}) => {
                                     <Image style={{
                                         height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
                                         justifyContent: 'center'
-                                    }} source={assets[teamAbbreviations.indexOf(team.abbreviation)]}/> }
+                                    }} source={assets[teamAbbreviations.indexOf(team.abbreviation)]}/>}
 
-                                <Text style={{fontFamily: 'Sora_500Medium', fontSize: 20, color: colors.text}}>{team.name}</Text>
+                                <Text style={{
+                                    fontFamily: 'Sora_500Medium',
+                                    fontSize: 20,
+                                    color: colors.text
+                                }}>{team.name}</Text>
                             </View>
                             {selectedTeam === team.abbreviation &&
                                 <TickCircle variant={"Bold"} color={`${team.primary_color}`}/>
@@ -206,15 +215,15 @@ export const Onboarding = ({navigation}) => {
                 </ScrollView>
             </View>
 
-            { selectedTeam &&
-            <TouchableOpacity style={styles.activeButton}
-                              onPress={() => {
-                                  Haptics.selectionAsync()
-                                  navigation.push("Home")
-                              }}>
-                <Text style={styles.activeText}>Lets Go</Text>
-                <ArrowRight color={colors.background}/>
-            </TouchableOpacity>  }
+            {selectedTeam &&
+                <TouchableOpacity style={styles.activeButton}
+                                  onPress={() => {
+                                      Haptics.selectionAsync()
+                                      navigation.push("Home")
+                                  }}>
+                    <Text style={styles.activeText}>Lets Go</Text>
+                    <ArrowRight color={colors.background}/>
+                </TouchableOpacity>}
         </View>
 
 
@@ -229,7 +238,6 @@ const AppManager = () => {
     const scheme = Appearance.getColorScheme();
 
 
-
     const DarkTheme = {
         dark: true,
         colors: {
@@ -238,9 +246,9 @@ const AppManager = () => {
             card: 'rgb(18, 18, 18)',
             text: 'rgb(229, 229, 231)',
             border: 'rgb(39, 39, 41)',
-            notification: 'rgb(255, 69, 58)',
+            notification: 'rgb(255, 69, 58)'
 
-        },
+        }
     };
 
     const LightTheme = {
@@ -251,13 +259,16 @@ const AppManager = () => {
             card: '#f7f7f7',
             text: 'rgb(28, 28, 30)',
             border: 'rgb(216, 216, 216)',
-            notification: 'rgb(255, 59, 48)',
-        },
+            notification: 'rgb(255, 59, 48)'
+        }
     };
 
     const {colors} = useTheme()
 
-    return <NavigationContainer theme={scheme === 'dark' ? DarkTheme : LightTheme} independent={true} onStateChange={()=>{Haptics.impactAsync()}}>
+    return <NavigationContainer theme={scheme === 'dark' ? DarkTheme : LightTheme} independent={true}
+                                onStateChange={() => {
+                                    Haptics.impactAsync()
+                                }}>
         <Tab.Navigator
             screenOptions={({route}) => ({
 
@@ -304,7 +315,7 @@ const AppManager = () => {
                     if (route.name === "Games") {
                         return (
 
-                           <Brodcast color={color} size={32}/>
+                            <Brodcast color={color} size={32}/>
 
 
                         )
@@ -322,8 +333,10 @@ const AppManager = () => {
                         return (
                             <Svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none"
                                  viewBox="0 0 24 24" strokeWidth={1.5} stroke={color} className="w-6 h-6">
-                                <Path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
-                                <Path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                <Path strokeLinecap="round" strokeLinejoin="round"
+                                      d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/>
+                                <Path strokeLinecap="round" strokeLinejoin="round"
+                                      d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                             </Svg>
 
                         )
@@ -361,9 +374,9 @@ export default function App() {
             card: 'rgb(18, 18, 18)',
             text: 'white',
             border: 'rgb(39, 39, 41)',
-            notification: 'rgb(255, 69, 58)',
+            notification: 'rgb(255, 69, 58)'
 
-        },
+        }
     };
 
     const LightTheme = {
@@ -374,8 +387,8 @@ export default function App() {
             card: '#f7f7f7',
             text: 'black',
             border: 'rgb(216, 216, 216)',
-            notification: 'rgb(255, 59, 48)',
-        },
+            notification: 'rgb(255, 59, 48)'
+        }
     };
 
     const [team, setTeam] = useState(null);
@@ -398,23 +411,23 @@ export default function App() {
 
 
     let [fontsLoaded] = useFonts({
-            Sora_600SemiBold,
-            Sora_500Medium,
-            Sora_400Regular,
-            Sora_300Light,
-            Sora_200ExtraLight,
-            Sora_100Thin,
-            Sora_800ExtraBold,
-            Sora_700Bold
-        })
+        Sora_600SemiBold,
+        Sora_500Medium,
+        Sora_400Regular,
+        Sora_300Light,
+        Sora_200ExtraLight,
+        Sora_100Thin,
+        Sora_800ExtraBold,
+        Sora_700Bold
+    })
 
-    if(!fontsLoaded){
+    if (!fontsLoaded) {
         return <></>
-    }
-    else return (
+    } else return (
 
         <NavigationContainer theme={scheme === 'dark' ? DarkTheme : LightTheme}>
-            <Stack.Navigator initialRouteName={team?.length === 3 ? "Home_team" : "Onboarding"} screenOptions={({route}) => ({headerShown: false})}>
+            <Stack.Navigator initialRouteName={team?.length === 3 ? "Home_team" : "Onboarding"}
+                             screenOptions={({route}) => ({headerShown: false})}>
                 <Stack.Screen name="Home" component={AppManager}/>
                 <Stack.Screen name="Onboarding" component={Onboarding}/>
             </Stack.Navigator>

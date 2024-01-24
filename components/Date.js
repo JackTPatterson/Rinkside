@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native'
 import moment from 'moment'
+import {StyleSheet, Text, TouchableOpacity, View} from 'react-native'
 
 const Date = ({ date, onSelectDate, selected, index, size, colors }) => {
     /**

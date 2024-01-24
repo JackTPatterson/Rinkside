@@ -23,8 +23,10 @@ import {LineChart} from "react-native-chart-kit";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
 
 import Svg, {Path} from "react-native-svg";
+import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
+import {sort_by} from "../helpers/dataHandlers";
+import {getTeamColor} from "../helpers/UI";
 import teamData from "../teams";
-
 
 export default function Players() {
     const [data, setData] = useState([])
@@ -32,23 +34,6 @@ export default function Players() {
     const [tab, setTab] = useState(0);
 
     let commonConfig = {delimiter: ","};
-
-    const sort_by = (field, reverse, primer) => {
-
-        const key = primer ?
-            function (x) {
-                return primer(x[field])
-            } :
-            function (x) {
-                return x[field]
-            };
-
-        reverse = !reverse ? 1 : -1;
-
-        return function (a, b) {
-            return a = key(a), b = key(b), reverse * ((a > b) - (b > a));
-        }
-    }
 
 
     const getPlayerData = (type, pageOffset) => {
@@ -126,15 +111,6 @@ export default function Players() {
     }, [])
 
 
-    function getPCTColor(teamCode) {
-        let team = teamData.filter((item) => {
-            return (item.abbreviation === teamCode);
-        })
-
-        return team[0]?.primary_color;
-
-    }
-
     const bottomSheetRef = useRef(null);
     const bottomSheetRef2 = useRef(null);
 
@@ -163,14 +139,13 @@ export default function Players() {
 
 
         const getData = () => {
-            if(!data){
+            if (!data) {
                 fetch(`https://api-web.nhle.com/v1/player/${rank.playerId}/landing`, requestOptions)
                     .then(response => response.text())
                     .then(result => {
                         setData(JSON.parse(result).featuredStats.regularSeason.subSeason)
                     });
             }
-
         }
 
         useEffect(() => {
@@ -180,19 +155,19 @@ export default function Players() {
 
         return <TouchableOpacity
 
-            onPress={()=>{
+            onPress={() => {
                 Haptics.selectionAsync()
-                setSshowing(val=>!val ? 1 : val === 2 ? 0 : 2)
+                setSshowing(val => !val ? 1 : val === 2 ? 0 : 2)
             }}
 
             onLongPress={() => {
                 bottomSheetRef.current.expand()
                 Haptics.impactAsync()
-                    fetch(`https://api-web.nhle.com/v1/player/${rank.playerId}/landing`, requestOptions)
-                        .then(response => response.text())
-                        .then(result => {
-                            setSelectedPlayer(JSON.parse(result))
-                        });
+                fetch(`https://api-web.nhle.com/v1/player/${rank.playerId}/landing`, requestOptions)
+                    .then(response => response.text())
+                    .then(result => {
+                        setSelectedPlayer(JSON.parse(result))
+                    });
             }}
 
             style={{
@@ -207,7 +182,11 @@ export default function Players() {
                 justifyContent: 'flex-left',
                 alignItems: 'center'
             }}>
-                <Text style={{color: colors.text, fontSize: 24, fontFamily: 'Sora_500Medium'}}>{page + 1 + props.i}</Text>
+                <Text style={{
+                    color: colors.text,
+                    fontSize: 24,
+                    fontFamily: 'Sora_800ExtraBold'
+                }}>{page + 1 + props.i}</Text>
                 <View style={{
                     alignItems: 'center'
                 }}>
@@ -247,7 +226,7 @@ export default function Players() {
                                 }}> {data?.goals}
                                 </Text>
 
-                            </View> : sshowing === 1 ? <View  style={{
+                            </View> : sshowing === 1 ? <View style={{
                                     flexDirection: 'row',
                                     justifyContent: 'flex-left',
                                     alignItems: 'center'
@@ -267,7 +246,7 @@ export default function Players() {
                                     }}>{data?.assists}
                                     </Text>
                                 </View> :
-                                <View  style={{
+                                <View style={{
                                     flexDirection: 'row',
                                     justifyContent: 'flex-left',
                                     alignItems: 'center'
@@ -328,7 +307,7 @@ export default function Players() {
         } else if (adjustedDate.toDateString() === new Date(today.getTime() - 24 * 60 * 60 * 1000).toDateString()) {
             return "Yesterday";
         } else {
-            const monthAbbreviation = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(adjustedDate);
+            const monthAbbreviation = new Intl.DateTimeFormat('en-US', {month: 'short'}).format(adjustedDate);
             const day = adjustedDate.getDate();
             const daySuffix = getDaySuffix(day);
             const formattedDay = day < 10 ? `${day}${daySuffix}` : `${day}${daySuffix}`;
@@ -336,27 +315,10 @@ export default function Players() {
         }
     }
 
-    const teamAbbreviations = [
-        "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL",
-        "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR",
-        "OTT", "PHI", "PIT", "STL", "SJS", "SEA", "TBL", "TOR", "VAN", "VGK",
-        "WSH", "WPG"
-    ];
-
-    const teamAbbreviationsWithLightImages = [
-        require("../assets/ANA_light.png"), require("../assets/ARI_light.png"), require("../assets/BOS_light.png"), require("../assets/BUF_light.png"), require("../assets/CGY_light.png"),
-        require("../assets/CAR_light.png"), require("../assets/CHI_light.png"), require("../assets/COL_light.png"), require("../assets/CBJ_light.png"), require("../assets/DAL_light.png"),
-        require("../assets/DET_light.png"), require("../assets/EDM_light.png"), require("../assets/FLA_light.png"), require("../assets/LAK_light.png"), require("../assets/MIN_light.png"),
-        require("../assets/MTL_light.png"), require("../assets/NSH_light.png"), require("../assets/NJD_light.png"), require("../assets/NYI_light.png"), require("../assets/NYR_light.png"),
-        require("../assets/OTT_light.png"), require("../assets/PHI_light.png"), require("../assets/PIT_light.png"), require("../assets/STL_light.png"), require("../assets/SJS_light.png"),
-        require("../assets/SEA_light.png"), require("../assets/TBL_light.png"), require("../assets/TOR_light.png"), require("../assets/VAN_light.png"), require("../assets/VGK_light.png"),
-        require("../assets/WSH_light.png"), require("../assets/WPG_light.png")
-    ];
-
 
     const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
-    const { colors } = useTheme();
+    const {colors} = useTheme();
 
 
     const styles = StyleSheet.create({
@@ -432,7 +394,8 @@ export default function Players() {
             <View style={styles.container}>
                 <SafeAreaView style={{width: '100%'}}>
 
-                    <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24, color: colors.text}}>Player Rankings</Text>
+                    <Text style={{fontFamily: 'Sora_600SemiBold', marginBottom: 10, fontSize: 24, color: colors.text}}>Player
+                        Rankings</Text>
 
                     <View>
                         <View style={{
@@ -445,19 +408,20 @@ export default function Players() {
 
 
                             <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
-                                       onPress={() => {
-                                           setTab(0)
-                                           Haptics.selectionAsync()
-                                           getPlayerData(0, 0)
-                                       }}>
+                                              onPress={() => {
+                                                  setTab(0)
+                                                  Haptics.selectionAsync()
+                                                  getPlayerData(0, 0)
+                                              }}>
                                 <Text style={tab === 0 ? styles.activeText : styles.inactiveText}>Skaters</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={tab === 1 ? styles.activeButton : styles.inactiveButton} onPress={() => {
-                                setTab(1)
-                                Haptics.selectionAsync()
-                                getPlayerData(1, 0)
+                            <TouchableOpacity style={tab === 1 ? styles.activeButton : styles.inactiveButton}
+                                              onPress={() => {
+                                                  setTab(1)
+                                                  Haptics.selectionAsync()
+                                                  getPlayerData(1, 0)
 
-                            }}>
+                                              }}>
                                 <Text style={tab === 1 ? styles.activeText : styles.inactiveText}>Goalies</Text>
                             </TouchableOpacity>
                         </View>
@@ -477,7 +441,7 @@ export default function Players() {
                                         <Text style={{
                                             fontFamily: 'Sora_500Medium',
                                             fontSize: 24,
-                                            color: colors.text,
+                                            color: colors.text
                                         }}>Ranks {page + 1} - {page + 10}</Text>
                                         <View style={{
                                             flexDirection: 'row',
@@ -519,9 +483,12 @@ export default function Players() {
                                         data.length ? data.map((rank, i) => {
                                             return <Player i={i} rank={rank}/>
                                         }) : <View style={{gap: 10}}>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
+                                                      width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
+                                                      width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
+                                                      width={Dimensions.get('window').width - 20} height={70} radius={15}/>
                                         </View>
                                     }
                                 </View> :
@@ -536,7 +503,7 @@ export default function Players() {
                                         <Text style={{
                                             fontFamily: 'Sora_500Medium',
                                             fontSize: 24,
-                                            color: colors.text,
+                                            color: colors.text
                                         }}>Ranks {page + 1} - {page + 10}</Text>
                                         <View style={{
                                             flexDirection: 'row',
@@ -556,7 +523,7 @@ export default function Players() {
                                                     borderRadius: 100
                                                 }}>
                                                     <ArrowLeft color={colors.text}/>
-                                                </TouchableOpacity> }
+                                                </TouchableOpacity>}
                                             <TouchableOpacity onPress={() => {
                                                 setPage(page => page + 10)
                                                 getPlayerData(1, page + 10)
@@ -573,9 +540,14 @@ export default function Players() {
 
 
                                     </View>
-                                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, alignItems: 'center'}}>
+                                    <View style={{
+                                        flexDirection: 'row',
+                                        justifyContent: 'space-between',
+                                        marginBottom: 20,
+                                        alignItems: 'center'
+                                    }}>
                                         <Text style={{
-                                           color: colors.text,
+                                            color: colors.text,
                                             opacity: .5,
                                             fontSize: 16,
                                             marginRight: 10,
@@ -583,7 +555,7 @@ export default function Players() {
                                         }}>Showing:
                                         </Text>
                                         <Text style={{
-                                           color: colors.text,
+                                            color: colors.text,
                                             fontSize: 16,
                                             fontFamily: 'Sora_500Medium'
                                         }}>{!gShowing ? "Goals Saved Above Average" : gShowing === 2 ? "Save %" : "Goals Saved Above Expected"}
@@ -592,9 +564,9 @@ export default function Players() {
                                     {
                                         data.length ? data.map((rank, i) => {
                                             return <TouchableOpacity
-                                                onPress={()=>{
+                                                onPress={() => {
                                                     Haptics.selectionAsync()
-                                                    setGShowing(val=>!val ? 1 : val === 2 ? 0 : 2)
+                                                    setGShowing(val => !val ? 1 : val === 2 ? 0 : 2)
                                                 }}
                                                 style={{
                                                     backgroundColor: colors.card,
@@ -610,9 +582,9 @@ export default function Players() {
                                                     alignItems: 'center'
                                                 }}>
                                                     <Text style={{
-                                                       color: colors.text,
+                                                        color: colors.text,
                                                         fontSize: 24,
-                                                        fontFamily: 'Sora_500Medium',
+                                                        fontFamily: 'Sora_500Medium'
                                                     }}>{page + 1 + i}</Text>
 
                                                     <View style={{
@@ -629,7 +601,7 @@ export default function Players() {
                                                     </View>
                                                     <View>
                                                         <Text style={{
-                                                           color: colors.text,
+                                                            color: colors.text,
                                                             fontSize: 16,
                                                             fontFamily: 'Sora_500Medium'
                                                         }}>{rank.name}</Text>
@@ -642,7 +614,7 @@ export default function Players() {
 
 
                                                                 <Text style={{
-                                                                   color: colors.text,
+                                                                    color: colors.text,
                                                                     opacity: .5,
                                                                     fontSize: 16,
                                                                     marginRight: 10,
@@ -650,52 +622,52 @@ export default function Players() {
                                                                 }}>GSAA:
                                                                 </Text>
                                                                 <Text style={{
-                                                                   color: colors.text,
+                                                                    color: colors.text,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_500Medium'
-                                                                }}>{((rank.goals*60)/(rank.icetime/60).toFixed(2)).toFixed(3)}
+                                                                }}>{((rank.goals * 60) / (rank.icetime / 60).toFixed(2)).toFixed(3)}
                                                                 </Text>
 
-                                                            </View> : gShowing === 2 ? <View  style={{
-                                                                flexDirection: 'row',
-                                                                justifyContent: 'flex-left',
-                                                                alignItems: 'center'
-                                                            }}>
-                                                                <Text style={{
-                                                                   color: colors.text,
-                                                                    opacity: .5,
-                                                                    fontSize: 16,
-                                                                    marginRight: 10,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>SV%:
-                                                                </Text>
-                                                                <Text style={{
-                                                                   color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{((rank.ongoal - rank.goals) / rank.ongoal).toFixed(3)}
-                                                                </Text>
+                                                            </View> : gShowing === 2 ? <View style={{
+                                                                    flexDirection: 'row',
+                                                                    justifyContent: 'flex-left',
+                                                                    alignItems: 'center'
+                                                                }}>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        opacity: .5,
+                                                                        fontSize: 16,
+                                                                        marginRight: 10,
+                                                                        fontFamily: 'Sora_500Medium'
+                                                                    }}>SV%:
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_500Medium'
+                                                                    }}>{((rank.ongoal - rank.goals) / rank.ongoal).toFixed(3)}
+                                                                    </Text>
                                                                 </View> :
-                                                                <View  style={{
-                                                                flexDirection: 'row',
-                                                                justifyContent: 'flex-left',
-                                                                alignItems: 'center'
-                                                            }}>
-                                                                <Text style={{
-                                                                   color: colors.text,
-                                                                    opacity: .5,
-                                                                    fontSize: 16,
-                                                                    marginRight: 10,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>GSAx:
-                                                                </Text>
-                                                                <Text style={{
-                                                                   color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{(rank.xGoals - rank.goals).toFixed(2)}
-                                                                </Text>
-                                                            </View>
+                                                                <View style={{
+                                                                    flexDirection: 'row',
+                                                                    justifyContent: 'flex-left',
+                                                                    alignItems: 'center'
+                                                                }}>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        opacity: .5,
+                                                                        fontSize: 16,
+                                                                        marginRight: 10,
+                                                                        fontFamily: 'Sora_500Medium'
+                                                                    }}>GSAx:
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_500Medium'
+                                                                    }}>{(rank.xGoals - rank.goals).toFixed(2)}
+                                                                    </Text>
+                                                                </View>
                                                         }
 
                                                     </View>
@@ -703,10 +675,16 @@ export default function Players() {
                                                 </View>
 
                                             </TouchableOpacity>
-                                        }) :  <View style={{gap: 10}}>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'} width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+                                        }) : <View style={{gap: 10}}>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
+                                                      width={Dimensions.get('window').width - 20} height={70}
+                                                      radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
+                                                      width={Dimensions.get('window').width - 20} height={70}
+                                                      radius={15}/>
+                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
+                                                      width={Dimensions.get('window').width - 20} height={70}
+                                                      radius={15}/>
 
                                         </View>
                                     }
@@ -729,7 +707,7 @@ export default function Players() {
                         paddingHorizontal: 20
                     }}
                     backgroundStyle={{
-                        backgroundColor: colors.background
+                        backgroundColor: colors.card
                     }}
                 >
                     <View>
@@ -753,7 +731,7 @@ export default function Players() {
                                     height: 80,
                                     width: 80,
                                     marginRight: 20,
-                                    borderColor: `${getPCTColor(selectedPlayer?.currentTeamAbbrev)}`,
+                                    borderColor: `${getTeamColor(selectedPlayer?.currentTeamAbbrev, colors)}`,
                                     backgroundColor: colors.card
                                 }} source={{uri: selectedPlayer?.headshot}}/>
                                 <View>
@@ -783,7 +761,7 @@ export default function Players() {
 
                         </View>
                         <Text style={{
-                           color: colors.text,
+                            color: colors.text,
                             marginTop: 10,
                             fontSize: 16,
                             fontFamily: 'Sora_600SemiBold'
@@ -798,26 +776,38 @@ export default function Players() {
                             marginTop: 10,
                             justifyContent: 'flex-start'
                         }}>
-                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
-                            <Text style={{
-                                   color: colors.text,
+                            <View style={{
+                                backgroundColor: colors.background,
+                                width: (Dimensions.get('window').width / 3) - 20,
+                                paddingVertical: 15,
+                                paddingLeft: 20,
+                                borderRadius: 10
+                            }}>
+                                <Text style={{
+                                    color: colors.text,
                                     textAlign: 'left',
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                {selectedPlayer?.careerTotals.regularSeason.goals}
+                                    {selectedPlayer?.careerTotals.regularSeason.goals}
                                 </Text>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
                                 }}>Goals</Text>
                             </View>
-                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                            <View style={{
+                                backgroundColor: colors.background,
+                                width: (Dimensions.get('window').width / 3) - 20,
+                                paddingVertical: 15,
+                                paddingLeft: 20,
+                                borderRadius: 10
+                            }}>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
@@ -825,16 +815,22 @@ export default function Players() {
                                     {selectedPlayer?.careerTotals.regularSeason.assists}
                                 </Text>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
                                 }}>Assists</Text>
                             </View>
-                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                            <View style={{
+                                backgroundColor: colors.background,
+                                width: (Dimensions.get('window').width / 3) - 20,
+                                paddingVertical: 15,
+                                paddingLeft: 20,
+                                borderRadius: 10
+                            }}>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
@@ -842,7 +838,7 @@ export default function Players() {
                                     {selectedPlayer?.careerTotals.regularSeason.points}
                                 </Text>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     opacity: .5,
                                     fontSize: 16,
@@ -859,9 +855,15 @@ export default function Players() {
                             gap: 10,
                             justifyContent: 'flex-start'
                         }}>
-                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                            <View style={{
+                                backgroundColor: colors.background,
+                                width: (Dimensions.get('window').width / 3) - 20,
+                                paddingVertical: 15,
+                                paddingLeft: 20,
+                                borderRadius: 10
+                            }}>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
@@ -869,16 +871,22 @@ export default function Players() {
                                     {selectedPlayer?.careerTotals.regularSeason.plusMinus}
                                 </Text>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
                                 }}>+/-</Text>
                             </View>
-                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                            <View style={{
+                                backgroundColor: colors.background,
+                                width: (Dimensions.get('window').width / 3) - 20,
+                                paddingVertical: 15,
+                                paddingLeft: 20,
+                                borderRadius: 10
+                            }}>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
@@ -886,16 +894,22 @@ export default function Players() {
                                     {selectedPlayer?.careerTotals.regularSeason.shots}
                                 </Text>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
                                 }}>Shots</Text>
                             </View>
-                            <View style={{backgroundColor: colors.card, width: (Dimensions.get('window').width / 3) - 20,  paddingVertical: 15, paddingLeft: 20, borderRadius: 10}}>
+                            <View style={{
+                                backgroundColor: colors.background,
+                                width: (Dimensions.get('window').width / 3) - 20,
+                                paddingVertical: 15,
+                                paddingLeft: 20,
+                                borderRadius: 10
+                            }}>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     fontSize: 24,
                                     fontFamily: 'Sora_600SemiBold'
@@ -903,7 +917,7 @@ export default function Players() {
                                     {selectedPlayer?.careerTotals.regularSeason.gamesPlayed}
                                 </Text>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     textAlign: 'left',
                                     opacity: .5,
                                     fontSize: 16,
@@ -913,46 +927,56 @@ export default function Players() {
 
                         </View>
                         <Text style={{
-                           color: colors.text,
+                            color: colors.text,
                             marginTop: 10,
                             fontSize: 16,
                             fontFamily: 'Sora_600SemiBold'
                         }}>Last 5 Games
                         </Text>
-                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10}}>
+                        <View style={{
+                            flexDirection: 'row',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginTop: 10
+                        }}>
+
                             <TouchableOpacity onPress={() => {
                                 Haptics.selectionAsync().then(() => {
                                 })
                                 bottomSheetRef2.current.expand()
                             }} style={{
+                                width: '100%',
                                 flexDirection: 'row',
+                                justifyContent: 'space-between',
                                 alignItems: 'center',
-                                gap: 4,
-                                backgroundColor: colors.card,
-                                borderRadius: 100,
-                                alignSelf: 'flex-start',
-                                paddingHorizontal: 15,
-                                paddingVertical: 10
+                                paddingVertical: 20,
+                                paddingHorizontal: 20,
+                                borderRadius: 15,
+                                backgroundColor: colors.background,
+                                marginBottom: 4
                             }}>
                                 <Text style={{
-                                   color: colors.text,
+                                    color: colors.text,
                                     fontSize: 16,
-                                    fontFamily: 'Sora_500Medium'
-                                }}>{selectedStat.charAt(0).toUpperCase() + selectedStat.slice(1)}
-                                </Text>
-                                <ArrowDown2 color={colors.text} size={16}/>
-
-                            </TouchableOpacity>
-                            <Text style={{
-                                color: colors.text,
-                                fontSize: 20,
-                                fontFamily: 'Sora_700Bold'
-
-                            }}  duration={250}>
-                                {selectedPlayer ? accumulateArrayValues(selectedPlayer?.last5Games.map((r, i) => {
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>Total: {selectedPlayer ? accumulateArrayValues(selectedPlayer?.last5Games.map((r, i) => {
                                     return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
-                                }))[4] : 0}
-                            </Text>
+                                }))[4] : 0}</Text>
+                                <View style={{
+                                    flexDirection: 'row',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 4
+                                }}>
+                                    <Text style={{
+                                        color: colors.text,
+                                        opacity: .5,
+                                        fontSize: 16,
+                                        fontFamily: 'Sora_500Medium'
+                                    }}>{selectedStat.charAt(0).toUpperCase() + selectedStat.slice(1)}</Text>
+                                    <ArrowDown2 style={{opacity: .7}} size={16} color={colors.text}/>
+                                </View>
+                            </TouchableOpacity>
 
 
                         </View>
@@ -960,18 +984,18 @@ export default function Players() {
                         {selectedPlayer &&
                             <LineChart
                                 data={{
-                                    labels:  selectedPlayer?.last5Games.map((r, i) => {
+                                    labels: selectedPlayer?.last5Games.map((r, i) => {
                                         return formatDate(r.gameDate, 0)
                                     }).reverse(),
                                     datasets: [
                                         {
-                                            color: (opacity) => `${getPCTColor(selectedPlayer?.currentTeamAbbrev)}`,
+                                            color: (opacity) => `${getTeamColor(selectedPlayer?.currentTeamAbbrev, colors)}`,
                                             strokeWidth: 2.5,
                                             data: selectedPlayer?.last5Games.map((r, i) => {
                                                 return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
                                             }).reverse()
                                         }
-                                    ],
+                                    ]
                                 }}
 
                                 width={Dimensions.get("window").width}
@@ -994,14 +1018,14 @@ export default function Players() {
                                     backgroundGradientToOpacity: 0,
                                     decimalPlaces: 0,
                                     color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                    labelColor: () =>  colors.text,
-                                    strokeWidth: 3,
+                                    labelColor: () => colors.text,
+                                    strokeWidth: 3
                                 }}
                                 bezier
                                 yAxisInterval={2}
                                 style={{
                                     marginVertical: 8,
-                                    marginLeft: -30,
+                                    marginLeft: -30
                                 }}
                             />}
 
@@ -1024,7 +1048,7 @@ export default function Players() {
                 >
                     <View style={{flexDirection: 'column', gap: 20}}>
                         <Text style={{
-                           color: colors.text,
+                            color: colors.text,
                             fontSize: 24,
                             fontFamily: 'Sora_600SemiBold'
                         }}>Select A Stat
@@ -1037,7 +1061,7 @@ export default function Players() {
                             bottomSheetRef2.current.collapse()
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>Goals
@@ -1051,7 +1075,7 @@ export default function Players() {
 
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>Assists
@@ -1059,12 +1083,13 @@ export default function Players() {
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
+
                             setSelectedStat("points")
                             bottomSheetRef2.current.collapse()
 
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>Points
@@ -1077,7 +1102,7 @@ export default function Players() {
 
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>Shots
@@ -1090,7 +1115,7 @@ export default function Players() {
 
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>PIM
@@ -1104,7 +1129,7 @@ export default function Players() {
 
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>PPG
@@ -1117,7 +1142,7 @@ export default function Players() {
 
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>SHG
@@ -1130,7 +1155,7 @@ export default function Players() {
 
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>+/-
@@ -1143,7 +1168,7 @@ export default function Players() {
 
                         }}>
                             <Text style={{
-                               color: colors.text,
+                                color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
                             }}>Shifts
