@@ -52,3 +52,9 @@ export const teamIdDictionary = {
     54: 38,
     55: 39
 };
+
+export function hyphenToCapitalizedWords(inputString) {
+    return inputString.split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}

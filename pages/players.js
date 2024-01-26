@@ -14,81 +14,47 @@ import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
-import {ArrowDown2, ArrowLeft, ArrowRight} from "iconsax-react-native";
-import {Skeleton} from "moti/skeleton";
-import Papa from "papaparse";
+import {ArrowDown2} from "iconsax-react-native";
+import {MotiView} from "moti";
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
-import {LineChart} from "react-native-chart-kit";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
+import {Row, Table} from "react-native-reanimated-table"
 
 import Svg, {Path} from "react-native-svg";
+import {Cell, TableWrapper} from "react-native-table-component";
+import DataLineChart from "../components/Chart";
 import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
-import {sort_by} from "../helpers/dataHandlers";
 import {getTeamColor} from "../helpers/UI";
-import teamData from "../teams";
 
 export default function Players() {
     const [data, setData] = useState([])
 
     const [tab, setTab] = useState(0);
 
-    let commonConfig = {delimiter: ","};
+    const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
 
-    const getPlayerData = (type, pageOffset) => {
-        if (type) {
-            Papa.parse(
-                "https://moneypuck.com/moneypuck/playerData/seasonSummary/2023/regular/goalies.csv",
-                {
-                    ...commonConfig,
-                    header: true,
-                    download: true,
-                    complete: (result) => {
-                        const d = result.data?.filter((d, i) => {
-                            return d['situation'] === "all"
-                        })
-                        d.map((s, i) => {
-                            d[i]['GAA'] = s.xGoals - s.goals
-                        })
+    const getPlayerData = (type) => {
 
-                        const r = d.sort(sort_by('GAA', true, parseFloat)).map((rank, i) => {
-                            return rank
-                        })
+        let myHeaders = new Headers();
+        myHeaders.append("accept", "application/json");
+
+        let requestOptions = {
+            method: 'GET',
+            headers: myHeaders,
+            redirect: 'follow'
+        };
 
 
-                        setData(r.slice(pageOffset, pageOffset + 10))
-                    }
-                }
-            );
-        } else {
-            Papa.parse(
-                "https://moneypuck.com/moneypuck/playerData/seasonSummary/2023_skaters.csv",
-                {
-                    ...commonConfig,
-                    header: true,
-                    download: true,
-                    complete: (result) => {
-                        const d = result.data?.filter((d, i) => {
-                            return d['situation'] === "all"
-                        })
+        fetch(type ?
+            "https://api.nhle.com/stats/rest/en/goalie/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22wins%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22savePct%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=20232024%20and%20seasonId%3E=20232024" :
+            `https://api.nhle.com/stats/rest/en/skater/summary?isAggregate=false&isGame=false&sort=%5B%7B%22property%22:%22points%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22gamesPlayed%22,%22direction%22:%22ASC%22%7D,%7B%22property%22:%22playerId%22,%22direction%22:%22ASC%22%7D%5D&start=0&limit=50&factCayenneExp=gamesPlayed%3E=1&cayenneExp=gameTypeId=2%20and%20seasonId%3C=20232024%20and%20seasonId%3E=20232024`, requestOptions)
+            .then(response => response.text())
+            .then(result => {
+                setData(JSON.parse(result).data)
+            });
 
-                        const r = d.sort(sort_by('I_F_xGoals', true, parseFloat)).map((rank, i) => {
-                            return rank
-                        })
-
-
-                        //
-                        // r.map((_, i)=>{
-                        //     r[i]['stats'] = fetchPlayerStats()
-                        // })
-
-
-                        setData(r.slice(pageOffset, pageOffset + 10))
-                    }
-                }
-            );
-        }
     }
 
     function accumulateArrayValues(inputArray) {
@@ -106,7 +72,7 @@ export default function Players() {
 
     useEffect(() => {
         //needs to be dynamic to year
-        getPlayerData(0, 0)
+        getPlayerData(0)
 
     }, [])
 
@@ -117,183 +83,6 @@ export default function Players() {
     const snapPoints = useMemo(() => ['90%'], []);
 
     const [selectedPlayer, setSelectedPlayer] = useState(null)
-
-
-    const Player = (props) => {
-
-        const rank = props.rank;
-
-        const [data, setData] = useState(null)
-
-        const [sshowing, setSshowing] = useState(2)
-
-
-        let myHeaders = new Headers();
-        myHeaders.append("accept", "application/json");
-
-        let requestOptions = {
-            method: 'GET',
-            headers: myHeaders,
-            redirect: 'follow'
-        };
-
-
-        const getData = () => {
-            if (!data) {
-                fetch(`https://api-web.nhle.com/v1/player/${rank.playerId}/landing`, requestOptions)
-                    .then(response => response.text())
-                    .then(result => {
-                        setData(JSON.parse(result).featuredStats.regularSeason.subSeason)
-                    });
-            }
-        }
-
-        useEffect(() => {
-            getData()
-        }, [])
-
-
-        return <TouchableOpacity
-
-            onPress={() => {
-                Haptics.selectionAsync()
-                setSshowing(val => !val ? 1 : val === 2 ? 0 : 2)
-            }}
-
-            onLongPress={() => {
-                bottomSheetRef.current.expand()
-                Haptics.impactAsync()
-                fetch(`https://api-web.nhle.com/v1/player/${rank.playerId}/landing`, requestOptions)
-                    .then(response => response.text())
-                    .then(result => {
-                        setSelectedPlayer(JSON.parse(result))
-                    });
-            }}
-
-            style={{
-                backgroundColor: colors.card,
-                paddingVertical: 15,
-                marginBottom: 4,
-                borderRadius: 15,
-                paddingLeft: 20
-            }}>
-            <View style={{
-                flexDirection: 'row',
-                justifyContent: 'flex-left',
-                alignItems: 'center'
-            }}>
-                <Text style={{
-                    color: colors.text,
-                    fontSize: 24,
-                    fontFamily: 'Sora_800ExtraBold'
-                }}>{page + 1 + props.i}</Text>
-                <View style={{
-                    alignItems: 'center'
-                }}>
-
-                    <Image style={{
-                        height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
-                        justifyContent: 'center'
-                    }} source={assets[teamAbbreviations.indexOf(rank.team)]}/>
-                </View>
-                <View>
-                    <View>
-                        <Text style={{
-                            color: colors.text,
-                            fontSize: 16,
-                            fontFamily: 'Sora_500Medium'
-                        }}>{rank.name}</Text>
-                        {
-                            !sshowing ? <View style={{
-                                flexDirection: 'row',
-                                justifyContent: 'flex-left',
-                                alignItems: 'center'
-                            }}>
-
-
-                                <Text style={{
-                                    color: colors.text,
-                                    opacity: .5,
-                                    fontSize: 16,
-                                    marginRight: 10,
-                                    fontFamily: 'Sora_500Medium'
-                                }}>Goals:
-                                </Text>
-                                <Text style={{
-                                    color: 'black',
-                                    fontSize: 16,
-                                    fontFamily: 'Sora_500Medium'
-                                }}> {data?.goals}
-                                </Text>
-
-                            </View> : sshowing === 1 ? <View style={{
-                                    flexDirection: 'row',
-                                    justifyContent: 'flex-left',
-                                    alignItems: 'center'
-                                }}>
-                                    <Text style={{
-                                        color: colors.text,
-                                        opacity: .5,
-                                        fontSize: 16,
-                                        marginRight: 10,
-                                        fontFamily: 'Sora_500Medium'
-                                    }}>Assists:
-                                    </Text>
-                                    <Text style={{
-                                        color: colors.text,
-                                        fontSize: 16,
-                                        fontFamily: 'Sora_500Medium'
-                                    }}>{data?.assists}
-                                    </Text>
-                                </View> :
-                                <View style={{
-                                    flexDirection: 'row',
-                                    justifyContent: 'flex-left',
-                                    alignItems: 'center'
-                                }}>
-                                    <Text style={{
-                                        color: colors.text,
-                                        opacity: .5,
-                                        fontSize: 16,
-                                        marginRight: 10,
-                                        fontFamily: 'Sora_500Medium'
-                                    }}>Pts:
-                                    </Text>
-                                    <Text style={{
-                                        color: colors.text,
-                                        fontSize: 16,
-                                        fontFamily: 'Sora_500Medium'
-                                    }}>{data?.goals + data?.assists}
-                                    </Text>
-                                </View>
-                        }
-
-                    </View>
-
-                </View>
-
-            </View>
-
-        </TouchableOpacity>
-
-    }
-
-    function getDaySuffix(day) {
-        if (day >= 11 && day <= 13) {
-            return 'th';
-        }
-        const lastDigit = day % 10;
-        switch (lastDigit) {
-            case 1:
-                return 'st';
-            case 2:
-                return 'nd';
-            case 3:
-                return 'rd';
-            default:
-                return 'th';
-        }
-    }
 
     function formatDate(date, offset) {
         const today = new Date();
@@ -315,8 +104,23 @@ export default function Players() {
         }
     }
 
+    function getDaySuffix(day) {
+        if (day >= 11 && day <= 13) {
+            return 'th';
+        }
+        const lastDigit = day % 10;
+        switch (lastDigit) {
+            case 1:
+                return 'st';
+            case 2:
+                return 'nd';
+            case 3:
+                return 'rd';
+            default:
+                return 'th';
+        }
+    }
 
-    const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
 
     const {colors} = useTheme();
 
@@ -363,12 +167,6 @@ export default function Players() {
 
     });
 
-    const [sel, setSel] = useState("NYI");
-
-    let team = teamData.filter((item) => {
-        return (item.abbreviation === sel.teamCode);
-    })
-
 
     let [fontsLoaded] = useFonts({
         Sora_600SemiBold,
@@ -383,9 +181,24 @@ export default function Players() {
 
     const [page, setPage] = useState(0)
 
-    const [gShowing, setGShowing] = useState(2)
-
     const [selectedStat, setSelectedStat] = useState("goals")
+
+    const element = (data, index) => {
+        return <Image style={{
+            height: 40, width: 60, transform: [{scale: .7}], flexDirection: 'column',
+            justifyContent: 'center'
+        }} source={assets[teamAbbreviations.indexOf(data.teamAbbrevs)]}/>
+
+    }
+
+    function secondsToMSS(seconds) {
+        // Calculate minutes and seconds
+        let minutes = Math.floor(seconds / 60);
+        let remainingSeconds = seconds % 60;
+
+        // Format the result as "M:SS"
+        return minutes + ':' + (remainingSeconds < 10 ? '0' : '') + Math.round(remainingSeconds);
+    }
 
     if (!fontsLoaded) {
         return <></>
@@ -431,269 +244,117 @@ export default function Players() {
 
                         <View style={{marginTop: 10}}>
 
-                            {!tab ? <View>
-                                    <View style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        marginBottom: 20
-                                    }}>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 24,
-                                            color: colors.text
-                                        }}>Ranks {page + 1} - {page + 10}</Text>
-                                        <View style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            justifyContent: 'flex-end'
-                                        }}>
-                                            {page > 0 &&
-                                                <TouchableOpacity onPress={() => {
-                                                    setPage(page => page - 10)
-                                                    getPlayerData(0, page - 10)
-                                                    Haptics.selectionAsync()
-                                                }} style={{
-                                                    backgroundColor: colors.card,
-                                                    marginRight: 10,
-                                                    paddingHorizontal: 15,
-                                                    paddingVertical: 15,
-                                                    borderRadius: 100
-                                                }}>
-                                                    <ArrowLeft color={colors.text}/>
-                                                </TouchableOpacity>}
+                            <ScrollView horizontal showsVerticalScrollIndicator={false}
+                            >
 
-                                            <TouchableOpacity onPress={() => {
-                                                setPage(page => page + 10)
-                                                getPlayerData(0, page + 10)
-                                                Haptics.selectionAsync()
-                                            }} style={{
-                                                backgroundColor: colors.card,
-                                                paddingHorizontal: 15,
-                                                paddingVertical: 15,
-                                                borderRadius: 100
-                                            }}>
-                                                <ArrowRight color={colors.text}/>
-                                            </TouchableOpacity>
-                                        </View>
-
-
-                                    </View>
-                                    {
-                                        data.length ? data.map((rank, i) => {
-                                            return <Player i={i} rank={rank}/>
-                                        }) : <View style={{gap: 10}}>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
-                                                      width={Dimensions.get('window').width - 20} height={70} radius={15}/>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
-                                                      width={Dimensions.get('window').width - 20} height={70} radius={15}/>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
-                                                      width={Dimensions.get('window').width - 20} height={70} radius={15}/>
-                                        </View>
-                                    }
-                                </View> :
                                 <View>
 
-                                    <View style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        marginBottom: 20
-                                    }}>
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 24,
-                                            color: colors.text
-                                        }}>Ranks {page + 1} - {page + 10}</Text>
-                                        <View style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            justifyContent: 'flex-end'
-                                        }}>
-                                            {page > 0 &&
-                                                <TouchableOpacity onPress={() => {
-                                                    setPage(page => page - 10)
-                                                    getPlayerData(1, page - 10)
-                                                    Haptics.selectionAsync()
-                                                }} style={{
-                                                    backgroundColor: colors.card,
-                                                    marginRight: 10,
-                                                    paddingHorizontal: 15,
-                                                    paddingVertical: 15,
-                                                    borderRadius: 100
-                                                }}>
-                                                    <ArrowLeft color={colors.text}/>
-                                                </TouchableOpacity>}
-                                            <TouchableOpacity onPress={() => {
-                                                setPage(page => page + 10)
-                                                getPlayerData(1, page + 10)
-                                                Haptics.selectionAsync()
-                                            }} style={{
-                                                backgroundColor: colors.card,
-                                                paddingHorizontal: 15,
-                                                paddingVertical: 15,
-                                                borderRadius: 100
-                                            }}>
-                                                <ArrowRight color={colors.text}/>
-                                            </TouchableOpacity>
-                                        </View>
-
-
-                                    </View>
-                                    <View style={{
-                                        flexDirection: 'row',
-                                        justifyContent: 'space-between',
-                                        marginBottom: 20,
-                                        alignItems: 'center'
-                                    }}>
-                                        <Text style={{
-                                            color: colors.text,
-                                            opacity: .5,
-                                            fontSize: 16,
-                                            marginRight: 10,
-                                            fontFamily: 'Sora_500Medium'
-                                        }}>Showing:
-                                        </Text>
-                                        <Text style={{
-                                            color: colors.text,
-                                            fontSize: 16,
-                                            fontFamily: 'Sora_500Medium'
-                                        }}>{!gShowing ? "Goals Saved Above Average" : gShowing === 2 ? "Save %" : "Goals Saved Above Expected"}
-                                        </Text>
-                                    </View>
-                                    {
-                                        data.length ? data.map((rank, i) => {
-                                            return <TouchableOpacity
-                                                onPress={() => {
-                                                    Haptics.selectionAsync()
-                                                    setGShowing(val => !val ? 1 : val === 2 ? 0 : 2)
+                                    <View>
+                                        <View>
+                                            <Table>
+                                                <Row style={{marginBottom: 10}} textStyle={{
+                                                    fontFamily: 'Sora_600SemiBold',
+                                                    color: colors.text,
+                                                    fontSize: 14, opacity: .5
                                                 }}
-                                                style={{
-                                                    backgroundColor: colors.card,
-                                                    marginBottom: 4,
-                                                    paddingVertical: 15,
-                                                    borderRadius: 15,
-                                                    paddingLeft: 20
+                                                     widthArr={tab ? [50, 80, 175, 70, 70, 70, 70, 70, 70, 70, 70] : [50, 80, 175, 50, 50, 60, 50, 70, 70, 50, 50, 50, 50, 70]}
+                                                     data={tab ? ["POS", "TEAM", "NAME", "SV%", "GAA", "GSAA", "GP", "W", "L", "SO", "PTS"] : ["POS", "TEAM", "NAME", "G", "A", "PTS", "+/-", "SHOTS", "SHOT %", "S/GP", "PPG", "PPP", "SHG", "TOI/GP"]}/>
+                                                <ScrollView style={{
+                                                    height: Dimensions.get('window').height - 280
 
                                                 }}>
-                                                <View style={{
-                                                    flexDirection: 'row',
-                                                    justifyContent: 'flex-left',
-                                                    alignItems: 'center'
-                                                }}>
-                                                    <Text style={{
-                                                        color: colors.text,
-                                                        fontSize: 24,
-                                                        fontFamily: 'Sora_500Medium'
-                                                    }}>{page + 1 + i}</Text>
+                                                    {
+                                                        data?.map((player, index) => {
+                                                            return <MotiView from={{
+                                                                opacity: 0,
+                                                                translateY: -15
+                                                            }}
+                                                                             animate={{
+                                                                                 opacity: data === null ? 0 : 1,
+                                                                                 translateY: data === null ? -15 : 0
+                                                                             }}
+                                                                             transition={{
+                                                                                 type: 'spring',
+                                                                                 duration: 300,
+                                                                                 delay: index * 50
+                                                                             }}>
+                                                                <TouchableOpacity
+                                                                    onPress={() => {
 
-                                                    <View style={{
-                                                        alignItems: 'center'
-                                                    }}>
+                                                                        let myHeaders = new Headers();
+                                                                        myHeaders.append("accept", "application/json");
 
-                                                        <Image style={{
-                                                            height: 50,
-                                                            width: 70,
-                                                            transform: [{scale: .7}],
-                                                            flexDirection: 'column',
-                                                            justifyContent: 'center'
-                                                        }} source={assets[teamAbbreviations.indexOf(rank.team)]}/>
-                                                    </View>
-                                                    <View>
-                                                        <Text style={{
-                                                            color: colors.text,
-                                                            fontSize: 16,
-                                                            fontFamily: 'Sora_500Medium'
-                                                        }}>{rank.name}</Text>
-                                                        {
-                                                            !gShowing ? <View style={{
-                                                                flexDirection: 'row',
-                                                                justifyContent: 'flex-left',
-                                                                alignItems: 'center'
-                                                            }}>
+                                                                        let requestOptions = {
+                                                                            method: 'GET',
+                                                                            headers: myHeaders,
+                                                                            redirect: 'follow'
+                                                                        };
 
 
-                                                                <Text style={{
-                                                                    color: colors.text,
-                                                                    opacity: .5,
-                                                                    fontSize: 16,
-                                                                    marginRight: 10,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>GSAA:
-                                                                </Text>
-                                                                <Text style={{
-                                                                    color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{((rank.goals * 60) / (rank.icetime / 60).toFixed(2)).toFixed(3)}
-                                                                </Text>
+                                                                        bottomSheetRef.current.expand()
+                                                                        Haptics.impactAsync()
+                                                                        fetch(`https://api-web.nhle.com/v1/player/${player.playerId}/landing`, requestOptions)
+                                                                            .then(response => response.text())
+                                                                            .then(result => {
+                                                                                setSelectedPlayer(JSON.parse(result))
+                                                                            });
+                                                                    }}
+                                                                >
+                                                                    <TableWrapper
+                                                                        style={{flexDirection: 'row'}}
+                                                                        key={index}>
+                                                                        {
+                                                                            [page + index + 1,
+                                                                                player.teamAbbrevs,
+                                                                                !tab ? player?.skaterFullName && `${player?.skaterFullName?.slice(0, 1)}. ${player?.skaterFullName?.split(" ")[1]}` : player?.goalieFullName && `${player?.goalieFullName?.slice(0, 1)}. ${player?.goalieFullName?.split(" ")[1]}`,
+                                                                                !tab ? player.goals : parseFloat(player.savePct).toFixed(3),
+                                                                                !tab ? player.assists : parseFloat(player.goalsAgainstAverage).toFixed(2),
+                                                                                !tab ? player.points : ((parseFloat(player.goalsAgainst) * 60) / (parseFloat(player.timeOnIce) / 60)).toFixed(2),
+                                                                                !tab ? player.plusMinus : player.gamesPlayed,
+                                                                                !tab ? player.shots : player.wins,
+                                                                                !tab ? (parseFloat(player.shootingPct) * 100).toFixed(2) : player.losses,
+                                                                                !tab ? (parseInt(player.shots) / parseInt(player.gamesPlayed)).toFixed(1) : player.shutouts,
+                                                                                !tab ? player.ppGoals : player.points,
+                                                                                !tab ? player.ppPoints : "",
+                                                                                !tab ? player.shGoals : "",
+                                                                                !tab ? secondsToMSS(player.timeOnIcePerGame) : ""
+                                                                            ].map((data, cellIndex) => {
+                                                                                return <Cell style={{
+                                                                                    width: tab ? [37, 93, 175, 70, 70, 70, 70, 70, 70, 70][cellIndex] : [37, 93, 175, 50, 50, 60, 50, 70, 70, 50, 50, 50, 50, 70][cellIndex]
+                                                                                }} textStyle={{
+                                                                                    fontFamily: 'Sora_600SemiBold',
+                                                                                    color: colors.text,
+                                                                                    textAlign: 'left',
+                                                                                    fontSize: 16
 
-                                                            </View> : gShowing === 2 ? <View style={{
-                                                                    flexDirection: 'row',
-                                                                    justifyContent: 'flex-left',
-                                                                    alignItems: 'center'
-                                                                }}>
-                                                                    <Text style={{
-                                                                        color: colors.text,
-                                                                        opacity: .5,
-                                                                        fontSize: 16,
-                                                                        marginRight: 10,
-                                                                        fontFamily: 'Sora_500Medium'
-                                                                    }}>SV%:
-                                                                    </Text>
-                                                                    <Text style={{
-                                                                        color: colors.text,
-                                                                        fontSize: 16,
-                                                                        fontFamily: 'Sora_500Medium'
-                                                                    }}>{((rank.ongoal - rank.goals) / rank.ongoal).toFixed(3)}
-                                                                    </Text>
-                                                                </View> :
-                                                                <View style={{
-                                                                    flexDirection: 'row',
-                                                                    justifyContent: 'flex-left',
-                                                                    alignItems: 'center'
-                                                                }}>
-                                                                    <Text style={{
-                                                                        color: colors.text,
-                                                                        opacity: .5,
-                                                                        fontSize: 16,
-                                                                        marginRight: 10,
-                                                                        fontFamily: 'Sora_500Medium'
-                                                                    }}>GSAx:
-                                                                    </Text>
-                                                                    <Text style={{
-                                                                        color: colors.text,
-                                                                        fontSize: 16,
-                                                                        fontFamily: 'Sora_500Medium'
-                                                                    }}>{(rank.xGoals - rank.goals).toFixed(2)}
-                                                                    </Text>
-                                                                </View>
-                                                        }
+                                                                                }} key={cellIndex}
+                                                                                             data={cellIndex === 1 ?
+                                                                                                 <Image style={{
+                                                                                                     height: 50,
+                                                                                                     width: 70,
+                                                                                                     transform: [{scale: .7}],
+                                                                                                     flexDirection: 'column',
+                                                                                                     justifyContent: 'center'
+                                                                                                 }}
+                                                                                                        source={assets[teamAbbreviations.indexOf(player?.teamAbbrevs)]}/> : data}/>
+                                                                            })
+                                                                        }
+                                                                    </TableWrapper>
+                                                                </TouchableOpacity>
+                                                            </MotiView>
+                                                        })
+                                                    }
+                                                </ScrollView>
 
-                                                    </View>
-
-                                                </View>
-
-                                            </TouchableOpacity>
-                                        }) : <View style={{gap: 10}}>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
-                                                      width={Dimensions.get('window').width - 20} height={70}
-                                                      radius={15}/>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
-                                                      width={Dimensions.get('window').width - 20} height={70}
-                                                      radius={15}/>
-                                            <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
-                                                      width={Dimensions.get('window').width - 20} height={70}
-                                                      radius={15}/>
-
+                                            </Table>
                                         </View>
-                                    }
-                                </View>}
+
+                                    </View>
+                                </View>
+
+
+                            </ScrollView>
                         </View>
-
-
-                        <View style={{marginBottom: 50}}/>
-
                     </ScrollView>
                     <StatusBar style="auto"/>
                 </SafeAreaView>
@@ -710,7 +371,7 @@ export default function Players() {
                         backgroundColor: colors.card
                     }}
                 >
-                    <View>
+                    <ScrollView showsVerticalScrollIndicator={false}>
                         <View style={{
                             flexDirection: "row",
                             width: '100%',
@@ -786,10 +447,10 @@ export default function Players() {
                                 <Text style={{
                                     color: colors.text,
                                     textAlign: 'left',
-                                    fontSize: 24,
+                                    fontSize: 20,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                    {selectedPlayer?.careerTotals.regularSeason.goals}
+                                    {selectedPlayer?.position === "G" ? parseFloat(selectedPlayer?.careerTotals.regularSeason.savePctg).toFixed(3) : selectedPlayer?.careerTotals.regularSeason.goals}
                                 </Text>
                                 <Text style={{
                                     color: colors.text,
@@ -797,7 +458,7 @@ export default function Players() {
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
-                                }}>Goals</Text>
+                                }}>{!(selectedPlayer?.position === "G") ? "Goals" : "SV %"}</Text>
                             </View>
                             <View style={{
                                 backgroundColor: colors.background,
@@ -809,10 +470,10 @@ export default function Players() {
                                 <Text style={{
                                     color: colors.text,
                                     textAlign: 'left',
-                                    fontSize: 24,
+                                    fontSize: 20,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                    {selectedPlayer?.careerTotals.regularSeason.assists}
+                                    {selectedPlayer?.position === "G" ? parseFloat(selectedPlayer?.careerTotals.regularSeason.goalsAgainstAvg).toFixed(2) : selectedPlayer?.careerTotals.regularSeason.assists}
                                 </Text>
                                 <Text style={{
                                     color: colors.text,
@@ -820,7 +481,7 @@ export default function Players() {
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
-                                }}>Assists</Text>
+                                }}>{!(selectedPlayer?.position === "G") ? "Assists" : "GAA"}</Text>
                             </View>
                             <View style={{
                                 backgroundColor: colors.background,
@@ -832,10 +493,10 @@ export default function Players() {
                                 <Text style={{
                                     color: colors.text,
                                     textAlign: 'left',
-                                    fontSize: 24,
+                                    fontSize: 20,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                    {selectedPlayer?.careerTotals.regularSeason.points}
+                                    {selectedPlayer?.position === "G" ? (selectedPlayer?.careerTotals.regularSeason.shutouts) : selectedPlayer?.careerTotals.regularSeason.points}
                                 </Text>
                                 <Text style={{
                                     color: colors.text,
@@ -843,7 +504,7 @@ export default function Players() {
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
-                                }}>Points</Text>
+                                }}>{!(selectedPlayer?.position === "G") ? "Points" : "SO"}</Text>
                             </View>
 
                         </View>
@@ -865,10 +526,10 @@ export default function Players() {
                                 <Text style={{
                                     color: colors.text,
                                     textAlign: 'left',
-                                    fontSize: 24,
+                                    fontSize: 20,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                    {selectedPlayer?.careerTotals.regularSeason.plusMinus}
+                                    {selectedPlayer?.position === "G" ? (selectedPlayer?.careerTotals.regularSeason.wins) : selectedPlayer?.careerTotals.regularSeason.plusMinus}
                                 </Text>
                                 <Text style={{
                                     color: colors.text,
@@ -876,7 +537,7 @@ export default function Players() {
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
-                                }}>+/-</Text>
+                                }}>{!(selectedPlayer?.position === "G") ? "+/-" : "Wins"}</Text>
                             </View>
                             <View style={{
                                 backgroundColor: colors.background,
@@ -888,10 +549,10 @@ export default function Players() {
                                 <Text style={{
                                     color: colors.text,
                                     textAlign: 'left',
-                                    fontSize: 24,
+                                    fontSize: 20,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
-                                    {selectedPlayer?.careerTotals.regularSeason.shots}
+                                    {selectedPlayer?.position === "G" ? parseInt(selectedPlayer?.careerTotals.regularSeason.goals) + parseInt(selectedPlayer?.careerTotals.regularSeason.assists) : selectedPlayer?.careerTotals.regularSeason.shots}
                                 </Text>
                                 <Text style={{
                                     color: colors.text,
@@ -899,7 +560,7 @@ export default function Players() {
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
-                                }}>Shots</Text>
+                                }}>{!(selectedPlayer?.position === "G") ? "Shots" : "PTS"}</Text>
                             </View>
                             <View style={{
                                 backgroundColor: colors.background,
@@ -911,7 +572,7 @@ export default function Players() {
                                 <Text style={{
                                     color: colors.text,
                                     textAlign: 'left',
-                                    fontSize: 24,
+                                    fontSize: 20,
                                     fontFamily: 'Sora_600SemiBold'
                                 }}>
                                     {selectedPlayer?.careerTotals.regularSeason.gamesPlayed}
@@ -922,7 +583,7 @@ export default function Players() {
                                     opacity: .5,
                                     fontSize: 16,
                                     fontFamily: 'Sora_400Regular'
-                                }}>Games</Text>
+                                }}>GP</Text>
                             </View>
 
                         </View>
@@ -955,82 +616,62 @@ export default function Players() {
                                 backgroundColor: colors.background,
                                 marginBottom: 4
                             }}>
-                                <Text style={{
-                                    color: colors.text,
-                                    fontSize: 16,
-                                    fontFamily: 'Sora_600SemiBold'
-                                }}>Total: {selectedPlayer ? accumulateArrayValues(selectedPlayer?.last5Games.map((r, i) => {
-                                    return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
-                                }))[4] : 0}</Text>
+                                {!tab ?
+                                    <Text style={{
+                                        color: colors.text,
+                                        fontSize: 16,
+                                        fontFamily: 'Sora_600SemiBold'
+                                    }}>Total: {selectedPlayer ? accumulateArrayValues(selectedPlayer?.last5Games.map((r, i) => {
+                                        return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
+                                    })).slice(-1) : 0}</Text> : <Text style={{
+                                        color: colors.text,
+                                        fontSize: 16,
+                                        fontFamily: 'Sora_600SemiBold'
+                                    }}>Stat</Text>}
                                 <View style={{
                                     flexDirection: 'row',
                                     justifyContent: 'space-between',
                                     alignItems: 'center',
                                     gap: 4
                                 }}>
-                                    <Text style={{
-                                        color: colors.text,
-                                        opacity: .5,
-                                        fontSize: 16,
-                                        fontFamily: 'Sora_500Medium'
-                                    }}>{selectedStat.charAt(0).toUpperCase() + selectedStat.slice(1)}</Text>
+                                    {!tab ?
+                                        <Text style={{
+                                            color: colors.text,
+                                            opacity: .5,
+                                            fontSize: 16,
+                                            fontFamily: 'Sora_500Medium'
+                                        }}>{selectedStat.charAt(0).toUpperCase() + selectedStat.slice(1)}</Text> :
+                                        <Text style={{
+                                            color: colors.text,
+                                            opacity: .5,
+                                            fontSize: 16,
+                                            fontFamily: 'Sora_500Medium'
+                                        }}>{selectedStat.charAt(0).toUpperCase() + selectedStat.slice(1)}</Text>}
                                     <ArrowDown2 style={{opacity: .7}} size={16} color={colors.text}/>
                                 </View>
                             </TouchableOpacity>
-
-
                         </View>
-
-                        {selectedPlayer &&
-                            <LineChart
-                                data={{
-                                    labels: selectedPlayer?.last5Games.map((r, i) => {
-                                        return formatDate(r.gameDate, 0)
-                                    }).reverse(),
-                                    datasets: [
-                                        {
-                                            color: (opacity) => `${getTeamColor(selectedPlayer?.currentTeamAbbrev, colors)}`,
-                                            strokeWidth: 2.5,
-                                            data: selectedPlayer?.last5Games.map((r, i) => {
-                                                return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
-                                            }).reverse()
-                                        }
-                                    ]
-                                }}
-
-                                width={Dimensions.get("window").width}
-                                height={150}
-                                yLabelsOffset={20}
-                                xLabelsOffset={-5}
-
-                                withHorizontalLines={true}
-                                withVerticalLines={false}
-                                withDots={false}
-                                withShadow
-                                chartConfig={{
-                                    backgroundColor: `rgba(255, 255, 255, 0)`,
-                                    useShadowColorFromDataset: true,
-                                    fillShadowGradientFromOpacity: 0,
-                                    fillShadowGradientToOpacity: 0,
-                                    backgroundGradientFrom: '#fff',
-                                    backgroundGradientFromOpacity: 0,
-                                    backgroundGradientTo: "#fff",
-                                    backgroundGradientToOpacity: 0,
-                                    decimalPlaces: 0,
-                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                    labelColor: () => colors.text,
-                                    strokeWidth: 3
-                                }}
-                                bezier
-                                yAxisInterval={2}
-                                style={{
-                                    marginVertical: 8,
-                                    marginLeft: -30
-                                }}
-                            />}
-
-
-                    </View>
+                        <DataLineChart secondaryLabel titleStyle={{
+                            fontFamily: 'Sora_600SemiBold',
+                            fontSize: 24,
+                            marginBottom: 10,
+                            color: colors.text,
+                            marginTop: 20
+                        }} title={"Last Game"} precise={tab && 3}
+                                       lastVal={selectedPlayer ? (selectedPlayer?.last5Games.map((r, i) => {
+                                           return isNaN(parseFloat(r[`${selectedStat}`])) ? 0 : parseFloat(r[`${selectedStat}`])
+                                       })).reverse().slice(-1) : 0} override
+                                       data={selectedPlayer?.last5Games.map((r, i) => {
+                                           return {
+                                               value: isNaN(parseFloat(r[`${selectedStat}`])) ? 0 : parseFloat(r[`${selectedStat}`]),
+                                               timestamp: selectedPlayer?.last5Games.map((r, i) => {
+                                                   return new Date(r.gameDate).getTime() / 1000
+                                               }).reverse()
+                                           }
+                                       }).reverse()}
+                                       colors={colors}
+                                       selectedTeam={selectedPlayer?.currentTeamAbbrev}/>
+                    </ScrollView>
 
                 </BottomSheet>
                 <BottomSheet
@@ -1057,121 +698,149 @@ export default function Players() {
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
-                            setSelectedStat("goals")
-                            bottomSheetRef2.current.collapse()
+                            bottomSheetRef2.current.close()
+                            setTimeout(() => {
+                                setSelectedStat(!tab ? "goals" : "savePctg")
+
+                            }, 150)
                         }}>
                             <Text style={{
                                 color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
-                            }}>Goals
+                            }}>{!tab ? "Goals" : "Save %"}
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
-                            setSelectedStat("assists")
-                            bottomSheetRef2.current.collapse()
+
+                            bottomSheetRef2.current.close()
+                            setTimeout(() => {
+                                setSelectedStat(!tab ? "assists" : "goalsAgainst")
+
+                            }, 150)
+                        }}>
+                            <Text style={{
+                                color: colors.text,
+                                fontSize: 20,
+                                fontFamily: 'Sora_600SemiBold'
+                            }}>{!tab ? "Assists" : "Goals Against"}
+                            </Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.selectionAsync().then(() => {
+                            })
+                            bottomSheetRef2.current.close()
+                            setTimeout(() => {
+                                setSelectedStat("points")
+
+                            }, 150)
 
                         }}>
                             <Text style={{
                                 color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
-                            }}>Assists
+                            }}>{!tab && "Points"}
                             </Text></TouchableOpacity>
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
 
-                            setSelectedStat("points")
-                            bottomSheetRef2.current.collapse()
+                            bottomSheetRef2.current.close()
+                            setTimeout(() => {
+                                setSelectedStat(!tab && "shots")
+
+                            }, 150)
 
                         }}>
                             <Text style={{
                                 color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
-                            }}>Points
+                            }}>{!tab && "Shots"}
                             </Text></TouchableOpacity>
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
-                            setSelectedStat("shots")
-                            bottomSheetRef2.current.collapse()
+                            bottomSheetRef2.current.close()
+
+                            setTimeout(() => {
+                                setSelectedStat(!tab && "pim")
+
+                            }, 150)
+
 
                         }}>
                             <Text style={{
                                 color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
-                            }}>Shots
-                            </Text></TouchableOpacity>
-                        <TouchableOpacity onPress={() => {
-                            Haptics.selectionAsync().then(() => {
-                            })
-                            setSelectedStat("pim")
-                            bottomSheetRef2.current.collapse()
-
-                        }}>
-                            <Text style={{
-                                color: colors.text,
-                                fontSize: 20,
-                                fontFamily: 'Sora_600SemiBold'
-                            }}>PIM
+                            }}>{!tab && "PIM"}
                             </Text></TouchableOpacity>
 
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
-                            setSelectedStat("powerPlayGoals")
-                            bottomSheetRef2.current.collapse()
+                            setTimeout(() => {
+                                setSelectedStat(!tab && "powerPlayGoals")
+
+                            }, 150)
+                            bottomSheetRef2.current.close()
 
                         }}>
                             <Text style={{
                                 color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
-                            }}>PPG
+                            }}>{!tab && "PPG"}
                             </Text></TouchableOpacity>
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
-                            setSelectedStat("shorthandedGoals")
-                            bottomSheetRef2.current.collapse()
 
+                            bottomSheetRef2.current.close()
+                            setTimeout(() => {
+                                setSelectedStat(!tab && "shorthandedGoals")
+
+                            }, 150)
                         }}>
                             <Text style={{
                                 color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
-                            }}>SHG
+                            }}>{!tab && "SHG"}
                             </Text></TouchableOpacity>
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
-                            setSelectedStat("plusMinus")
-                            bottomSheetRef2.current.collapse()
+                            bottomSheetRef2.current.close()
+                            setTimeout(() => {
+                                setSelectedStat(!tab && "plusMinus")
+                            }, 150)
 
                         }}>
                             <Text style={{
                                 color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
-                            }}>+/-
+                            }}>{!tab && "+/-"}
                             </Text></TouchableOpacity>
                         <TouchableOpacity onPress={() => {
                             Haptics.selectionAsync().then(() => {
                             })
-                            setSelectedStat("shifts")
-                            bottomSheetRef2.current.collapse()
+                            bottomSheetRef2.current.close()
+                            setTimeout(() => {
+                                setSelectedStat(!tab && "shifts")
+
+                            }, 150)
 
                         }}>
                             <Text style={{
                                 color: colors.text,
                                 fontSize: 20,
                                 fontFamily: 'Sora_600SemiBold'
-                            }}>Shifts
+                            }}>{!tab && "Shifts"}
                             </Text></TouchableOpacity>
 
                     </View>

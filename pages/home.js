@@ -4,19 +4,19 @@ import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {Activity, Calendar, User} from "iconsax-react-native";
+import {MotiView} from "moti";
 import {Skeleton} from "moti/skeleton";
 import Papa from "papaparse";
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
-import {LineChart} from "react-native-chart-kit";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
+import DataLineChart from "../components/Chart";
 import {PlayerSkeleton} from "../components/Skeleton";
 import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
 import {getTeamColor} from "../helpers/UI";
 import teamData from "../teams";
 
-
-export default function Home() {
+export default function Home({navigation}) {
 
     const bottomSheetRef = useRef(null);
 
@@ -84,7 +84,7 @@ export default function Home() {
 
     });
 
-    const [schedule, setSchedule] = useState([])
+    const [schedule, setSchedule] = useState(null)
 
     function formatAMPM(date) {
         let hours = date.getHours();
@@ -231,6 +231,30 @@ export default function Home() {
         );
     }
 
+    function getWeekNameOrDate(dateInput) {
+        // Get today's date
+        var today = new Date();
+
+        // Extract month and day from the input
+        var parts = dateInput.split('/');
+        var month = parseInt(parts[0], 10) - 1; // Adjust for 0-indexed months
+        var day = parseInt(parts[1], 10);
+
+        // Create a new date object for the input date this year
+        var inputDate = new Date(today.getFullYear(), month, day);
+
+        // Get the day of the week (0 for Sunday, 1 for Monday, ..., 6 for Saturday)
+        var dayOfWeek = inputDate.getDay();
+
+        // Define an array of day names
+        var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        // Get the name of the day for the input date
+        var dayName = dayNames[dayOfWeek];
+
+        return dayName;
+    }
+
     const [stats, setStats] = useState({w: 0, l: 0, o: 0, d: "", s: 0})
 
     const getTeamData = (code) => {
@@ -316,7 +340,6 @@ export default function Home() {
                 marginBottom: 4,
                 paddingVertical: 15,
                 borderRadius: 15
-
             }}>
             <View style={{
                 flexDirection: 'row',
@@ -326,7 +349,6 @@ export default function Home() {
                 <View style={{
                     alignItems: 'center'
                 }}>
-
                     <Image style={{
                         height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
                         justifyContent: 'center'
@@ -352,7 +374,7 @@ export default function Home() {
                         <View style={{
                             backgroundColor: colors.background,
                             paddingVertical: 5,
-                            borderRadius: 5,
+                            borderRadius: 15,
                             paddingHorizontal: 15
                         }}>
                             <Text style={{
@@ -360,14 +382,14 @@ export default function Home() {
                                 textAlign: 'center',
                                 fontFamily: 'Sora_500Medium'
 
-                            }}>{convertUTCtoMMDD(game.startTimeUTC)}</Text>
+                            }}>{getWeekNameOrDate(convertUTCtoMMDD(game.startTimeUTC))}</Text>
                         </View>
                         <View style={{
                             backgroundColor: colors.background,
                             paddingVertical: 5,
-                            borderRadius: 5,
+                            borderRadius: 15,
                             paddingHorizontal: 15,
-                            marginTop: 10
+                            marginTop: 4
                         }}>
                             <Text style={{
                                 textAlign: 'center',
@@ -441,7 +463,8 @@ export default function Home() {
                             fontSize: 16,
                             color: 'white',
                             opacity: .7
-                        }}>{stats.w}-{stats.l}-{stats.o} <Text
+                        }}>{stats.w}<Text style={{fontFamily: ""}}>•</Text>{stats.l}<Text
+                            style={{fontFamily: ""}}>•</Text>{stats.o} <Text
                             style={{fontFamily: 'default'}}>•</Text> {stats.s}{stats.s === 4 || stats.s === 5 || stats.s === 6 || stats.s === 7 ? "th" : stats.s === 3 ? "rd" : stats.s === 2 ? "nd" : stats.s !== "Wildcard" ? "st" : ""} {stats.d}
                         </Text>
                     </View>
@@ -494,8 +517,20 @@ export default function Home() {
 
 
                             <ScrollView style={{height: '100%', marginTop: 20}} showsVerticalScrollIndicator={false}>
-                                {schedule.length ? schedule?.map((game, i) => {
-                                    return <Match game={game}/>
+                                {schedule ? schedule?.map((game, i) => {
+
+                                    return <MotiView from={{
+                                        opacity: 0
+                                    }}
+                                                     animate={{
+                                                         opacity: 1
+                                                     }}
+                                                     transition={{
+                                                         type: 'timing',
+                                                         duration: 300
+                                                     }}>
+                                        <Match game={game}/>
+                                    </MotiView>
                                 }) : <View style={{gap: 10}}>
                                     <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
                                               width={Dimensions.get('window').width - 20} height={70} radius={15}/>
@@ -509,7 +544,7 @@ export default function Home() {
                             </ScrollView>
 
                         </View> : tab === 1 ?
-                            <View>
+                            <View style={{marginHorizontal: 10}}>
                                 <View>
                                     <Text style={{
                                         fontFamily: 'Sora_600SemiBold',
@@ -517,483 +552,43 @@ export default function Home() {
                                     }}>Season Wide Stats</Text>
                                     <ScrollView style={{marginTop: 20}}>
 
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text,
-                                            marginTop: 20
-                                        }}>Goal Differential</Text>
-                                        {timeline &&
-                                            <LineChart
-                                                xAxisLabel={"Test"}
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timeline.map((r, i) => {
-                                                                return isNaN(r) ? 1 : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
 
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-                                                withHorizontalLines={false}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#000",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>Faceoff Win %</Text>
-                                        {timelineFO && <LineChart
-                                            data={{
-                                                datasets: [
-                                                    {
-                                                        color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                        strokeWidth: 2.5,
-                                                        data: timelineFO.map((r, i) => {
-                                                            return isNaN(r) ? timelineFO[i - 1] : r
-                                                        })
-                                                    }
-                                                ]
-                                            }}
-                                            width={Dimensions.get("window").width + 20}
-                                            height={220}
-                                            yAxisInterval={1}
-                                            withHorizontalLines={false}
-                                            withVerticalLines={false}
-                                            withDots={false}
-                                            withShadow
-                                            chartConfig={{
-                                                backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                useShadowColorFromDataset: true,
-                                                fillShadowGradientFromOpacity: .5,
-                                                fillShadowGradientToOpacity: 0,
-                                                backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                backgroundGradientFromOpacity: 0,
-                                                backgroundGradientTo: "#fff",
-                                                backgroundGradientToOpacity: 0,
-                                                decimalPlaces: 0,
-                                                color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                labelColor: (opacity = 1) => colors.text,
-                                                strokeWidth: 2.5,
-                                                barPercentage: 10
-                                            }}
-                                            bezier
-                                            style={{
-                                                marginVertical: 8,
-                                                marginLeft: -20
-                                            }}
-                                        />}
+                                        <DataLineChart title={"Goal Differential"}
+                                                       data={timeline}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"Faceoff Win %"} isPCT data={timelineFO} colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"Shot Differential"} data={timelineSD}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"Penalty Minutes Differential"} data={timelinePD}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"Giveaway Differential"} data={timelineFO}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
 
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>Penalty Minutes Differential</Text>
-                                        {timelinePD &&
-                                            <LineChart
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timelinePD.map((r, i) => {
-                                                                return isNaN(r) ? timelinePD[i - 1] : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-                                                withHorizontalLines={false}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#fff",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>Giveaway Differential</Text>
-                                        {timelineGD &&
-                                            <LineChart
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timelineGD.map((r, i) => {
-                                                                return isNaN(r) ? timelineGD[i - 1] : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-                                                withHorizontalLines={false}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#fff",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>Takeaway Differential</Text>
-                                        {timelineTD &&
-                                            <LineChart
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timelineTD.map((r, i) => {
-                                                                return isNaN(r) ? timelineTD[i - 1] : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-                                                withHorizontalLines={false}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#fff",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>Shot Differential</Text>
-                                        {timelineSD &&
-                                            <LineChart
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timelineSD.map((r, i) => {
-                                                                return isNaN(r) ? timelineSD[i - 1] : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-                                                withHorizontalLines={true}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
+                                        <DataLineChart title={"Takeaway Differential"} data={timelineGD}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"Shot Differential"} data={timelineTD}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"Low Danger Shots Differential"} data={timelineLDD}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"High Danger Shots Differential"} data={timelineHDD}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"Missed Shot Differential"} data={timelineMD}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+                                        <DataLineChart title={"Hits Differential"} data={timelineHD}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
 
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#fff",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>Low Danger Shots Differential</Text>
-                                        {timelineLDD &&
-                                            <LineChart
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timelineLDD.map((r, i) => {
-                                                                return isNaN(r) ? timelineLDD[i - 1] : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-                                                withHorizontalLines={true}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
 
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#fff",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>High Danger Shots Differential</Text>
-                                        {timelineHDD &&
-                                            <LineChart
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timelineHDD.map((r, i) => {
-                                                                return isNaN(r) ? timelineHDD[i - 1] : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-                                                withHorizontalLines={true}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
-
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#fff",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>Missed Shot Differential</Text>
-                                        {timelineMD &&
-                                            <LineChart
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timelineMD.map((r, i) => {
-                                                                return isNaN(r) ? timelineMD[i - 1] : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-
-                                                withHorizontalLines={true}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#fff",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
-                                        <Text style={{
-                                            fontFamily: 'Sora_500Medium',
-                                            fontSize: 16,
-                                            marginBottom: 10,
-                                            color: colors.text
-                                        }}>Hits Differential</Text>
-                                        {timelineHD &&
-                                            <LineChart
-                                                data={{
-                                                    datasets: [
-                                                        {
-                                                            color: (opacity) => `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                            strokeWidth: 2.5,
-                                                            data: timelineHD.map((r, i) => {
-                                                                return isNaN(r) ? timelineHD[i - 1] : r
-                                                            })
-                                                        }
-                                                    ]
-                                                }}
-                                                width={Dimensions.get("window").width + 20}
-                                                height={220}
-                                                yAxisInterval={1}
-                                                withHorizontalLines={false}
-                                                withVerticalLines={false}
-                                                withDots={false}
-                                                withShadow
-                                                chartConfig={{
-                                                    backgroundColor: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    useShadowColorFromDataset: true,
-                                                    fillShadowGradientFromOpacity: .5,
-                                                    fillShadowGradientToOpacity: 0,
-                                                    backgroundGradientFrom: `${getTeamColor(`${selectedTeam}`, colors)}`,
-                                                    backgroundGradientFromOpacity: 0,
-                                                    backgroundGradientTo: "#fff",
-                                                    backgroundGradientToOpacity: 0,
-                                                    decimalPlaces: 0,
-                                                    color: (opacity = 1) => `rgba(0, 0, 0, 1)`,
-                                                    labelColor: (opacity = 1) => colors.text,
-                                                    strokeWidth: 2.5,
-                                                    barPercentage: 10
-                                                }}
-                                                bezier
-                                                style={{
-                                                    marginVertical: 8,
-                                                    marginLeft: -20
-                                                }}
-                                            />}
                                         <View style={{marginBottom: 400}}/>
                                     </ScrollView>
                                 </View>

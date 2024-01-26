@@ -10,7 +10,7 @@ import {
     useFonts
 } from "@expo-google-fonts/sora";
 import BottomSheet from "@gorhom/bottom-sheet";
-import {useTheme} from "@react-navigation/native";
+import {useRoute, useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
 import {StatusBar} from "expo-status-bar";
@@ -146,8 +146,11 @@ export default function Games({navigation}) {
         setIsLoading(false)
     }
 
+    const route = useRoute()
+
 
     useEffect(() => {
+
         getMatchData(0)
         setSelectedDate(moment().format('YYYY-MM-DD'))
     }, [])
@@ -230,10 +233,6 @@ export default function Games({navigation}) {
                             download: true,
                             complete: (result) => {
                                 setHwp(1 - parseFloat((result.data.slice(-2)[0]).homeWinProbability));
-                                setPP({
-                                    h: (result.data.slice(-2)[0]).homeSkatersOnIce,
-                                    a: (result.data.slice(-2)[0]).awaySkatersOnIce
-                                });
 
 
                             }
@@ -652,10 +651,21 @@ export default function Games({navigation}) {
                     })).map((game, i) => {
                         return (
                             <View style={{width: Dimensions.get('window').width - 20}}>
-                                <Team game={game} keu={i}/>
+                                <MotiView from={{
+                                    opacity: 0
+                                }}
+                                          animate={{
+                                              opacity: 1
+                                          }}
+                                          transition={{
+                                              type: 'timing',
+                                              duration: 300
+                                          }}>
+                                    <Team game={game} keu={i}/>
+                                </MotiView>
                             </View>
                         )
-                    }) : <View style={{gap: 10}}>
+                    }) : <View style={{gap: 4}}>
                         <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
                                   width={Dimensions.get('window').width - 20} height={70} radius={15}/>
                         <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
@@ -676,7 +686,18 @@ export default function Games({navigation}) {
                         return g.gameState === "FUT" || g.gameState === "PRE"
                     })).map((game, i) => {
                         return (
-                            <Team game={game} keu={i}/>
+                            <MotiView from={{
+                                opacity: 0
+                            }}
+                                      animate={{
+                                          opacity: 1
+                                      }}
+                                      transition={{
+                                          type: 'timing',
+                                          duration: 300
+                                      }}>
+                                <Team game={game} keu={i}/>
+                            </MotiView>
                         )
                     }) : <View style={{gap: 10}}>
                         <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
@@ -698,7 +719,18 @@ export default function Games({navigation}) {
                         return g.gameState === "OFF" || g.gameState === "OVER" || g.gameState === "FINAL"
                     })).map((game, i) => {
                         return (
-                            <Team game={game} keu={i}/>
+                            <MotiView from={{
+                                opacity: 0
+                            }}
+                                      animate={{
+                                          opacity: 1
+                                      }}
+                                      transition={{
+                                          type: 'timing',
+                                          duration: 300
+                                      }}>
+                                <Team game={game} keu={i}/>
+                            </MotiView>
                         )
                     }) : <View style={{gap: 10}}>
                         <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}

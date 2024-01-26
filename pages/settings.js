@@ -17,6 +17,7 @@ import {
     View
 } from "react-native";
 import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
+import {getTeamColor} from "../helpers/UI";
 import teamData from "../teams";
 
 const Developed = ({navigation}) => {
@@ -225,7 +226,7 @@ const FavTeam = ({navigation}) => {
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             borderWidth: 2,
-                            borderColor: selectedTeam === team.abbreviation ? team.primary_color : colors.background,
+                            borderColor: selectedTeam === team.abbreviation ? getTeamColor(team.abbreviation, colors) : colors.background,
                             borderRadius: 15,
                             padding: selectedTeam === team.abbreviation ? 10 : 0
                         }} onPress={() => {
@@ -254,7 +255,7 @@ const FavTeam = ({navigation}) => {
                                 }}>{team.name}</Text>
                             </View>
                             {selectedTeam === team.abbreviation &&
-                                <TickCircle variant={"Bold"} color={`${team.primary_color}`}/>
+                                <TickCircle variant={"Bold"} color={`${getTeamColor(team.abbreviation, colors)}`}/>
                             }
                         </TouchableOpacity>
                     })}

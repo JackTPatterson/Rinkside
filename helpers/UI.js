@@ -6,17 +6,14 @@ export function getTeamColor(teamCode, colors) {
         return (item.abbreviation === teamCode);
     })
 
+    const isDark = colors.text === 'rgb(229, 229, 231)'
+
     if (team.length) {
-        if ((team[0].primary_color === "#111111" && colors.text === 'rgb(229, 229, 231)')) {
-            return 'white'
+        if (isDark) {
+            return team[0]?.secondary_color ?? team[0].primary_color;
         }
-        if ((team[0].primary_color === "#000000" && colors.text === 'rgb(229, 229, 231)')) {
-            return '#FCB514'
-        }
-        return team[0]?.primary_color;
 
     } else {
         return colors.text
     }
 }
-

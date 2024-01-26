@@ -14,22 +14,23 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
-import {Activity, ArrowDown2, Crown1, Moneys, RowVertical} from "iconsax-react-native";
-import moment from "moment";
+import {Activity, ArrowDown, ArrowDown2, ArrowUp, Crown1, Moneys, RowVertical} from "iconsax-react-native";
 import {MotiView} from "moti";
 import Papa from "papaparse";
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
 import * as Progress from 'react-native-progress';
+import {Row, Table} from "react-native-reanimated-table";
 import {SvgUri} from "react-native-svg";
+import {Cell, TableWrapper} from "react-native-table-component";
 import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
 import {sort_by} from "../helpers/dataHandlers";
 import {getTeamColor} from "../helpers/UI";
 import teamData from "../teams";
 
 export default function Rankings() {
-    const [data, setData] = useState([])
+    const [data, setData] = useState(null)
 
     const [tab, setTab] = useState(3);
 
@@ -52,6 +53,8 @@ export default function Rankings() {
         }
     };
 
+    const [movement, setMovement] = useState(null)
+
 
     const getStandings = () => {
         let myHeaders = new Headers();
@@ -72,7 +75,7 @@ export default function Rankings() {
 
 
     const getPOData = () => {
-        if (!data.length)
+        if (!data)
             Papa.parse(
                 "https://moneypuck.com/moneypuck/simulations/simulations_recent.csv",
                 {
@@ -96,17 +99,52 @@ export default function Rankings() {
     }, [])
 
 
+    const teamName = (id) => teamData.filter((item) => {
+        return (item.abbreviation === id);
+    })
+
+
     const getPowerRankings = () => {
-        console.log(`https://moneypuck.com/moneypuck/powerRankings/rankings_${moment().format("YYYY_MM_DD")}.csv`)
+
         if (!power)
             Papa.parse(
-                `https://moneypuck.com/moneypuck/powerRankings/rankings_${moment().format("YYYY_MM_DD")}.csv`,
+                `https://moneypuck.com/moneypuck/powerRankings/rankings.csv`,
                 {
                     ...commonConfig,
                     header: true,
                     download: true,
                     complete: (result) => {
                         setPower(result.data);
+                    }
+                }
+            );
+
+
+        // Get today's date
+        var today = new Date();
+
+        // Subtract 7 days
+        var sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        // Format the date parts with leading zeros if necessary
+        var year = sevenDaysAgo.getFullYear();
+        var month = (sevenDaysAgo.getMonth() + 1).toString().padStart(2, '0');
+        var day = sevenDaysAgo.getDate().toString().padStart(2, '0');
+
+        // Construct the formatted date string
+        var formattedDate = year + '_' + month + '_' + day;
+
+        if (!movement)
+            Papa.parse(
+                `https://moneypuck.com/moneypuck/powerRankings/rankings_${formattedDate}.csv`,
+                {
+                    ...commonConfig,
+                    header: true,
+                    download: true,
+                    complete: (result) => {
+                        setMovement(result.data.map((rank, i) => {
+                            return {rank: rank.rank, team: rank.teamCode}
+                        }))
                     }
                 }
             );
@@ -169,7 +207,7 @@ export default function Rankings() {
     const [selView, setSelView] = useState("League")
 
 
-    const Home = (props) => {
+    const Rank = (props) => {
 
         const rank = props.rank;
         const i = props.i;
@@ -178,7 +216,6 @@ export default function Rankings() {
         let team = teamData.filter((item) => {
             return (item.abbreviation === rank.teamCode);
         })
-        const color = (team[0]?.primary_color)
 
         let val = !tab ? (parseFloat(rank.madePlayoffs)).toFixed(2) * (Dimensions.get('window').width - 70) : (parseFloat(rank.draftLottery)).toFixed(2) * (Dimensions.get('window').width - 70)
 
@@ -203,8 +240,13 @@ export default function Rankings() {
                               delay: 10 * i,
                               duration: 500
                           }}
-                          style={{height: 60, backgroundColor: color ?? "#000", borderRadius: 15, marginRight: 5}}>
-                    {val > 100 && rank.teamCode &&
+                          style={{
+                              height: 60,
+                              backgroundColor: getTeamColor(team[0]?.abbreviation, colors),
+                              borderRadius: 15,
+                              marginRight: 5
+                          }}>
+                    {val > 70 && rank.teamCode &&
                         <MotiView from={{
                             opacity: 0,
                             marginLeft: -10
@@ -249,14 +291,14 @@ export default function Rankings() {
                           }}>
                     <Text style={{
                         textAlign: 'center',
-                        color: val < 100 ? colors.text : 'white',
+                        color: val > 100 ? getTeamColor(team[0]?.abbreviation, colors) === "#fff" ? "black" : colors.text : 'white',
                         fontSize: 16,
                         top: 20,
                         fontFamily: 'Sora_500Medium'
 
                     }}>{((parseFloat(!tab ? rank.madePlayoffs : rank.draftLottery)).toFixed(2) * 100) > 0 ? parseInt((parseFloat(!tab ? rank.madePlayoffs : rank.draftLottery)).toFixed(2) * 100) : 0}%</Text>
                 </MotiView>
-                {val < 100 && rank.teamCode &&
+                {val < 70 && rank.teamCode &&
                     <MotiView from={{
                         opacity: 0,
                         marginLeft: -10
@@ -327,6 +369,10 @@ export default function Rankings() {
         return (item.abbreviation === sel.teamCode);
     })
 
+    const parseRankDiff = (rankNow, rankPrev) => {
+
+    }
+
 
     let [fontsLoaded] = useFonts({
         Sora_600SemiBold,
@@ -370,6 +416,18 @@ export default function Rankings() {
 
                                     <Text style={tab === 3 ? styles.activeText : styles.inactiveText}>Standings</Text>
                                 </TouchableOpacity>
+
+                                <TouchableOpacity style={tab === 2 ? styles.activeButton : styles.inactiveButton}
+                                                  onPress={() => {
+                                                      setTab(2)
+                                                      Haptics.selectionAsync()
+                                                      getPowerRankings()
+                                                  }}>
+                                    <Activity color={tab === 2 ? colors.background : colors.text}/>
+
+                                    <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>Power
+                                        Rankings</Text>
+                                </TouchableOpacity>
                                 <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
                                                       if (!power) {
@@ -393,18 +451,6 @@ export default function Rankings() {
                                     <Moneys color={tab === 1 ? colors.background : colors.text}/>
 
                                     <Text style={tab === 1 ? styles.activeText : styles.inactiveText}>Lottery</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={tab === 2 ? styles.activeButton : styles.inactiveButton}
-                                                  onPress={() => {
-                                                      setTab(2)
-                                                      Haptics.selectionAsync()
-                                                      getPowerRankings()
-
-                                                  }}>
-                                    <Activity color={tab === 2 ? colors.background : colors.text}/>
-
-                                    <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>Power
-                                        Rankings</Text>
                                 </TouchableOpacity>
 
                             </View>
@@ -450,6 +496,111 @@ export default function Rankings() {
                         </TouchableOpacity>
 
                     </View>}
+                    {tab === 2 &&
+                        <ScrollView horizontal>
+                            <Table>
+                                <Row textStyle={{
+                                    fontFamily: 'Sora_600SemiBold',
+                                    color: colors.text,
+                                    fontSize: 14, opacity: .5
+                                }} style={{marginBottom: 10}}
+                                     widthArr={[50, 300, 50]}
+                                     data={["POS", "TEAM", "WKLY MVMT"]}/>
+                                <ScrollView style={{
+                                    height: Dimensions.get('window').height - 280, marginLeft: 5
+                                }}>
+                                    {
+                                        power?.map((team, index) => {
+                                            return team.teamCode && <MotiView from={{
+                                                opacity: 0,
+                                                translateY: -15
+                                            }}
+                                                                              animate={{
+                                                                                  opacity: power === null ? 0 : 1,
+                                                                                  translateY: power === null ? -15 : 0
+                                                                              }}
+                                                                              transition={{
+                                                                                  type: 'spring',
+                                                                                  duration: 300,
+                                                                                  delay: index * 50
+                                                                              }}>
+                                                <TableWrapper
+                                                    style={{flexDirection: 'row'}}
+                                                    key={index}>
+                                                    {
+                                                        [index + 1,
+                                                            team.teamCode,
+                                                            (team.rank - movement?.filter((t) => {
+                                                                return t.team === team.teamCode
+                                                            })[0].rank) * -1
+
+
+                                                        ].map((data, cellIndex) => {
+                                                            return <Cell style={{
+                                                                width: [33, 310, 100][cellIndex]
+                                                            }} textStyle={{
+                                                                fontFamily: 'Sora_600SemiBold',
+                                                                color: colors.text,
+                                                                textAlign: 'left',
+                                                                fontSize: 16
+
+                                                            }} key={cellIndex}
+                                                                         data={cellIndex === 1 ?
+                                                                             <View style={{
+                                                                                 flexDirection: 'row',
+                                                                                 alignItems: 'center'
+
+                                                                             }}>
+                                                                                 <Image style={{
+                                                                                     height: 50,
+                                                                                     width: 70,
+                                                                                     transform: [{scale: .7}],
+                                                                                     flexDirection: 'column',
+                                                                                     justifyContent: 'center'
+                                                                                 }}
+                                                                                        source={assets[teamAbbreviations.indexOf(team?.teamCode)]}/>
+                                                                                 <Text style={{
+                                                                                     fontFamily: 'Sora_600SemiBold',
+                                                                                     color: colors.text,
+                                                                                     textAlign: 'left',
+                                                                                     fontSize: 16
+
+                                                                                 }}>{teamName(team.teamCode)[0]?.name}</Text>
+                                                                             </View> : cellIndex === 2 ?
+                                                                                 <View
+                                                                                     style={{
+                                                                                         flexDirection: 'row',
+                                                                                         gap: 4
+                                                                                     }}>
+                                                                                     {data > 0 ?
+                                                                                         <ArrowUp color={'#7adba2'}
+                                                                                                  size={20}/> : data === 0 ? <></> :
+                                                                                             <ArrowDown
+                                                                                                 color={'#f54242'}
+                                                                                                 size={20}/>}
+                                                                                     <Text style={{
+                                                                                         fontFamily: 'Sora_600SemiBold',
+                                                                                         marginLeft: data === 0 && 20,
+                                                                                         color: data > 0 ? "#7adba2" : data === 0 ? colors.text : "#f54242",
+                                                                                         fontSize: 16,
+                                                                                         textAlign: 'right'
+                                                                                     }}>
+                                                                                         {Math.abs(data)}
+                                                                                     </Text>
+                                                                                 </View> : data}/>
+                                                        })
+                                                    }
+                                                </TableWrapper>
+                                            </MotiView>
+                                        })
+                                    }
+                                    <View style={{height: 50}}/>
+                                </ScrollView>
+
+                            </Table>
+                        </ScrollView>
+
+                    }
 
                     {(tab === 0 || tab === 1) &&
                         <View style={{height: Dimensions.get('window').height - 280, marginTop: 10}}>
@@ -457,17 +608,24 @@ export default function Rankings() {
                                 {tab === 0 && <View>
                                     <View>
                                         {data?.sort(sort_by('madePlayoffs', true, parseFloat)).map((rank, i) => {
-                                            return rank.teamCode === favTeam ? <Home key={i} onClick={() => {
+                                            return rank.teamCode === favTeam ? <Rank key={i} onClick={() => {
                                                 Haptics.selectionAsync()
                                                 setSel(rank)
                                                 !tab ? bottomSheetRef.current.expand() : null
                                             }} rank={rank} i={0}/> : null
                                         })}
                                     </View>
-                                    <View style={{height: 2, backgroundColor: 'black', opacity: .2, width: '100%'}}/>
-                                    <View style={{marginTop: 10}}>
+                                    <View
+                                        style={{
+                                            height: 2,
+                                            marginVertical: 10,
+                                            backgroundColor: colors.text,
+                                            opacity: .2,
+                                            width: '100%'
+                                        }}/>
+                                    <View style={{marginTop: 2}}>
                                         {data?.sort(sort_by('madePlayoffs', true, parseFloat)).map((rank, i) => {
-                                            return <Home key={i} onClick={() => {
+                                            return <Rank key={i} onClick={() => {
                                                 Haptics.selectionAsync()
                                                 setSel(rank)
                                                 !tab ? bottomSheetRef.current.expand() : null
@@ -478,17 +636,23 @@ export default function Rankings() {
                                 {tab === 1 && <View>
                                     <View style={{marginBottom: 5}}>
                                         {data?.sort(sort_by('draftLottery', true, parseFloat)).map((rank, i) => {
-                                            return rank.teamCode === favTeam ? <Home key={i} onClick={() => {
+                                            return rank.teamCode === favTeam ? <Rank key={i} onClick={() => {
                                                 Haptics.selectionAsync()
                                                 setSel(rank)
                                                 !tab ? bottomSheetRef.current.expand() : null
                                             }} rank={rank} i={0}/> : null
                                         })}
                                     </View>
-                                    <View style={{height: 2, backgroundColor: 'black', opacity: .2, width: '100%'}}/>
+                                    <View style={{
+                                        height: 2,
+                                        marginVertical: 10,
+                                        backgroundColor: colors.text,
+                                        opacity: .2,
+                                        width: '100%'
+                                    }}/>
                                     <View style={{marginTop: 10}}>
                                         {data?.sort(sort_by('draftLottery', true, parseFloat)).map((rank, i) => {
-                                            return <Home key={i} onClick={() => {
+                                            return <Rank key={i} onClick={() => {
                                                 Haptics.selectionAsync()
                                                 setSel(rank)
                                                 !tab ? bottomSheetRef.current.expand() : null
@@ -506,20 +670,26 @@ export default function Rankings() {
                             {tab === 3 &&
 
                                 <View style={{
-                                    gap: 10, flexDirection: 'row', marginBottom: 10,
-                                    justifyContent: 'flex-start', marginLeft: 10,
+                                    gap: 10, flexDirection: 'row',
+                                    justifyContent: 'flex-start',
                                     alignItems: 'center'
                                 }}>
                                     <Text style={{
-                                        width: 50,
+                                        marginRight: 30,
                                         color: colors.text,
                                         fontSize: 14,
                                         opacity: .5,
                                         fontFamily: 'Sora_600SemiBold'
                                     }}>RANK</Text>
                                     <Text style={{
+                                        color: colors.text,
+                                        fontSize: 14,
+                                        opacity: .5,
+                                        fontFamily: 'Sora_600SemiBold'
+                                    }}>TEAM</Text>
+                                    <Text style={{
                                         width: 37,
-                                        marginLeft: 100,
+                                        marginLeft: 27,
                                         color: colors.text,
                                         fontSize: 14,
                                         opacity: .5,
@@ -609,1036 +779,1100 @@ export default function Rankings() {
                                         opacity: .5,
                                         fontFamily: 'Sora_600SemiBold', textAlign: 'center'
                                     }}>R Goal Diff.</Text>
-
-
                                 </View>
                             }
+                            {tab === 3 &&
+                                <ScrollView
+                                    showsHorizontalScrollIndicator={false}>
+                                    <View style={{marginLeft: -10}}>
 
 
-                            {tab === 2 && power && power.map((rank, i) => {
-                                return rank.teamCode && <View style={{
-                                    flexDirection: 'row',
-                                    justifyContent: 'flex-left',
-                                    alignItems: 'center',
-                                    backgroundColor: colors.card,
-                                    paddingVertical: 15,
-                                    marginBottom: 4,
-                                    borderRadius: 15,
-                                    paddingLeft: 20
-                                }}>
-                                    <Text style={{
-                                        color: colors.text,
-                                        fontSize: 24,
-                                        fontFamily: 'Sora_800ExtraBold'
-                                    }}>{i + 1}</Text>
+                                        {selView === "League" ? standings?.map((rank, i) => {
 
-                                    <View style={{
-                                        alignItems: 'center'
-                                    }}>
-
-                                        <Image style={{
-                                            height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
-                                            justifyContent: 'center'
-                                        }} source={assets[teamAbbreviations.indexOf(rank.teamCode)]}/>
-                                    </View>
-                                    <View>
-                                        <View>
-                                            <Text style={{
-                                                color: colors.text,
-                                                fontSize: 16,
-                                                fontFamily: 'Sora_500Medium'
-                                            }}>{teamData.filter((t) => {
-                                                return t.abbreviation === rank.teamCode
-                                            })[0]?.name}</Text>
-                                        </View>
-
-                                    </View>
-
-                                </View>
-                            })}
-                            {tab === 3 && <ScrollView showsHorizontalScrollIndicator={false}>
-                                <View>
-
-
-                                    {selView === "League" ? standings?.map((rank, i) => {
-
-                                        return <View style={{
-                                            flexDirection: 'row',
-                                            justifyContent: 'flex-start',
-                                            alignItems: 'center',
-                                            paddingVertical: 5,
-                                            marginBottom: 4,
-                                            borderRadius: 15,
-                                            paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
-                                            borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                            borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
-                                        }}>
-                                            <View style={{
-                                                flexDirection: 'row',
-                                                justifyContent: 'flex-start',
-                                                alignItems: 'center',
-                                                width: 150
-
-                                            }}>
-                                                <Text style={{
-                                                    color: colors.text,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_800ExtraBold'
-                                                }}>{i + 1}</Text>
-
+                                            return <MotiView from={{
+                                                opacity: 0,
+                                                translateY: -15
+                                            }}
+                                                             animate={{
+                                                                 opacity: standings === null ? 0 : 1,
+                                                                 translateY: standings === null ? -15 : 0
+                                                             }}
+                                                             transition={{
+                                                                 type: 'spring',
+                                                                 duration: 300,
+                                                                 delay: i * 50
+                                                             }}>
                                                 <View style={{
-                                                    alignItems: 'center'
+                                                    flexDirection: 'row',
+                                                    justifyContent: 'flex-start',
+                                                    alignItems: 'center',
+                                                    paddingVertical: 5,
+                                                    marginBottom: 4,
+                                                    borderRadius: 15,
+                                                    paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                    borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
+                                                    borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
                                                 }}>
 
-                                                    <Image style={{
-                                                        height: 50,
-                                                        width: 70,
-                                                        transform: [{scale: .7}],
-                                                        flexDirection: 'column',
-                                                        justifyContent: 'center'
-                                                    }}
-                                                           source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
-                                                </View>
-                                                <View>
-                                                    <Text style={{
-                                                        color: colors.text,
-                                                        fontSize: 16,
-                                                        fontFamily: 'Sora_500Medium'
-                                                    }}>{rank.teamAbbrev.default}</Text>
-                                                </View>
-                                            </View>
+                                                    <View style={{
+                                                        flexDirection: 'row',
+                                                        justifyContent: 'flex-start',
+                                                        alignItems: 'center',
+                                                        width: 150
+
+                                                    }}>
+                                                        <Text style={{
+                                                            color: colors.text,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_800ExtraBold'
+                                                        }}>{i + 1}</Text>
+
+                                                        <View style={{
+                                                            alignItems: 'center'
+                                                        }}>
+
+                                                            <Image style={{
+                                                                height: 50,
+                                                                width: 70,
+                                                                transform: [{scale: .7}],
+                                                                flexDirection: 'column',
+                                                                justifyContent: 'center'
+                                                            }}
+                                                                   source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
+                                                        </View>
+                                                        <View>
+                                                            <Text style={{
+                                                                color: colors.text,
+                                                                fontSize: 16,
+                                                                fontFamily: 'Sora_500Medium'
+                                                            }}>{rank.teamAbbrev.default}</Text>
+                                                        </View>
+                                                    </View>
 
 
-                                            <View style={{
-                                                gap: 20, flexDirection: 'row',
-                                                justifyContent: 'flex-start',
-                                                alignItems: 'center'
-                                            }}>
+                                                    <View style={{
+                                                        gap: 20, flexDirection: 'row',
+                                                        justifyContent: 'flex-start',
+                                                        alignItems: 'center'
+                                                    }}>
+                                                        <Text style={{
+                                                            width: 30,
+                                                            color: colors.text,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.gamesPlayed}</Text>
+
+                                                        <Text style={{
+                                                            color: colors.text, width: 30,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.points}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 60,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.pointPctg.toFixed(3)}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 30,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.wins}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 30,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.losses}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 30,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.otLosses}</Text>
+                                                        <Text style={{
+                                                            color: rank.streakCode === "W" ? '#7adba2' : '#f54242',
+                                                            width: 40,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.streakCode}{rank.streakCount}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 60,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.homeWins} <Text
+                                                            style={{fontFamily: ""}}>•</Text> {rank.homeLosses}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 60,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.roadWins} <Text
+                                                            style={{fontFamily: ""}}>•</Text> {rank.roadLosses}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 60,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.shootoutWins} <Text
+                                                            style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
+                                                        </Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 40,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.goalDifferential}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 40,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.homeGoalDifferential}</Text>
+                                                        <Text style={{
+                                                            color: colors.text, width: 60,
+                                                            fontSize: 16,
+                                                            fontFamily: 'Sora_400Regular'
+                                                        }}>{rank.roadGoalDifferential}</Text>
+
+                                                    </View>
+                                                </View>
+
+                                            </MotiView>
+                                        }) : selView === "Conference" ? <View>
                                                 <Text style={{
-                                                    width: 30,
                                                     color: colors.text,
                                                     fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.gamesPlayed}</Text>
+                                                    marginVertical: 10,
+                                                    fontFamily: 'Sora_500Medium'
+                                                }}>Eastern Conference</Text>
+                                                {
+                                                    standings?.filter((s) => {
+                                                        return s.conferenceAbbrev === "E"
+                                                    }).map((rank, i) => {
+                                                        return <MotiView from={{
+                                                            opacity: 0,
+                                                            translateY: -15
+                                                        }}
+                                                                         animate={{
+                                                                             translateY: 0,
+                                                                             opacity: 1
 
-                                                <Text style={{
-                                                    color: colors.text, width: 30,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.points}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 60,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.pointPctg.toFixed(3)}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 30,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.wins}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 30,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.losses}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 30,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.otLosses}</Text>
-                                                <Text style={{
-                                                    color: rank.streakCode === "W" ? '#7adba2' : '#f54242', width: 40,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.streakCode}{rank.streakCount}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 60,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.homeWins} <Text
-                                                    style={{fontFamily: ""}}>•</Text> {rank.homeLosses}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 60,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.roadWins} <Text
-                                                    style={{fontFamily: ""}}>•</Text> {rank.roadLosses}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 60,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.shootoutWins} <Text
-                                                    style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 40,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.goalDifferential}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 40,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.homeGoalDifferential}</Text>
-                                                <Text style={{
-                                                    color: colors.text, width: 60,
-                                                    fontSize: 16,
-                                                    fontFamily: 'Sora_400Regular'
-                                                }}>{rank.roadGoalDifferential}</Text>
+                                                                         }}
+                                                                         transition={{
+                                                                             type: 'spring',
+                                                                             duration: 300,
+                                                                             delay: i * 50
+                                                                         }}>
+                                                            <View style={{
+                                                                flexDirection: 'row',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center',
+                                                                paddingVertical: 5,
+                                                                marginBottom: 4,
+                                                                borderRadius: 15,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
+                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                            }}>
+                                                                <View style={{
+                                                                    flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center',
+                                                                    width: 150
 
+                                                                }}>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_800ExtraBold'
+                                                                    }}>{i + 1}</Text>
+
+                                                                    <View style={{
+                                                                        alignItems: 'center'
+                                                                    }}>
+
+                                                                        <Image style={{
+                                                                            height: 50,
+                                                                            width: 70,
+                                                                            transform: [{scale: .7}],
+                                                                            flexDirection: 'column',
+                                                                            justifyContent: 'center'
+                                                                        }}
+                                                                               source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
+                                                                    </View>
+                                                                    <View>
+                                                                        <Text style={{
+                                                                            color: colors.text,
+                                                                            fontSize: 16,
+                                                                            fontFamily: 'Sora_500Medium'
+                                                                        }}>{rank.teamAbbrev.default}</Text>
+                                                                    </View>
+                                                                </View>
+
+
+                                                                <View style={{
+                                                                    gap: 20, flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center'
+                                                                }}>
+                                                                    <Text style={{
+                                                                        width: 30,
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.gamesPlayed}</Text>
+
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.points}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.pointPctg.toFixed(3)}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.wins}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.losses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.otLosses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.shootoutWins} <Text
+                                                                        style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.goalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeGoalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadGoalDifferential}</Text>
+
+                                                                </View>
+
+                                                            </View>
+                                                        </MotiView>
+                                                    })
+                                                }
+                                                <Text style={{
+                                                    color: colors.text,
+                                                    fontSize: 16,
+                                                    marginVertical: 10,
+                                                    fontFamily: 'Sora_500Medium'
+                                                }}>Western Conference</Text>
+                                                {
+                                                    standings?.filter((s) => {
+                                                        return s.conferenceAbbrev === "W"
+                                                    }).map((rank, i) => {
+                                                        return <MotiView from={{
+                                                            opacity: 0,
+                                                            translateY: -15
+                                                        }}
+                                                                         animate={{
+                                                                             opacity: 1,
+                                                                             translateY: 0
+                                                                         }}
+                                                                         transition={{
+                                                                             type: 'spring',
+                                                                             duration: 300,
+                                                                             delay: i * 50
+                                                                         }}>
+                                                            <View style={{
+                                                                flexDirection: 'row',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center',
+                                                                paddingVertical: 5,
+                                                                marginBottom: 4,
+                                                                borderRadius: 15,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
+                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                            }}>
+                                                                <View style={{
+                                                                    flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center',
+                                                                    width: 150
+
+                                                                }}>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_800ExtraBold'
+                                                                    }}>{i + 1}</Text>
+
+                                                                    <View style={{
+                                                                        alignItems: 'center'
+                                                                    }}>
+
+                                                                        <Image style={{
+                                                                            height: 50,
+                                                                            width: 70,
+                                                                            transform: [{scale: .7}],
+                                                                            flexDirection: 'column',
+                                                                            justifyContent: 'center'
+                                                                        }}
+                                                                               source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
+                                                                    </View>
+                                                                    <View>
+                                                                        <Text style={{
+                                                                            color: colors.text,
+                                                                            fontSize: 16,
+                                                                            fontFamily: 'Sora_500Medium'
+                                                                        }}>{rank.teamAbbrev.default}</Text>
+                                                                    </View>
+                                                                </View>
+
+
+                                                                <View style={{
+                                                                    gap: 20, flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center'
+                                                                }}>
+                                                                    <Text style={{
+                                                                        width: 30,
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.gamesPlayed}</Text>
+
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.points}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.pointPctg.toFixed(3)}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.wins}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.losses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.otLosses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.shootoutWins} <Text
+                                                                        style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.goalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeGoalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadGoalDifferential}</Text>
+
+                                                                </View>
+
+                                                            </View>
+                                                        </MotiView>
+                                                    })
+                                                }
+                                            </View> :
+                                            <View>
+                                                <Text style={{
+                                                    color: colors.text,
+                                                    fontSize: 16,
+                                                    marginVertical: 10,
+                                                    fontFamily: 'Sora_500Medium'
+                                                }}>Metropolitan Division</Text>
+                                                {
+                                                    standings?.filter((s) => {
+                                                        return s.divisionAbbrev === "M"
+                                                    }).map((rank, i) => {
+                                                        return <MotiView from={{
+                                                            opacity: 0,
+                                                            translateY: -15
+                                                        }}
+                                                                         animate={{
+                                                                             opacity: 1,
+                                                                             translateY: 0
+                                                                         }}
+                                                                         transition={{
+                                                                             type: 'spring',
+                                                                             duration: 300,
+                                                                             delay: i * 50
+                                                                         }}>
+                                                            <View style={{
+                                                                flexDirection: 'row',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center',
+                                                                paddingVertical: 5,
+                                                                marginBottom: 4,
+                                                                borderRadius: 15,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
+                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                            }}>
+                                                                <View style={{
+                                                                    flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center',
+                                                                    width: 150
+
+                                                                }}>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_800ExtraBold'
+                                                                    }}>{i + 1}</Text>
+
+                                                                    <View style={{
+                                                                        alignItems: 'center'
+                                                                    }}>
+
+                                                                        <Image style={{
+                                                                            height: 50,
+                                                                            width: 70,
+                                                                            transform: [{scale: .7}],
+                                                                            flexDirection: 'column',
+                                                                            justifyContent: 'center'
+                                                                        }}
+                                                                               source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
+                                                                    </View>
+                                                                    <View>
+                                                                        <Text style={{
+                                                                            color: colors.text,
+                                                                            fontSize: 16,
+                                                                            fontFamily: 'Sora_500Medium'
+                                                                        }}>{rank.teamAbbrev.default}</Text>
+                                                                    </View>
+                                                                </View>
+
+
+                                                                <View style={{
+                                                                    gap: 20, flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center'
+                                                                }}>
+                                                                    <Text style={{
+                                                                        width: 30,
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.gamesPlayed}</Text>
+
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.points}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.pointPctg.toFixed(3)}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.wins}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.losses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.otLosses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.shootoutWins} <Text
+                                                                        style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.goalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeGoalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadGoalDifferential}</Text>
+
+                                                                </View>
+
+                                                            </View>
+                                                        </MotiView>
+                                                    })
+                                                }
+                                                <Text style={{
+                                                    color: colors.text,
+                                                    fontSize: 16,
+                                                    marginVertical: 10,
+                                                    fontFamily: 'Sora_500Medium'
+                                                }}>Atlantic Division</Text>
+                                                {
+                                                    standings?.filter((s) => {
+                                                        return s.divisionAbbrev === "A"
+                                                    }).map((rank, i) => {
+                                                        return <MotiView from={{
+                                                            opacity: 0,
+                                                            translateY: -15
+                                                        }}
+                                                                         animate={{
+                                                                             opacity: 1,
+                                                                             translateY: 0
+                                                                         }}
+                                                                         transition={{
+                                                                             type: 'spring',
+                                                                             duration: 300,
+                                                                             delay: i * 50
+                                                                         }}><View style={{
+                                                            flexDirection: 'row',
+                                                            justifyContent: 'flex-start',
+                                                            alignItems: 'center',
+                                                            paddingVertical: 5,
+                                                            marginBottom: 4,
+                                                            borderRadius: 15,
+                                                            paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                            borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
+                                                            borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                        }}>
+                                                            <View style={{
+                                                                flexDirection: 'row',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center',
+                                                                width: 150
+
+                                                            }}>
+                                                                <Text style={{
+                                                                    color: colors.text,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_800ExtraBold'
+                                                                }}>{i + 1}</Text>
+
+                                                                <View style={{
+                                                                    alignItems: 'center'
+                                                                }}>
+
+                                                                    <Image style={{
+                                                                        height: 50,
+                                                                        width: 70,
+                                                                        transform: [{scale: .7}],
+                                                                        flexDirection: 'column',
+                                                                        justifyContent: 'center'
+                                                                    }}
+                                                                           source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
+                                                                </View>
+                                                                <View>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_500Medium'
+                                                                    }}>{rank.teamAbbrev.default}</Text>
+                                                                </View>
+                                                            </View>
+
+
+                                                            <View style={{
+                                                                gap: 20, flexDirection: 'row',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center'
+                                                            }}>
+                                                                <Text style={{
+                                                                    width: 30,
+                                                                    color: colors.text,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.gamesPlayed}</Text>
+
+                                                                <Text style={{
+                                                                    color: colors.text, width: 30,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.points}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 60,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.pointPctg.toFixed(3)}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 30,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.wins}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 30,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.losses}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 30,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.otLosses}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 30,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.streakCount}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 60,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.homeWins} <Text
+                                                                    style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
+                                                                </Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 60,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.roadWins} <Text
+                                                                    style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
+                                                                </Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 60,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.shootoutWins} <Text
+                                                                    style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
+                                                                </Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 40,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.goalDifferential}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 40,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.homeGoalDifferential}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 60,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.roadGoalDifferential}</Text>
+
+                                                            </View>
+
+                                                        </View>
+                                                        </MotiView>
+                                                    })
+                                                }
+                                                <Text style={{
+                                                    color: colors.text,
+                                                    fontSize: 16,
+                                                    marginVertical: 10,
+                                                    fontFamily: 'Sora_500Medium'
+                                                }}>Central Division</Text>
+                                                {
+                                                    standings?.filter((s) => {
+                                                        return s.divisionAbbrev === "C"
+                                                    }).map((rank, i) => {
+                                                        return <MotiView from={{
+                                                            opacity: 0,
+                                                            translateY: -15
+                                                        }}
+                                                                         animate={{
+                                                                             opacity: 1,
+                                                                             translateY: 0
+                                                                         }}
+                                                                         transition={{
+                                                                             type: 'spring',
+                                                                             duration: 300,
+                                                                             delay: i * 50
+                                                                         }}>
+                                                            <View style={{
+                                                                flexDirection: 'row',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center',
+                                                                paddingVertical: 5,
+                                                                marginBottom: 4,
+                                                                borderRadius: 15,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
+                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                            }}>
+                                                                <View style={{
+                                                                    flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center',
+                                                                    width: 150
+
+                                                                }}>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_800ExtraBold'
+                                                                    }}>{i + 1}</Text>
+
+                                                                    <View style={{
+                                                                        alignItems: 'center'
+                                                                    }}>
+
+                                                                        <Image style={{
+                                                                            height: 50,
+                                                                            width: 70,
+                                                                            transform: [{scale: .7}],
+                                                                            flexDirection: 'column',
+                                                                            justifyContent: 'center'
+                                                                        }}
+                                                                               source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
+                                                                    </View>
+                                                                    <View>
+                                                                        <Text style={{
+                                                                            color: colors.text,
+                                                                            fontSize: 16,
+                                                                            fontFamily: 'Sora_500Medium'
+                                                                        }}>{rank.teamAbbrev.default}</Text>
+                                                                    </View>
+                                                                </View>
+
+
+                                                                <View style={{
+                                                                    gap: 20, flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center'
+                                                                }}>
+                                                                    <Text style={{
+                                                                        width: 30,
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.gamesPlayed}</Text>
+
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.points}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.pointPctg.toFixed(3)}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.wins}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.losses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.otLosses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.shootoutWins} <Text
+                                                                        style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.goalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeGoalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadGoalDifferential}</Text>
+
+                                                                </View>
+
+                                                            </View>
+                                                        </MotiView>
+                                                    })
+                                                }
+                                                <Text style={{
+                                                    color: colors.text,
+                                                    fontSize: 16,
+                                                    marginVertical: 10,
+                                                    fontFamily: 'Sora_500Medium'
+                                                }}>Pacific Division</Text>
+                                                {
+                                                    standings?.filter((s) => {
+                                                        return s.divisionAbbrev === "P"
+                                                    }).map((rank, i) => {
+                                                        return <MotiView from={{
+                                                            opacity: 0,
+                                                            translateY: -15
+                                                        }}
+                                                                         animate={{
+                                                                             opacity: 1,
+                                                                             translateY: 0
+                                                                         }}
+                                                                         transition={{
+                                                                             type: 'spring',
+                                                                             duration: 300,
+                                                                             delay: i * 50
+                                                                         }}>
+                                                            <View style={{
+                                                                flexDirection: 'row',
+                                                                justifyContent: 'flex-start',
+                                                                alignItems: 'center',
+                                                                paddingVertical: 5,
+                                                                marginBottom: 4,
+                                                                borderRadius: 15,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
+                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                            }}>
+                                                                <View style={{
+                                                                    flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center',
+                                                                    width: 150
+
+                                                                }}>
+                                                                    <Text style={{
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_800ExtraBold'
+                                                                    }}>{i + 1}</Text>
+
+                                                                    <View style={{
+                                                                        alignItems: 'center'
+                                                                    }}>
+
+                                                                        <Image style={{
+                                                                            height: 50,
+                                                                            width: 70,
+                                                                            transform: [{scale: .7}],
+                                                                            flexDirection: 'column',
+                                                                            justifyContent: 'center'
+                                                                        }}
+                                                                               source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
+                                                                    </View>
+                                                                    <View>
+                                                                        <Text style={{
+                                                                            color: colors.text,
+                                                                            fontSize: 16,
+                                                                            fontFamily: 'Sora_500Medium'
+                                                                        }}>{rank.teamAbbrev.default}</Text>
+                                                                    </View>
+                                                                </View>
+
+
+                                                                <View style={{
+                                                                    gap: 20, flexDirection: 'row',
+                                                                    justifyContent: 'flex-start',
+                                                                    alignItems: 'center'
+                                                                }}>
+                                                                    <Text style={{
+                                                                        width: 30,
+                                                                        color: colors.text,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.gamesPlayed}</Text>
+
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.points}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.pointPctg.toFixed(3)}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.wins}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.losses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.otLosses}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 30,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadWins} <Text
+                                                                        style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.shootoutWins} <Text
+                                                                        style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
+                                                                    </Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.goalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.homeGoalDifferential}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 60,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.roadGoalDifferential}</Text>
+
+                                                                </View>
+
+                                                            </View>
+                                                        </MotiView>
+                                                    })
+                                                }
                                             </View>
 
-                                        </View>
-                                    }) : selView === "Conference" ? <View>
-                                            <Text style={{
-                                                color: colors.text,
-                                                fontSize: 16,
-                                                marginVertical: 10,
-                                                fontFamily: 'Sora_500Medium'
-                                            }}>Eastern Conference</Text>
-                                            {
-                                                standings?.filter((s) => {
-                                                    return s.conferenceAbbrev === "E"
-                                                }).map((rank, i) => {
-                                                    return <View style={{
-                                                        flexDirection: 'row',
-                                                        justifyContent: 'flex-start',
-                                                        alignItems: 'center',
-                                                        paddingVertical: 5,
-                                                        marginBottom: 4,
-                                                        borderRadius: 15,
-                                                        paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
-                                                        borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                        borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
-                                                    }}>
-                                                        <View style={{
-                                                            flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center',
-                                                            width: 150
+                                        }
+                                    </View>
 
-                                                        }}>
-                                                            <Text style={{
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_800ExtraBold'
-                                                            }}>{i + 1}</Text>
+                                </ScrollView>
 
-                                                            <View style={{
-                                                                alignItems: 'center'
-                                                            }}>
-
-                                                                <Image style={{
-                                                                    height: 50,
-                                                                    width: 70,
-                                                                    transform: [{scale: .7}],
-                                                                    flexDirection: 'column',
-                                                                    justifyContent: 'center'
-                                                                }}
-                                                                       source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
-                                                            </View>
-                                                            <View>
-                                                                <Text style={{
-                                                                    color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{rank.teamAbbrev.default}</Text>
-                                                            </View>
-                                                        </View>
-
-
-                                                        <View style={{
-                                                            gap: 20, flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center'
-                                                        }}>
-                                                            <Text style={{
-                                                                width: 30,
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.gamesPlayed}</Text>
-
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.points}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.pointPctg.toFixed(3)}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.wins}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.losses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.otLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.streakCount}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.homeLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.roadLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.shootoutWins} <Text
-                                                                style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.goalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeGoalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadGoalDifferential}</Text>
-
-                                                        </View>
-
-                                                    </View>
-                                                })
-                                            }
-                                            <Text style={{
-                                                color: colors.text,
-                                                fontSize: 16,
-                                                marginVertical: 10,
-                                                fontFamily: 'Sora_500Medium'
-                                            }}>Western Conference</Text>
-                                            {
-                                                standings?.filter((s) => {
-                                                    return s.conferenceAbbrev === "W"
-                                                }).map((rank, i) => {
-                                                    return <View style={{
-                                                        flexDirection: 'row',
-                                                        justifyContent: 'flex-start',
-                                                        alignItems: 'center',
-                                                        paddingVertical: 5,
-                                                        marginBottom: 4,
-                                                        borderRadius: 15,
-                                                        paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
-                                                        borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                        borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
-                                                    }}>
-                                                        <View style={{
-                                                            flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center',
-                                                            width: 150
-
-                                                        }}>
-                                                            <Text style={{
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_800ExtraBold'
-                                                            }}>{i + 1}</Text>
-
-                                                            <View style={{
-                                                                alignItems: 'center'
-                                                            }}>
-
-                                                                <Image style={{
-                                                                    height: 50,
-                                                                    width: 70,
-                                                                    transform: [{scale: .7}],
-                                                                    flexDirection: 'column',
-                                                                    justifyContent: 'center'
-                                                                }}
-                                                                       source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
-                                                            </View>
-                                                            <View>
-                                                                <Text style={{
-                                                                    color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{rank.teamAbbrev.default}</Text>
-                                                            </View>
-                                                        </View>
-
-
-                                                        <View style={{
-                                                            gap: 20, flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center'
-                                                        }}>
-                                                            <Text style={{
-                                                                width: 30,
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.gamesPlayed}</Text>
-
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.points}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.pointPctg.toFixed(3)}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.wins}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.losses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.otLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.streakCount}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.homeLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.roadLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.shootoutWins} <Text
-                                                                style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.goalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeGoalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadGoalDifferential}</Text>
-
-                                                        </View>
-
-                                                    </View>
-                                                })
-                                            }
-                                        </View> :
-                                        <View>
-                                            <Text style={{
-                                                color: colors.text,
-                                                fontSize: 16,
-                                                marginVertical: 10,
-                                                fontFamily: 'Sora_500Medium'
-                                            }}>Metropolitan Division</Text>
-                                            {
-                                                standings?.filter((s) => {
-                                                    return s.divisionAbbrev === "M"
-                                                }).map((rank, i) => {
-                                                    return <View style={{
-                                                        flexDirection: 'row',
-                                                        justifyContent: 'flex-start',
-                                                        alignItems: 'center',
-                                                        paddingVertical: 5,
-                                                        marginBottom: 4,
-                                                        borderRadius: 15,
-                                                        paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
-                                                        borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                        borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
-                                                    }}>
-                                                        <View style={{
-                                                            flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center',
-                                                            width: 150
-
-                                                        }}>
-                                                            <Text style={{
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_800ExtraBold'
-                                                            }}>{i + 1}</Text>
-
-                                                            <View style={{
-                                                                alignItems: 'center'
-                                                            }}>
-
-                                                                <Image style={{
-                                                                    height: 50,
-                                                                    width: 70,
-                                                                    transform: [{scale: .7}],
-                                                                    flexDirection: 'column',
-                                                                    justifyContent: 'center'
-                                                                }}
-                                                                       source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
-                                                            </View>
-                                                            <View>
-                                                                <Text style={{
-                                                                    color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{rank.teamAbbrev.default}</Text>
-                                                            </View>
-                                                        </View>
-
-
-                                                        <View style={{
-                                                            gap: 20, flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center'
-                                                        }}>
-                                                            <Text style={{
-                                                                width: 30,
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.gamesPlayed}</Text>
-
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.points}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.pointPctg.toFixed(3)}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.wins}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.losses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.otLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.streakCount}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.shootoutWins} <Text
-                                                                style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.goalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeGoalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadGoalDifferential}</Text>
-
-                                                        </View>
-
-                                                    </View>
-                                                })
-                                            }
-                                            <Text style={{
-                                                color: colors.text,
-                                                fontSize: 16,
-                                                marginVertical: 10,
-                                                fontFamily: 'Sora_500Medium'
-                                            }}>Atlantic Division</Text>
-                                            {
-                                                standings?.filter((s) => {
-                                                    return s.divisionAbbrev === "A"
-                                                }).map((rank, i) => {
-                                                    return <View style={{
-                                                        flexDirection: 'row',
-                                                        justifyContent: 'flex-start',
-                                                        alignItems: 'center',
-                                                        paddingVertical: 5,
-                                                        marginBottom: 4,
-                                                        borderRadius: 15,
-                                                        paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
-                                                        borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                        borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
-                                                    }}>
-                                                        <View style={{
-                                                            flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center',
-                                                            width: 150
-
-                                                        }}>
-                                                            <Text style={{
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_800ExtraBold'
-                                                            }}>{i + 1}</Text>
-
-                                                            <View style={{
-                                                                alignItems: 'center'
-                                                            }}>
-
-                                                                <Image style={{
-                                                                    height: 50,
-                                                                    width: 70,
-                                                                    transform: [{scale: .7}],
-                                                                    flexDirection: 'column',
-                                                                    justifyContent: 'center'
-                                                                }}
-                                                                       source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
-                                                            </View>
-                                                            <View>
-                                                                <Text style={{
-                                                                    color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{rank.teamAbbrev.default}</Text>
-                                                            </View>
-                                                        </View>
-
-
-                                                        <View style={{
-                                                            gap: 20, flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center'
-                                                        }}>
-                                                            <Text style={{
-                                                                width: 30,
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.gamesPlayed}</Text>
-
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.points}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.pointPctg.toFixed(3)}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.wins}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.losses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.otLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.streakCount}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.shootoutWins} <Text
-                                                                style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.goalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeGoalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadGoalDifferential}</Text>
-
-                                                        </View>
-
-                                                    </View>
-                                                })
-                                            }
-                                            <Text style={{
-                                                color: colors.text,
-                                                fontSize: 16,
-                                                marginVertical: 10,
-                                                fontFamily: 'Sora_500Medium'
-                                            }}>Central Division</Text>
-                                            {
-                                                standings?.filter((s) => {
-                                                    return s.divisionAbbrev === "C"
-                                                }).map((rank, i) => {
-                                                    return <View style={{
-                                                        flexDirection: 'row',
-                                                        justifyContent: 'flex-start',
-                                                        alignItems: 'center',
-                                                        paddingVertical: 5,
-                                                        marginBottom: 4,
-                                                        borderRadius: 15,
-                                                        paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
-                                                        borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                        borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
-                                                    }}>
-                                                        <View style={{
-                                                            flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center',
-                                                            width: 150
-
-                                                        }}>
-                                                            <Text style={{
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_800ExtraBold'
-                                                            }}>{i + 1}</Text>
-
-                                                            <View style={{
-                                                                alignItems: 'center'
-                                                            }}>
-
-                                                                <Image style={{
-                                                                    height: 50,
-                                                                    width: 70,
-                                                                    transform: [{scale: .7}],
-                                                                    flexDirection: 'column',
-                                                                    justifyContent: 'center'
-                                                                }}
-                                                                       source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
-                                                            </View>
-                                                            <View>
-                                                                <Text style={{
-                                                                    color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{rank.teamAbbrev.default}</Text>
-                                                            </View>
-                                                        </View>
-
-
-                                                        <View style={{
-                                                            gap: 20, flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center'
-                                                        }}>
-                                                            <Text style={{
-                                                                width: 30,
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.gamesPlayed}</Text>
-
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.points}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.pointPctg.toFixed(3)}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.wins}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.losses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.otLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.streakCount}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.shootoutWins} <Text
-                                                                style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.goalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeGoalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadGoalDifferential}</Text>
-
-                                                        </View>
-
-                                                    </View>
-                                                })
-                                            }
-                                            <Text style={{
-                                                color: colors.text,
-                                                fontSize: 16,
-                                                marginVertical: 10,
-                                                fontFamily: 'Sora_500Medium'
-                                            }}>Pacific Division</Text>
-                                            {
-                                                standings?.filter((s) => {
-                                                    return s.divisionAbbrev === "P"
-                                                }).map((rank, i) => {
-                                                    return <View style={{
-                                                        flexDirection: 'row',
-                                                        justifyContent: 'flex-start',
-                                                        alignItems: 'center',
-                                                        paddingVertical: 5,
-                                                        marginBottom: 4,
-                                                        borderRadius: 15,
-                                                        paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
-                                                        borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                        borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
-                                                    }}>
-                                                        <View style={{
-                                                            flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center',
-                                                            width: 150
-
-                                                        }}>
-                                                            <Text style={{
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_800ExtraBold'
-                                                            }}>{i + 1}</Text>
-
-                                                            <View style={{
-                                                                alignItems: 'center'
-                                                            }}>
-
-                                                                <Image style={{
-                                                                    height: 50,
-                                                                    width: 70,
-                                                                    transform: [{scale: .7}],
-                                                                    flexDirection: 'column',
-                                                                    justifyContent: 'center'
-                                                                }}
-                                                                       source={assets[teamAbbreviations.indexOf(rank.teamAbbrev.default)]}/>
-                                                            </View>
-                                                            <View>
-                                                                <Text style={{
-                                                                    color: colors.text,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_500Medium'
-                                                                }}>{rank.teamAbbrev.default}</Text>
-                                                            </View>
-                                                        </View>
-
-
-                                                        <View style={{
-                                                            gap: 20, flexDirection: 'row',
-                                                            justifyContent: 'flex-start',
-                                                            alignItems: 'center'
-                                                        }}>
-                                                            <Text style={{
-                                                                width: 30,
-                                                                color: colors.text,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.gamesPlayed}</Text>
-
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.points}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.pointPctg.toFixed(3)}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.wins}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.losses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.otLosses}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 30,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.streakCount}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.homeLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadWins} <Text
-                                                                style={{fontFamily: ""}}>•</Text> {rank.roadLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.shootoutWins} <Text
-                                                                style={{fontFamily: ""}}>/</Text> {rank.shootoutLosses}
-                                                            </Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.goalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 40,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.homeGoalDifferential}</Text>
-                                                            <Text style={{
-                                                                color: colors.text, width: 60,
-                                                                fontSize: 16,
-                                                                fontFamily: 'Sora_400Regular'
-                                                            }}>{rank.roadGoalDifferential}</Text>
-
-                                                        </View>
-
-                                                    </View>
-                                                })
-                                            }
-                                        </View>
-
-                                    }
-                                </View>
-
-                            </ScrollView>}
+                            }
                         </View>
 
 
