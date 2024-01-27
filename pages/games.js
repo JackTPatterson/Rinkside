@@ -34,7 +34,7 @@ import Calendar from "../components/Cal";
 import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
 import {teamIdDictionary} from "../helpers/dataHandlers";
 
-import {getTeamColor} from "../helpers/UI";
+import {Divider, getTeamColor} from "../helpers/UI";
 
 export default function Games({navigation}) {
 
@@ -165,7 +165,8 @@ export default function Games({navigation}) {
     const [homeGoalieStats, setHomeGoalieStats] = useState({GSA: 0, SP: 0, GSAx: 0})
     const [awayGoalieStats, setAwayGoalieStats] = useState({GSA: 0, SP: 0, GSAx: 0});
 
-    const [teamSummaryData, setTeamSummeryData] = useState({h: null, a: null})
+    const [teamSummaryDataHome, setTeamSummeryDataHome] = useState(null)
+    const [teamSummaryDataAway, setTeamSummeryDataAway] = useState(null)
 
     const getTeamStats = (franchiseIdHome, franchiseIdAway) => {
 
@@ -183,19 +184,15 @@ export default function Games({navigation}) {
         fetch(`https://api.nhle.com/stats/rest/en/team/summary?isAggregate=false&isGame=false&start=0&limit=2&factCayenneExp=gamesPlayed%3E=1&cayenneExp=franchiseId%3D${teamIdDictionary[franchiseIdHome]}%20and%20gameTypeId=2%20and%20seasonId%3C=20232024%20and%20seasonId%3E=20232024&sort=%5B%7B%22property%22:%22points%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22wins%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22teamId%22,%22direction%22:%22ASC%22%7D%5D`, requestOptions)
             .then(response => response.text())
             .then(result => {
-                console.log(JSON.parse(result).data[0])
-                setTeamSummeryData(v => v.h = JSON.parse(result).data[0])
-
+                setTeamSummeryDataHome(JSON.parse(result).data[0])
             })
 
         fetch(`https://api.nhle.com/stats/rest/en/team/summary?isAggregate=false&isGame=false&start=0&limit=2&factCayenneExp=gamesPlayed%3E=1&cayenneExp=franchiseId%3D${teamIdDictionary[franchiseIdAway]}%20and%20gameTypeId=2%20and%20seasonId%3C=20232024%20and%20seasonId%3E=20232024&sort=%5B%7B%22property%22:%22points%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22wins%22,%22direction%22:%22DESC%22%7D,%7B%22property%22:%22teamId%22,%22direction%22:%22ASC%22%7D%5D`, requestOptions)
             .then(response => response.text())
             .then(result => {
-                console.log(JSON.parse(result).data[0])
-
-                setTeamSummeryData(v => v.a = JSON.parse(result).data[0])
-
+                setTeamSummeryDataAway(JSON.parse(result).data[0])
             })
+
 
     }
 
@@ -381,14 +378,13 @@ export default function Games({navigation}) {
 
                                  }}>
             {
-                props.game.gameState === "LIVE" || props.game.gameState === "CRIT" &&
+                (props.game.gameState === "LIVE" || props.game.gameState === "CRIT") && !props.game.clock.inIntermission &&
 
                 <MotiView from={{
                     opacity: 1
                 }}
                           animate={{
                               opacity: .4
-
                           }}
                           transition={{
                               type: 'timing',
@@ -396,7 +392,7 @@ export default function Games({navigation}) {
                               loop: true
                           }}
                           style={{
-                              backgroundColor: '#f54242',
+                              backgroundColor: !props.game.clock.inIntermission ? '#f54242' : colors.text,
                               paddingVertical: 0,
                               borderRadius: 15,
                               height: 10, width: 10,
@@ -623,6 +619,7 @@ export default function Games({navigation}) {
                 marginBottom: 10,
                 fontSize: 24,
                 marginLeft: 10,
+                marginTop: 10,
                 color: colors.text
             }}>Games</Text>
 
@@ -639,6 +636,30 @@ export default function Games({navigation}) {
                 <ScrollView showsVerticalScrollIndicator={false}
                             style={{height: Dimensions.get('window').height - 215, paddingHorizontal: 10}}>
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh}/>
+
+                    {/*{data.length ? data.filter((g => {*/}
+                    {/*    return g.gameState === "LIVE" || g.gameState === "CRIT"*/}
+                    {/*})).map((game, i) => {*/}
+                    {/*    return (*/}
+                    {/*        <View style={{width: Dimensions.get('window').width - 20}}>*/}
+                    {/*            <MotiView from={{*/}
+                    {/*                opacity: 0*/}
+                    {/*            }}*/}
+                    {/*                      animate={{*/}
+                    {/*                          opacity: 1*/}
+                    {/*                      }}*/}
+                    {/*                      transition={{*/}
+                    {/*                          type: 'timing',*/}
+                    {/*                          duration: 300*/}
+                    {/*                      }}>*/}
+                    {/*                <Team game={game} keu={i}/>*/}
+                    {/*            </MotiView>*/}
+                    {/*        </View>*/}
+                    {/*    )*/}
+                    {/*}) : <View style={{gap: 4}}>*/}
+                    {/*    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}*/}
+                    {/*              width={Dimensions.get('window').width - 20} height={70} radius={15}/>*/}
+                    {/*</View>}*/}
                     <Text style={{
                         marginBottom: 20,
                         fontFamily: 'Sora_600SemiBold',
@@ -978,12 +999,21 @@ export default function Games({navigation}) {
                             }}>{awayGoalieStats.GSAx.toFixed(1)}</Text>
                         </View>
                     </View>
+                    <View style={{
+                        marginTop: 10,
+                        width: Dimensions.get('window').width - 20,
+                        marginLeft: 'auto',
+                        marginRight: 'auto'
+                    }}>
+                        <Divider colors={colors}/>
+
+                    </View>
 
                     <Text style={{
                         fontFamily: 'Sora_500Medium',
                         fontSize: 16,
+                        marginTop: 10,
                         textAlign: 'center',
-                        marginTop: 20,
                         marginBottom: 10,
                         color: colors.text
                     }}>Team Stats</Text>
@@ -999,7 +1029,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.h?.goalsForPerGame.toFixed(2)}</Text>
+                            }}>{teamSummaryDataHome?.goalsForPerGame.toFixed(2)}</Text>
                             <Text style={{
                                 color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16, width: '33%',
                                 textAlign: 'center'
@@ -1008,7 +1038,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.a?.goalsForPerGame.toFixed(2)}</Text>
+                            }}>{teamSummaryDataAway?.goalsForPerGame.toFixed(2)}</Text>
 
                         </View>
 
@@ -1024,7 +1054,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.h?.goalsAgainstPerGame.toFixed(2)}</Text>
+                            }}>{teamSummaryDataHome?.goalsAgainstPerGame.toFixed(2)}</Text>
                             <Text style={{
                                 color: colors.text, fontFamily: 'Sora_600SemiBold', fontSize: 16, width: '33%',
                                 textAlign: 'center'
@@ -1033,7 +1063,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.a?.goalsAgainstPerGame.toFixed(2)}</Text>
+                            }}>{teamSummaryDataAway?.goalsAgainstPerGame.toFixed(2)}</Text>
 
                         </View>
 
@@ -1049,7 +1079,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.h?.powerPlayNetPct.toFixed(2) * 100}%</Text>
+                            }}>{teamSummaryDataHome?.powerPlayNetPct.toFixed(2) * 100}%</Text>
                             <Text style={{
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
@@ -1061,7 +1091,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.a?.powerPlayNetPct.toFixed(2) * 100}%</Text>
+                            }}>{teamSummaryDataAway?.powerPlayNetPct.toFixed(2) * 100}%</Text>
                         </View>
                     </View>
                     <View style={{
@@ -1080,7 +1110,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.h?.penaltyKillNetPct.toFixed(2) * 100}%</Text>
+                            }}>{teamSummaryDataHome?.penaltyKillNetPct.toFixed(2) * 100}%</Text>
                             <Text style={{
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
@@ -1092,7 +1122,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.a?.penaltyKillNetPct.toFixed(2) * 100}%</Text>
+                            }}>{teamSummaryDataAway?.penaltyKillNetPct.toFixed(2) * 100}%</Text>
                         </View>
                     </View>
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20}}>
@@ -1106,7 +1136,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.h?.faceoffWinPct.toFixed(2) * 100}%</Text>
+                            }}>{teamSummaryDataHome?.faceoffWinPct.toFixed(2) * 100}%</Text>
                             <Text style={{
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
@@ -1118,7 +1148,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.a?.faceoffWinPct.toFixed(2) * 100}%</Text>
+                            }}>{teamSummaryDataAway?.faceoffWinPct.toFixed(2) * 100}%</Text>
                         </View>
                     </View>
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20}}>
@@ -1132,7 +1162,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.h?.shotsForPerGame.toFixed(2)}</Text>
+                            }}>{teamSummaryDataHome?.shotsForPerGame.toFixed(2)}</Text>
                             <Text style={{
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
@@ -1144,7 +1174,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryData.a?.shotsForPerGame.toFixed(2)}</Text>
+                            }}>{teamSummaryDataHome?.shotsForPerGame.toFixed(2)}</Text>
                         </View>
                     </View>
 

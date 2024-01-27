@@ -26,7 +26,7 @@ import {SvgUri} from "react-native-svg";
 import {Cell, TableWrapper} from "react-native-table-component";
 import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
 import {sort_by} from "../helpers/dataHandlers";
-import {getTeamColor} from "../helpers/UI";
+import {Divider, getTeamColor} from "../helpers/UI";
 import teamData from "../teams";
 
 export default function Rankings() {
@@ -75,7 +75,9 @@ export default function Rankings() {
 
 
     const getPOData = () => {
-        if (!data)
+        console.log("Test1")
+        if (!data) {
+            console.log("Test2")
             Papa.parse(
                 "https://moneypuck.com/moneypuck/simulations/simulations_recent.csv",
                 {
@@ -83,17 +85,19 @@ export default function Rankings() {
                     header: true,
                     download: true,
                     complete: (result) => {
+                        console.log("Test3")
                         setData(result.data);
                     }
                 }
             );
+        }
+
     }
 
     useEffect(() => {
         if (!favTeam) {
             getData()
         }
-
         getStandings()
 
     }, [])
@@ -430,7 +434,7 @@ export default function Rankings() {
                                 </TouchableOpacity>
                                 <TouchableOpacity style={tab === 0 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
-                                                      if (!power) {
+                                                      if (!data) {
                                                           getPOData()
                                                       }
                                                       Haptics.selectionAsync()
@@ -443,7 +447,7 @@ export default function Rankings() {
                                 <TouchableOpacity style={tab === 1 ? styles.activeButton : styles.inactiveButton}
                                                   onPress={() => {
                                                       setTab(1)
-                                                      if (!power) {
+                                                      if (!data) {
                                                           getPOData()
                                                       }
                                                       Haptics.selectionAsync()
@@ -615,14 +619,7 @@ export default function Rankings() {
                                             }} rank={rank} i={0}/> : null
                                         })}
                                     </View>
-                                    <View
-                                        style={{
-                                            height: 2,
-                                            marginVertical: 10,
-                                            backgroundColor: colors.text,
-                                            opacity: .2,
-                                            width: '100%'
-                                        }}/>
+                                    <Divider colors={colors}/>
                                     <View style={{marginTop: 2}}>
                                         {data?.sort(sort_by('madePlayoffs', true, parseFloat)).map((rank, i) => {
                                             return <Rank key={i} onClick={() => {
@@ -643,13 +640,7 @@ export default function Rankings() {
                                             }} rank={rank} i={0}/> : null
                                         })}
                                     </View>
-                                    <View style={{
-                                        height: 2,
-                                        marginVertical: 10,
-                                        backgroundColor: colors.text,
-                                        opacity: .2,
-                                        width: '100%'
-                                    }}/>
+                                    <Divider colors={colors}/>
                                     <View style={{marginTop: 10}}>
                                         {data?.sort(sort_by('draftLottery', true, parseFloat)).map((rank, i) => {
                                             return <Rank key={i} onClick={() => {
@@ -809,6 +800,7 @@ export default function Rankings() {
                                                     paddingVertical: 5,
                                                     marginBottom: 4,
                                                     borderRadius: 15,
+                                                    marginHorizontal: favTeam === rank.teamAbbrev.default ? 15 : 5,
                                                     paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
                                                     borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
                                                     borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
@@ -857,6 +849,7 @@ export default function Rankings() {
                                                     }}>
                                                         <Text style={{
                                                             width: 30,
+                                                            marginLeft: favTeam === rank.teamAbbrev.default ? -10 : 0,
                                                             color: colors.text,
                                                             fontSize: 16,
                                                             fontFamily: 'Sora_400Regular'

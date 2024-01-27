@@ -3,13 +3,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {useTheme} from "@react-navigation/native";
 import {useAssets} from "expo-asset";
 import * as Haptics from "expo-haptics";
-import {Activity, Calendar, User} from "iconsax-react-native";
+import {Activity, Calendar, Danger, User} from "iconsax-react-native";
 import {MotiView} from "moti";
 import {Skeleton} from "moti/skeleton";
 import Papa from "papaparse";
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import {Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {GestureHandlerRootView} from "react-native-gesture-handler";
+import {Row, Table} from "react-native-reanimated-table";
+import {Cell, TableWrapper} from "react-native-table-component";
 import DataLineChart from "../components/Chart";
 import {PlayerSkeleton} from "../components/Skeleton";
 import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
@@ -130,6 +132,27 @@ export default function Home({navigation}) {
 
     }
 
+    const [injuries, setInjuries] = useState(null);
+
+    const getInjuries = (code) => {
+
+        let myHeaders = new Headers();
+        myHeaders.append("accept", "application/json");
+
+        let requestOptions = {
+            method: 'GET',
+            headers: myHeaders,
+            redirect: 'follow'
+        };
+
+        fetch(`https://www.rotowire.com/hockey/tables/injury-report.php?team=${code}&pos=ALL`, requestOptions)
+            .then(response => response.text())
+            .then(result => {
+                setInjuries(JSON.parse(result))
+            })
+
+    }
+
     const getSchedule = (type, code) => {
 
         let myHeaders = new Headers();
@@ -213,6 +236,7 @@ export default function Home({navigation}) {
                         return (parseFloat(d?.hitsFor) - parseFloat(d?.hitsAgainst))
                     })
 
+
                     setTimeline(accumulateArrayValues(chartData))
                     setTimelineFO(foData)
                     setTimelineSD(accumulateArrayValues(sDiffData))
@@ -284,6 +308,8 @@ export default function Home({navigation}) {
             })
     }
 
+    const [tab, setTab] = useState(0)
+
 
     useEffect(() => {
 
@@ -292,6 +318,7 @@ export default function Home({navigation}) {
             getTimeLine(r)
             getTeamData(r)
             getRoster(r)
+            getInjuries(r)
         })
     }, [])
 
@@ -308,8 +335,6 @@ export default function Home({navigation}) {
         // Format as MM/DD
         return `${month.replace(/^0+/, '')}/${day.replace(/^0+/, '')}`;
     }
-
-    const [tab, setTab] = useState(0)
 
 
     const Match = (props) => {
@@ -496,11 +521,21 @@ export default function Home({navigation}) {
                             </TouchableOpacity>
                             <TouchableOpacity style={tab === 2 ? styles.activeButton : styles.inactiveButton}
                                               onPress={() => {
+                                                  getRoster(selectedTeam)
                                                   setTab(2)
                                                   Haptics.selectionAsync()
                                               }}>
                                 <User color={tab === 2 ? colors.background : colors.text}/>
                                 <Text style={tab === 2 ? styles.activeText : styles.inactiveText}>Roster</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={tab === 3 ? styles.activeButton : styles.inactiveButton}
+                                              onPress={() => {
+                                                  setTab(3)
+                                                  getInjuries(selectedTeam)
+                                                  Haptics.selectionAsync()
+                                              }}>
+                                <Danger color={tab === 3 ? colors.background : colors.text}/>
+                                <Text style={tab === 3 ? styles.activeText : styles.inactiveText}>Injuries</Text>
                             </TouchableOpacity>
                         </ScrollView>
                     </View>
@@ -565,16 +600,14 @@ export default function Home({navigation}) {
                                         <DataLineChart title={"Penalty Minutes Differential"} data={timelinePD}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"Giveaway Differential"} data={timelineFO}
+                                        <DataLineChart title={"Giveaway Differential"} data={timelineGD}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
 
-                                        <DataLineChart title={"Takeaway Differential"} data={timelineGD}
+                                        <DataLineChart title={"Takeaway Differential"} data={timelineTD}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"Shot Differential"} data={timelineTD}
-                                                       colors={colors}
-                                                       selectedTeam={selectedTeam}/>
+                                       
                                         <DataLineChart title={"Low Danger Shots Differential"} data={timelineLDD}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
@@ -593,7 +626,7 @@ export default function Home({navigation}) {
                                     </ScrollView>
                                 </View>
                             </View>
-                            : <View style={{marginHorizontal: 10}}>
+                            : tab === 2 ? <View style={{marginHorizontal: 10}}>
                                 <View>
                                     <Text style={{
                                         fontFamily: 'Sora_600SemiBold',
@@ -754,10 +787,124 @@ export default function Home({navigation}) {
                                             }) : <View style={{marginTop: 20}}>
                                                 <PlayerSkeleton colors={colors}/>
 
-                                            </View>}
+                                            </View>
+
+
+                                            }
                                         </ScrollView>
                                         <View style={{marginBottom: 450}}/>
                                     </ScrollView>
+                                </View>
+
+
+                            </View> : <View style={{marginHorizontal: 10}}>
+                                <View>
+                                    <Text style={{
+                                        fontFamily: 'Sora_600SemiBold',
+                                        fontSize: 24, color: colors.text
+                                    }}>Team Injuries</Text>
+
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+
+                                        <Table style={{marginTop: 20}}>
+                                            <Row style={{marginBottom: 10}} textStyle={{
+                                                fontFamily: 'Sora_600SemiBold',
+                                                color: colors.text,
+                                                fontSize: 14, opacity: .5
+                                            }}
+                                                 widthArr={[150, 150, 150, 50]}
+                                                 data={["NAME", "INJURY", "STATUS", "POS"]}/>
+                                            <ScrollView style={{height: '100%'}}>
+                                                <View>
+
+                                                    {
+                                                        injuries?.map((player, index) => {
+                                                            return <MotiView from={{
+                                                                opacity: 0,
+                                                                translateY: -15
+                                                            }}
+                                                                             animate={{
+                                                                                 opacity: player === null ? 0 : 1,
+                                                                                 translateY: player === null ? -15 : 0
+                                                                             }}
+                                                                             transition={{
+                                                                                 type: 'spring',
+                                                                                 duration: 300,
+                                                                                 delay: index * 50
+                                                                             }}>
+                                                                <TableWrapper
+                                                                    style={{flexDirection: 'row'}}
+                                                                    key={index}>
+                                                                    {
+                                                                        [`${player.firstname.slice(0, 1)}. ${player.lastname}`, player.injury, player.status, player.position].map((data, cellIndex) => {
+                                                                            return <Cell style={{
+                                                                                width: [150, 150, 150, 50][cellIndex],
+                                                                                marginBottom: 20
+                                                                            }} textStyle={{
+                                                                                fontFamily: 'Sora_600SemiBold',
+                                                                                color: colors.text,
+                                                                                textAlign: 'left',
+                                                                                fontSize: 16
+
+                                                                            }} key={cellIndex}
+                                                                                         data={cellIndex === 2 ?
+                                                                                             <View style={{
+                                                                                                 backgroundColor: '#f54242',
+                                                                                                 alignSelf: 'flex-start',
+                                                                                                 borderRadius: 100
+                                                                                             }}>
+                                                                                                 <Text style={{
+                                                                                                     paddingHorizontal: 15,
+                                                                                                     paddingVertical: 4,
+                                                                                                     fontFamily: 'Sora_500Medium',
+                                                                                                     fontSize: 16,
+                                                                                                     color: colors.text
+                                                                                                 }}>{player.status}</Text>
+                                                                                             </View> : data}/>
+                                                                        })
+                                                                    }
+                                                                </TableWrapper>
+                                                                {/*<Row textStyle={{*/}
+                                                                {/*    fontFamily: 'Sora_600SemiBold',*/}
+                                                                {/*    fontSize: 16,*/}
+                                                                {/*    marginBottom: 20,*/}
+                                                                {/*    textAlign: 'left', color: colors.text*/}
+                                                                {/*}}*/}
+                                                                {/*     data={[`${player.firstname.slice(0, 1)}. ${player.lastname}`, player.injury, player.status, player.position]}*/}
+                                                                {/*     widthArr={[150, 150, 150, 50]}/>*/}
+                                                            </MotiView>
+                                                        })
+                                                    }
+                                                </View>
+                                            </ScrollView>
+
+
+                                        </Table>
+                                    </ScrollView>
+
+                                    {/*{injuries ? injuries.map((player, i) => {*/}
+                                    {/*    return <View style={{flexDirection: 'row'}}>*/}
+                                    {/*        <View>*/}
+                                    {/*            <View style={{*/}
+                                    {/*                marginBottom: 4,*/}
+                                    {/*                alignSelf: 'center',*/}
+                                    {/*                height: 80,*/}
+                                    {/*                borderRadius: 100,*/}
+                                    {/*                marginHorizontal: 20*/}
+                                    {/*            }}>*/}
+                                    {/*                <Text style={{*/}
+                                    {/*                    fontFamily: 'Sora_600SemiBold',*/}
+                                    {/*                    fontSize: 16,*/}
+                                    {/*                    marginTop: 5,*/}
+                                    {/*                    textAlign: 'center', color: colors.text*/}
+                                    {/*                }}>{player.player}</Text>*/}
+                                    {/*            </View>*/}
+                                    {/*        </View>*/}
+                                    {/*    </View>*/}
+                                    {/*}) : <View style={{marginTop: 20}}>*/}
+                                    {/*    <PlayerSkeleton colors={colors}/>*/}
+                                    {/*</View>}*/}
+                                    <View style={{marginBottom: 450}}/>
                                 </View>
 
 
@@ -769,7 +916,6 @@ export default function Home({navigation}) {
 
                 </SafeAreaView>
                 <BottomSheet
-
                     ref={bottomSheetRef}
                     index={-1}
                     snapPoints={snapPoints}

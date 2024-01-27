@@ -1,3 +1,5 @@
+import React from "react";
+import {View} from "react-native";
 import teamData from "../teams";
 
 export function getTeamColor(teamCode, colors) {
@@ -16,4 +18,15 @@ export function getTeamColor(teamCode, colors) {
     } else {
         return colors.text
     }
+}
+
+export const Divider = (props) => {
+    return <View
+        style={[{
+            height: 2,
+            marginVertical: 10,
+            backgroundColor: props.colors.text,
+            opacity: .2,
+            width: '100%'
+        }, props.style]}/>
 }
