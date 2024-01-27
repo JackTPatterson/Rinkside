@@ -36,8 +36,7 @@ export default function GamesDetail({navigation}) {
 
 
     const bottomSheetRef2 = useRef()
-    const snapPoints = useMemo(() => ['90%'], []);
-    const snapPoints2 = useMemo(() => ['30%'], []);
+    const snapPoints = useMemo(() => ['65%'], []);
 
 
     const {colors} = useTheme()
@@ -2660,56 +2659,6 @@ export default function GamesDetail({navigation}) {
                     </TouchableOpacity>
 
 
-                </View>
-
-            </BottomSheet>
-
-            <BottomSheet
-
-                ref={bottomSheetRef2}
-                index={-1}
-                snapPoints={snapPoints2}
-                enablePanDownToClose
-                style={{
-                    paddingHorizontal: 20
-                }}
-                backgroundStyle={{
-                    backgroundColor: colors.card
-                }}
-            >
-                <View style={{flexDirection: 'column', gap: 20}}>
-                    <Text style={{
-                        color: colors.text,
-                        fontSize: 24,
-                        fontFamily: 'Sora_600SemiBold'
-                    }}>Select A Stat
-                    </Text>
-                    <TouchableOpacity onPress={() => {
-                        Haptics.selectionAsync().then(() => {
-                        })
-                        setEventSel("GOAL")
-                        bottomSheetRef2.current.close()
-                    }}>
-                        <Text style={{
-                            color: colors.text,
-                            fontSize: 20,
-                            fontFamily: 'Sora_600SemiBold'
-                        }}>Goals
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => {
-                        Haptics.selectionAsync().then(() => {
-                        })
-                        setEventSel("PENL")
-                        bottomSheetRef2.current.close()
-                    }}>
-                        <Text style={{
-                            color: colors.text,
-                            fontSize: 20,
-                            fontFamily: 'Sora_600SemiBold'
-                        }}>Penalties
-                        </Text>
-                    </TouchableOpacity>
                 </View>
 
             </BottomSheet>
