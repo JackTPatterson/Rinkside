@@ -5,6 +5,8 @@ import {LineChart as LC} from "react-native-wagmi-charts";
 import {getTeamColor} from "../helpers/UI";
 
 export default function DataLineChart(props) {
+
+
     return props.data && <View style={props.style}>
         <View style={{
             flexDirection: 'row',
@@ -32,7 +34,8 @@ export default function DataLineChart(props) {
                 return {value: isNaN(r) ? props.data[i - 1] : r}
             }) : props.data
         }>
-            <LC width={Dimensions.get('window').width - 20} style={{marginLeft: 'auto', marginRight: 'auto'}}
+            <LC width={props.widthOffset ? (Dimensions.get('window').width - (props.widthOffset + 20)) : Dimensions.get('window').width - 20}
+                style={{marginLeft: 'auto', marginRight: 'auto'}}
                 height={200}>
                 <LC.Path color={`${getTeamColor(`${props.selectedTeam}`, props.colors)}`}>
                     <LC.Gradient gradientOffsets={[0, 50, 100]} gradientOpacity={[.5, .25, 0]}
@@ -56,12 +59,9 @@ export default function DataLineChart(props) {
                     })
                 }}
                                     color={`${getTeamColor(`${props.selectedTeam}`, props.colors)}`}>
-                    <LC.Tooltip position={'top'} textStyle={{
-                        fontFamily: 'Sora_600SemiBold',
-                        fontSize: 24,
-                        marginBottom: 10,
-                        color: props.colors.text,
-                        marginTop: 20
+                    <LC.Tooltip position={"bottom"} style={{
+                        marginTop: props.tooltipTopMarginTop ?? 30,
+                        marginBottom: props.tooltipTopMarginBottom
                     }}>
                         <LC.PriceText precision={props.precise ?? 0} format={({value}) => {
                             'worklet';
@@ -69,33 +69,29 @@ export default function DataLineChart(props) {
                         }} style={{
                             fontFamily: 'Sora_600SemiBold',
                             fontSize: 24,
-                            marginBottom: 10,
                             color: props.colors.text
                         }}/>
 
-                    </LC.Tooltip>
-                    {
-                        props.time &&
 
-                        <LC.Tooltip position={'bottom'} textStyle={{
-                            fontFamily: 'Sora_600SemiBold',
-                            fontSize: 24,
-                            marginBottom: 10,
-                            color: props.colors.text,
-                            marginTop: 20
+                    </LC.Tooltip>
+
+                    {props.time &&
+
+                        <LC.Tooltip position={"bottom"} style={{
+                            marginTop: props.tooltipBottomMarginTop ?? 70,
+                            marginBottom: props.tooltipBottomMarginBottom
                         }}>
-                            <LC.DatetimeText locale="en-US"
-                                             options={{
-                                                 year: 'numeric',
-                                                 month: 'numeric',
-                                                 day: 'numeric'
-                                             }} style={{
-                                fontFamily: 'Sora_500Medium',
+                            <LC.DatetimeText style={{
+                                paddingBottom: 20,
+                                fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16,
                                 color: props.colors.text
+                            }} precision={props.precise ?? 0} format={(timestamp) => {
+                                'worklet';
+                                return `${(timestamp.value)}`;
                             }}/>
-
                         </LC.Tooltip>}
+
                 </LC.CursorCrosshair>
 
             </LC>

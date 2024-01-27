@@ -621,9 +621,7 @@ export default function Players() {
                                         color: colors.text,
                                         fontSize: 16,
                                         fontFamily: 'Sora_600SemiBold'
-                                    }}>Total: {selectedPlayer ? accumulateArrayValues(selectedPlayer?.last5Games.map((r, i) => {
-                                        return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
-                                    })).slice(-1) : 0}</Text> : <Text style={{
+                                    }}>Stat</Text> : <Text style={{
                                         color: colors.text,
                                         fontSize: 16,
                                         fontFamily: 'Sora_600SemiBold'
@@ -651,22 +649,15 @@ export default function Players() {
                                 </View>
                             </TouchableOpacity>
                         </View>
-                        <DataLineChart secondaryLabel titleStyle={{
-                            fontFamily: 'Sora_600SemiBold',
-                            fontSize: 24,
-                            marginBottom: 10,
-                            color: colors.text,
-                            marginTop: 20
-                        }} title={"Last Game"} precise={tab && 3}
-                                       lastVal={selectedPlayer ? (selectedPlayer?.last5Games.map((r, i) => {
-                                           return isNaN(parseFloat(r[`${selectedStat}`])) ? 0 : parseFloat(r[`${selectedStat}`])
-                                       })).reverse().slice(-1) : 0} override
+                        <DataLineChart widthOffset={40} tooltipTopMarginTop={0} tooltipBottomMarginTop={35}
+                                       precise={tab && 3} time
+                                       lastVal={selectedPlayer ? accumulateArrayValues(selectedPlayer?.last5Games.map((r, i) => {
+                                           return isNaN(parseInt(r[`${selectedStat}`])) ? 0 : parseInt(r[`${selectedStat}`])
+                                       })).slice(-1) : 0} override
                                        data={selectedPlayer?.last5Games.map((r, i) => {
                                            return {
                                                value: isNaN(parseFloat(r[`${selectedStat}`])) ? 0 : parseFloat(r[`${selectedStat}`]),
-                                               timestamp: selectedPlayer?.last5Games.map((r, i) => {
-                                                   return new Date(r.gameDate).getTime() / 1000
-                                               }).reverse()
+                                               timestamp: `${r?.gameDate.slice(5).replaceAll("-", "/")}`
                                            }
                                        }).reverse()}
                                        colors={colors}

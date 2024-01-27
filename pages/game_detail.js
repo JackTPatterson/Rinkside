@@ -36,7 +36,9 @@ export default function GamesDetail({navigation}) {
 
 
     const bottomSheetRef2 = useRef()
+    const bottomSheetRef = useRef()
     const snapPoints = useMemo(() => ['65%'], []);
+    const snapPoints2 = useMemo(() => ['30%'], []);
 
 
     const {colors} = useTheme()
@@ -64,11 +66,12 @@ export default function GamesDetail({navigation}) {
     const [mapStats, setMapStats] = useState([])
     const [mapStatsSel, setMapStatsSel] = useState("")
     const [eventSel, setEventSel] = useState("")
+    const [graphStatSelect, setGraphStatSelect] = useState("")
 
     const [matchData, setMatchData] = useState(null);
     const [ppData, setPPData] = useState({t: 0, code: "1551"});
 
-    const [winData, setWinData] = useState([{pct: 0, event: "", team: ""}]);
+    const [winData, setWinData] = useState([{pct: 0, event: "", team: "", time: 0}]);
 
     const [fullData, setFullData] = useState(null);
 
@@ -327,6 +330,7 @@ export default function GamesDetail({navigation}) {
     useEffect(() => {
         setMapStatsSel("Shots")
         setEventSel("GOAL")
+        setGraphStatSelect("GOAL")
         getData()
         getSavedTeamData()
     }, [])
@@ -335,6 +339,7 @@ export default function GamesDetail({navigation}) {
     if (matchData) {
         if (!stat.home) {
             if (gameState.type !== "PRE" && gameState.type !== "FUT") {
+                console.log(`https://moneypuck.com/moneypuck/gameData/${route.params?.data['data']['season']}/${route.params?.data['data']['id']}.csv`)
                 Papa.parse(
                     `https://moneypuck.com/moneypuck/gameData/${route.params?.data['data']['season']}/${route.params?.data['data']['id']}.csv`,
                     {
@@ -342,11 +347,13 @@ export default function GamesDetail({navigation}) {
                         header: true,
                         download: true,
                         complete: (result) => {
+
                             const chartData = result.data.map((d, i) => {
                                 return {
                                     pct: parseFloat(d?.homeWinProbability) * 100,
                                     event: d?.event,
-                                    team: d?.eventDescriptionRaw
+                                    team: d?.eventDescriptionRaw,
+                                    time: d?.time
                                 }
                             })
                             setWinData(chartData)
@@ -492,6 +499,17 @@ export default function GamesDetail({navigation}) {
             return {h: 0, a: 0}
         }
 
+    }
+
+    function secondsToMMSS(seconds) {
+        let minutes = Math.floor(seconds / 60);
+        let remainingSeconds = seconds % 60;
+
+        // Add leading zero if the number is less than 10
+        minutes = (minutes < 10) ? '0' + minutes : minutes;
+        remainingSeconds = (remainingSeconds < 10) ? '0' + remainingSeconds : remainingSeconds;
+
+        return minutes + ':' + remainingSeconds;
     }
 
     const getPPCData = () => {
@@ -1935,7 +1953,7 @@ export default function GamesDetail({navigation}) {
                                             <TouchableOpacity onPress={() => {
                                                 Haptics.selectionAsync().then(() => {
                                                 })
-                                                bottomSheetRef2.current.expand()
+                                                bottomSheetRef.current.expand()
                                             }} style={{
                                                 width: '100%',
                                                 flexDirection: 'row',
@@ -1963,7 +1981,7 @@ export default function GamesDetail({navigation}) {
                                                         opacity: .5,
                                                         fontSize: 16,
                                                         fontFamily: 'Sora_500Medium'
-                                                    }}>{eventSel}</Text>
+                                                    }}>{graphStatSelect}</Text>
                                                     <ArrowDown2 style={{opacity: .7}} size={16}
                                                                 color={colors.text}/>
                                                 </View>
@@ -1971,18 +1989,24 @@ export default function GamesDetail({navigation}) {
 
 
                                         </View>
-                                        <DataLineChart precise={2}
-                                                       style={{marginBottom: 100}}
+                                        <DataLineChart precise={2} time
+                                                       style={{marginBottom: 100, width: Dimensions.get('window').width - 40}}
                                                        override
                                                        data={winData.map((r, i) => {
-                                                           return {value: isNaN(r.pct) ? homeStat ? winData[i - 1].pct : (1 - (winData[i - 1].pct / 100)) * 100 : homeStat ? r.pct : (1 - (r.pct / 100)) * 100}
+                                                           return {
+                                                               value: isNaN(r.pct) ? homeStat ? winData[i - 1].pct : (1 - (winData[i - 1].pct / 100)) * 100 : homeStat ? r.pct : (1 - (r.pct / 100)) * 100,
+                                                               timestamp: isNaN(r.time) ? secondsToMMSS(winData[i - 1].time) : secondsToMMSS(r.time)
+                                                           }
                                                        })}
                                                        lastVal={winData.map((r, i) => {
                                                            return isNaN(r.pct) ? homeStat ? winData[i - 1].pct : (1 - (winData[i - 1].pct / 100)) * 100 : homeStat ? r.pct : (1 - (r.pct / 100)) * 100
                                                        }).slice(-1)}
                                                        isPCT
                                                        dots={winData.map((r, i) => {
-                                                           return {goal: r.event === `${eventSel}` ? i - 1 : -1, team: r.team}
+                                                           return {
+                                                               goal: r.event === `${graphStatSelect}` ? i : -1,
+                                                               team: r.team
+                                                           }
                                                        })}
                                                        colors={colors}
                                                        selectedTeam={homeStat ? route.params?.data.data.homeTeam.abbrev : route.params?.data.data.awayTeam.abbrev}/>
@@ -2429,105 +2453,6 @@ export default function GamesDetail({navigation}) {
                                                                     data={[periodData.period, penalty.teamAbbrev, penalty.committedByPlayer.split(" ")[0][0] + ". " + penalty.committedByPlayer.split(" ")[1], hyphenToCapitalizedWords(penalty.descKey), penalty.timeInPeriod, `${penalty.duration} min.`]}/>
                                                     })}
                                                 </Table>
-                                                {/*{penalties ? penalties?.map((goal, i) => {*/}
-                                                {/*        return <View>*/}
-                                                {/*            <View>*/}
-                                                {/*                /!*{(route.params?.data['data']['goals'][i]?.period !== route.params?.data['data']['goals'][i - 1]?.period) ?*!/*/}
-                                                {/*                /!*    <Text style={{*!/*/}
-                                                {/*                /!*        fontFamily: 'Sora_600SemiBold',*!/*/}
-                                                {/*                /!*        fontSize: 16,*!/*/}
-                                                {/*                /!*        marginBottom: 10,*!/*/}
-                                                {/*                /!*        textAlign: 'center', color: colors.text*!/*/}
-                                                {/*                /!*    }}>Period {route.params?.data['data']['goals'][i]?.period}</Text> :*!/*/}
-                                                {/*                /!*    <Text style={{*!/*/}
-                                                {/*                /!*        fontFamily: 'Sora_600SemiBold',*!/*/}
-                                                {/*                /!*        fontSize: 16,*!/*/}
-                                                {/*                /!*        marginBottom: 10,*!/*/}
-                                                {/*                /!*        textAlign: 'left', color: colors.text*!/*/}
-                                                {/*                /!*    }}>‎ </Text>}*!/*/}
-                                                {/*                <View style={{*/}
-                                                {/*                    marginBottom: 4,*/}
-                                                {/*                    alignSelf: 'center',*/}
-                                                {/*                    height: 80,*/}
-                                                {/*                    borderRadius: 100,*/}
-                                                {/*                    marginHorizontal: 20*/}
-                                                {/*                }}>*/}
-
-                                                {/*                    /!*<Text style={{*!/*/}
-                                                {/*                    /!*    fontFamily: 'Sora_700Bold',*!/*/}
-                                                {/*                    /!*    fontSize: 16,*!/*/}
-                                                {/*                    /!*    textAlign: 'center',*!/*/}
-                                                {/*                    /!*    color: colors.text*!/*/}
-                                                {/*                    /!*}}>{goal.teamAbbrev}</Text>*!/*/}
-                                                {/*                    /!*<Text style={{*!/*/}
-                                                {/*                    /!*    fontFamily: 'Sora_600SemiBold',*!/*/}
-                                                {/*                    /!*    fontSize: 14,*!/*/}
-                                                {/*                    /!*    marginTop: 4,*!/*/}
-                                                {/*                    /!*    textAlign: 'center',*!/*/}
-                                                {/*                    /!*    opacity: .5, color: colors.text*!/*/}
-                                                {/*                    /!*}}>{goal.homeScore} <Text*!/*/}
-                                                {/*                    /!*    style={{fontFamily: ""}}>•</Text> {goal.awayScore}*!/*/}
-                                                {/*                    /!*</Text>*!/*/}
-                                                {/*                    /!*<View style={{*!/*/}
-                                                {/*                    /!*    flexDirection: 'row',*!/*/}
-                                                {/*                    /!*    justifyContent: 'center'*!/*/}
-                                                {/*                    /!*}}>*!/*/}
-                                                {/*                    /!*    <Image style={{*!/*/}
-                                                {/*                    /!*        borderRadius: 100,*!/*/}
-                                                {/*                    /!*        borderWidth: 3,*!/*/}
-                                                {/*                    /!*        height: 80,*!/*/}
-                                                {/*                    /!*        width: 80,*!/*/}
-                                                {/*                    /!*        marginTop: 10,*!/*/}
-                                                {/*                    /!*        borderColor: `${getTeamColor(goal.teamAbbrev, colors)}`,*!/*/}
-                                                {/*                    /!*        backgroundColor: colors.card*!/*/}
-                                                {/*                    /!*    }} source={{uri: goal.headshot}}/>*!/*/}
-                                                {/*                    /!*</View>*!/*/}
-
-                                                {/*                    <Text style={{*/}
-                                                {/*                        fontFamily: 'Sora_600SemiBold',*/}
-                                                {/*                        fontSize: 16,*/}
-                                                {/*                        marginTop: 10,*/}
-                                                {/*                        textAlign: 'center',*/}
-                                                {/*                        color: colors.text*/}
-                                                {/*                    }}>{goal.committedByPlayer.split(" ")[0][0] + ". " + goal.committedByPlayer.split(" ")[1]}*/}
-                                                {/*                    </Text>*/}
-                                                {/*                    <Text style={{*/}
-                                                {/*                        fontFamily: 'Sora_600SemiBold',*/}
-                                                {/*                        fontSize: 14,*/}
-                                                {/*                        marginTop: 4,*/}
-                                                {/*                        textAlign: 'center',*/}
-                                                {/*                        opacity: .5, color: colors.text*/}
-                                                {/*                    }}>{goal.type} <Text style={{*/}
-                                                {/*                        fontFamily: 'Sora_600SemiBold',*/}
-                                                {/*                        fontSize: 14,*/}
-                                                {/*                        marginTop: 4,*/}
-                                                {/*                        textAlign: 'center',*/}
-                                                {/*                        opacity: .5, color: colors.text*/}
-                                                {/*                    }}>{goal.periodDescriptor?.number}*/}
-                                                {/*                        <Text*/}
-                                                {/*                            style={{fontFamily: ""}}>•</Text> {goal.timeInPeriod}*/}
-                                                {/*                    </Text>*/}
-                                                {/*                    </Text>*/}
-                                                {/*                    <Text style={{*/}
-                                                {/*                        fontFamily: 'Sora_600SemiBold',*/}
-                                                {/*                        fontSize: 14,*/}
-                                                {/*                        marginTop: 4,*/}
-                                                {/*                        textAlign: 'center',*/}
-                                                {/*                        opacity: .5, color: colors.text*/}
-                                                {/*                    }}>{goal.descKey}*/}
-                                                {/*                    </Text>*/}
-                                                {/*                </View>*/}
-
-                                                {/*            </View>*/}
-
-
-                                                {/*        </View>*/}
-                                                {/*    }) :*/}
-                                                {/*    <View style={{marginTop: 20}}>*/}
-                                                {/*        <PlayerSkeleton colors={colors}/>*/}
-
-                                                {/*    </View>*/}
-                                                {/*}*/}
                                                 <View style={{marginBottom: 1000}}/>
                                             </ScrollView> :
                                             <></>
@@ -2659,6 +2584,56 @@ export default function GamesDetail({navigation}) {
                     </TouchableOpacity>
 
 
+                </View>
+
+            </BottomSheet>
+
+            <BottomSheet
+
+                ref={bottomSheetRef}
+                index={-1}
+                snapPoints={snapPoints2}
+                enablePanDownToClose
+                style={{
+                    paddingHorizontal: 20
+                }}
+                backgroundStyle={{
+                    backgroundColor: colors.card
+                }}
+            >
+                <View style={{flexDirection: 'column', gap: 20}}>
+                    <Text style={{
+                        color: colors.text,
+                        fontSize: 24,
+                        fontFamily: 'Sora_600SemiBold'
+                    }}>Select A Stat
+                    </Text>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setGraphStatSelect("GOAL")
+                        bottomSheetRef.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Goals
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Haptics.selectionAsync().then(() => {
+                        })
+                        setGraphStatSelect("PENL")
+                        bottomSheetRef.current.close()
+                    }}>
+                        <Text style={{
+                            color: colors.text,
+                            fontSize: 20,
+                            fontFamily: 'Sora_600SemiBold'
+                        }}>Penalties
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
             </BottomSheet>

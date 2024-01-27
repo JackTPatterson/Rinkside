@@ -99,6 +99,18 @@ export default function Home({navigation}) {
         return strTime;
     }
 
+    // const [timeline, setTimeline] = useState([{value: null, date: null}])
+    // const [timelineFO, setTimelineFO] = useState([{value: null, date: null}])
+    // const [timelineSD, setTimelineSD] = useState([{value: null, date: null}])
+    // const [timelinePD, setTimelinePD] = useState([{value: null, date: null}])
+    // const [timelineGD, setTimelineGD] = useState([{value: null, date: null}])
+    // const [timelineTD, setTimelineTD] = useState([{value: null, date: null}])
+    // const [timelineLDD, setTimelineHDD] = useState([{value: null, date: null}])
+    // const [timelineHDD, setTimelineLDD] = useState([{value: null, date: null}])
+    // const [timelineMD, setTimelineMD] = useState([{value: null, date: null}])
+    // const [timelineHD, setTimelineHD] = useState([{value: null, date: null}])
+
+
     const [timeline, setTimeline] = useState([])
     const [timelineFO, setTimelineFO] = useState([])
     const [timelineSD, setTimelineSD] = useState([])
@@ -109,6 +121,8 @@ export default function Home({navigation}) {
     const [timelineHDD, setTimelineLDD] = useState([])
     const [timelineMD, setTimelineMD] = useState([])
     const [timelineHD, setTimelineHD] = useState([])
+
+    const [dates, setDates] = useState(null)
 
     const [roster, setRoster] = useState([])
 
@@ -198,6 +212,9 @@ export default function Home({navigation}) {
                         return goalie.situation === "all"
                     })
 
+                    setDates(g.map(d => {
+                        return d?.gameDate
+                    }))
 
                     const chartData = g.map((d, i) => {
                         return parseFloat(d?.goalsFor - d?.goalsAgainst)
@@ -210,6 +227,7 @@ export default function Home({navigation}) {
                     const sDiffData = g.map((d, i) => {
                         return (parseFloat(d?.shotAttemptsFor) - parseFloat(d?.shotAttemptsAgainst))
                     })
+                    //
 
                     const pDiffData = g.map((d, i) => {
                         return (parseFloat(d?.penalityMinutesAgainst) - parseFloat(d?.penalityMinutesFor))
@@ -236,7 +254,6 @@ export default function Home({navigation}) {
                         return (parseFloat(d?.hitsFor) - parseFloat(d?.hitsAgainst))
                     })
 
-
                     setTimeline(accumulateArrayValues(chartData))
                     setTimelineFO(foData)
                     setTimelineSD(accumulateArrayValues(sDiffData))
@@ -249,6 +266,7 @@ export default function Home({navigation}) {
 
                     setTimelineMD(accumulateArrayValues(mdiffData))
                     setTimelineHD(accumulateArrayValues(htdiffData))
+
 
                 }
             }
@@ -587,39 +605,122 @@ export default function Home({navigation}) {
                                     }}>Season Wide Stats</Text>
                                     <ScrollView style={{marginTop: 20}}>
 
+                                        {dates && <View>
+                                            <DataLineChart time title={"Goal Differential"} override
+                                                           lastVal={timeline.slice(-1)}
+                                                           data={timeline.map((r, i) => {
+                                                               return {
+                                                                   value: r,
+                                                                   timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                               }
+                                                           })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
+                                                           colors={colors}
+                                                           selectedTeam={selectedTeam}/>
+                                        </View>}
 
-                                        <DataLineChart title={"Goal Differential"}
-                                                       data={timeline}
-                                                       colors={colors}
-                                                       selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"Faceoff Win %"} isPCT data={timelineFO} colors={colors}
-                                                       selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"Shot Differential"} data={timelineSD}
-                                                       colors={colors}
-                                                       selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"Penalty Minutes Differential"} data={timelinePD}
-                                                       colors={colors}
-                                                       selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"Giveaway Differential"} data={timelineGD}
+
+                                        <DataLineChart time title={"Faceoff Win %"} override
+                                                       lastVal={timelineFO.slice(-1)} isPCT
+                                                       data={timelineFO.map((r, i) => {
+                                                           return {
+                                                               value: r,
+                                                               timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                           }
+                                                       })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
 
-                                        <DataLineChart title={"Takeaway Differential"} data={timelineTD}
+                                        <DataLineChart time title={"Shot Differential"} override
+                                                       lastVal={timelineSD.slice(-1)}
+                                                       data={timelineSD.map((r, i) => {
+                                                           return {
+                                                               value: r,
+                                                               timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                           }
+                                                       })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
-                                       
-                                        <DataLineChart title={"Low Danger Shots Differential"} data={timelineLDD}
+
+                                        <DataLineChart time title={"Penalty Minutes Differential"} override
+                                                       lastVal={timelinePD.slice(-1)}
+                                                       data={timelinePD.map((r, i) => {
+                                                           return {
+                                                               value: r,
+                                                               timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                           }
+                                                       })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"High Danger Shots Differential"} data={timelineHDD}
+
+                                        <DataLineChart time title={"Giveaway Differential"} override
+                                                       lastVal={timelineGD.slice(-1)}
+                                                       data={timelineGD.map((r, i) => {
+                                                           return {
+                                                               value: r,
+                                                               timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                           }
+                                                       })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"Missed Shot Differential"} data={timelineMD}
+
+
+                                        <DataLineChart time title={"Takeaway Differential"} override
+                                                       lastVal={timelineTD.slice(-1)}
+                                                       data={timelineTD.map((r, i) => {
+                                                           return {
+                                                               value: r,
+                                                               timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                           }
+                                                       })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
-                                        <DataLineChart title={"Hits Differential"} data={timelineHD}
+
+                                        <DataLineChart time title={"Low Danger Shots Differential"} override
+                                                       lastVal={timelineLDD.slice(-1)}
+                                                       data={timelineLDD.map((r, i) => {
+                                                           return {
+                                                               value: r,
+                                                               timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                           }
+                                                       })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
                                                        colors={colors}
                                                        selectedTeam={selectedTeam}/>
+
+
+                                        <DataLineChart time title={"Low Danger Shots Differential"} override
+                                                       lastVal={timelineHDD.slice(-1)}
+                                                       data={timelineHDD.map((r, i) => {
+                                                           return {
+                                                               value: r,
+                                                               timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                           }
+                                                       })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+
+                                        <DataLineChart time title={"Missed Shot Differential"} override
+                                                       lastVal={timelineMD.slice(-1)}
+                                                       data={timelineMD.map((r, i) => {
+                                                           return {
+                                                               value: r,
+                                                               timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                           }
+                                                       })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
+                                                       colors={colors}
+                                                       selectedTeam={selectedTeam}/>
+
+                                        <View style={{paddingBottom: 50}}>
+                                            <DataLineChart time title={"Hits Differential"} override
+                                                           lastVal={timelineHD.slice(-1)}
+                                                           data={timelineHD.map((r, i) => {
+                                                               return {
+                                                                   value: r,
+                                                                   timestamp: `${dates?.[i].slice(4, 6)}/${dates?.[i].slice(6, 8)}`
+                                                               }
+                                                           })} tooltipTopMarginTop={0} tooltipBottomMarginTop={40}
+                                                           colors={colors}
+                                                           selectedTeam={selectedTeam}/>
+                                        </View>
 
 
                                         <View style={{marginBottom: 400}}/>
@@ -975,7 +1076,8 @@ export default function Home({navigation}) {
                 </BottomSheet>
             </View>
         </GestureHandlerRootView>
-    );
+    )
+        ;
 
 
 }
