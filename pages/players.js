@@ -25,14 +25,17 @@ import Svg, {Path} from "react-native-svg";
 import {Cell, TableWrapper} from "react-native-table-component";
 import DataLineChart from "../components/Chart";
 import {teamAbbreviations, teamAbbreviationsWithLightImages} from "../helpers/assetsLoader";
+import {sort_by} from "../helpers/dataHandlers";
 import {getTeamColor} from "../helpers/UI";
 
-export default function Players() {
+export default function Players({navigation}) {
     const [data, setData] = useState([])
 
     const [tab, setTab] = useState(0);
 
     const [assets, error] = useAssets(teamAbbreviationsWithLightImages);
+
+    const [sortBy, setSortBy] = useState("points")
 
 
     const getPlayerData = (type) => {
@@ -183,14 +186,6 @@ export default function Players() {
 
     const [selectedStat, setSelectedStat] = useState("goals")
 
-    const element = (data, index) => {
-        return <Image style={{
-            height: 40, width: 60, transform: [{scale: .7}], flexDirection: 'column',
-            justifyContent: 'center'
-        }} source={assets[teamAbbreviations.indexOf(data.teamAbbrevs)]}/>
-
-    }
-
     function secondsToMSS(seconds) {
         // Calculate minutes and seconds
         let minutes = Math.floor(seconds / 60);
@@ -264,7 +259,7 @@ export default function Players() {
 
                                                 }}>
                                                     {
-                                                        data?.map((player, index) => {
+                                                        data?.sort(sort_by(sortBy, true, parseFloat)).map((player, index) => {
                                                             return <MotiView from={{
                                                                 opacity: 0,
                                                                 translateY: -15
@@ -280,24 +275,12 @@ export default function Players() {
                                                                              }}>
                                                                 <TouchableOpacity
                                                                     onPress={() => {
-
-                                                                        let myHeaders = new Headers();
-                                                                        myHeaders.append("accept", "application/json");
-
-                                                                        let requestOptions = {
-                                                                            method: 'GET',
-                                                                            headers: myHeaders,
-                                                                            redirect: 'follow'
-                                                                        };
-
-
-                                                                        bottomSheetRef.current.expand()
-                                                                        Haptics.impactAsync()
-                                                                        fetch(`https://api-web.nhle.com/v1/player/${player.playerId}/landing`, requestOptions)
-                                                                            .then(response => response.text())
-                                                                            .then(result => {
-                                                                                setSelectedPlayer(JSON.parse(result))
-                                                                            });
+                                                                        navigation.push("Player_Detail", {
+                                                                            data: {
+                                                                                data: player.playerId,
+                                                                                pos: tab
+                                                                            }
+                                                                        })
                                                                     }}
                                                                 >
                                                                     <TableWrapper
@@ -344,6 +327,7 @@ export default function Players() {
                                                             </MotiView>
                                                         })
                                                     }
+                                                    <View style={{height: 50}}/>
                                                 </ScrollView>
 
                                             </Table>

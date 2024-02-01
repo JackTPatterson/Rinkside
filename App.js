@@ -36,7 +36,7 @@ import 'react-native-gesture-handler'
 import 'react-native-reanimated'
 import GamesStackManager from "./pages/games_stack_manager";
 import Home from "./pages/home"
-import Players from "./pages/players";
+import PlayerStackManager from "./pages/player_stack_manager";
 import Rankings from "./pages/rankings";
 import SettingsStackManager from "./pages/settings";
 import teamData from "./teams";
@@ -388,7 +388,7 @@ const AppManager = () => {
         >
             <Tab.Screen name="Home" component={Home}/>
             <Tab.Screen name="PO" component={Rankings}/>
-            <Tab.Screen name="Players" component={Players}/>
+            <Tab.Screen name="Players" component={PlayerStackManager}/>
             <Tab.Screen name="Games" component={GamesStackManager}/>
             <Tab.Screen name="Settings" component={SettingsStackManager}/>
         </Tab.Navigator>

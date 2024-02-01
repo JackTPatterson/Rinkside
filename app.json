@@ -13,7 +13,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.jpdigital.rinkside",
       "icon": "./assets/icon.png",
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {

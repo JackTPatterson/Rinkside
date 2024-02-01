@@ -42,6 +42,8 @@ export default function Rankings() {
 
     const [standings, setStandings] = useState(null)
 
+    const [sortBy, setSortBy] = useState("points")
+
     const getData = async () => {
         try {
             const value = await AsyncStorage.getItem('team');
@@ -678,28 +680,42 @@ export default function Rankings() {
                                         opacity: .5,
                                         fontFamily: 'Sora_600SemiBold'
                                     }}>TEAM</Text>
-                                    <Text style={{
-                                        width: 37,
-                                        marginLeft: 27,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold'
-                                    }}>GP</Text>
-                                    <Text style={{
-                                        width: 45,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold'
-                                    }}>PTS</Text>
-                                    <Text style={{
-                                        width: 65,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold'
-                                    }}>PTS%</Text>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("gamesPlayed")
+                                    }}>
+                                        <Text style={{
+                                            width: 37,
+                                            marginLeft: 27,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "gamesPlayed" ? 1 : .5,
+                                            fontFamily: 'Sora_600SemiBold'
+                                        }}>GP</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("points")
+                                    }}>
+                                        <Text style={{
+                                            width: 45,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "points" ? 1 : .5,
+
+                                            fontFamily: 'Sora_600SemiBold'
+                                        }}>PTS</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("pointPctg")
+                                    }}>
+                                        <Text style={{
+                                            width: 65,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "pointPctg" ? 1 : .5,
+
+                                            fontFamily: 'Sora_600SemiBold'
+                                        }}>PTS%</Text>
+                                    </TouchableOpacity>
                                     <Text style={{
                                         width: 42,
                                         color: colors.text,
@@ -715,27 +731,43 @@ export default function Rankings() {
                                         fontFamily: 'Sora_600SemiBold', textAlign: 'center'
                                     }}>10 GAME{"\n"} W <Text style={{fontFamily: ""}}>•</Text> L <Text
                                         style={{fontFamily: ""}}>•</Text> OTL</Text>
-                                    <Text style={{
-                                        width: 40, marginLeft: 20,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold'
-                                    }}>W</Text>
-                                    <Text style={{
-                                        width: 33,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold'
-                                    }}>L</Text>
-                                    <Text style={{
-                                        width: 39,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold'
-                                    }}>OTL</Text>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("wins")
+                                    }}>
+                                        <Text style={{
+                                            width: 40, marginLeft: 20,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "wins" ? 1 : .5,
+
+                                            fontFamily: 'Sora_600SemiBold'
+                                        }}>W</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("losses")
+                                    }}>
+                                        <Text style={{
+                                            width: 33,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "losses" ? 1 : .5,
+
+                                            fontFamily: 'Sora_600SemiBold'
+                                        }}>L</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("otLosses")
+                                    }}>
+                                        <Text style={{
+                                            width: 39,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "otLosses" ? 1 : .5,
+
+                                            fontFamily: 'Sora_600SemiBold'
+                                        }}>OTL</Text>
+                                    </TouchableOpacity>
+
                                     <Text style={{
                                         width: 58, marginLeft: 5,
                                         color: colors.text,
@@ -750,44 +782,62 @@ export default function Rankings() {
                                         opacity: .5,
                                         fontFamily: 'Sora_600SemiBold', textAlign: 'center'
                                     }}>ROAD W <Text style={{fontFamily: ""}}>•</Text> L</Text>
-                                    <Text style={{
-                                        width: 48, marginLeft: 20,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold', textAlign: 'center'
-                                    }}>SO Wins</Text>
-                                    <Text style={{
-                                        width: 48, marginLeft: 16,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold', textAlign: 'center'
-                                    }}>GOAL DIFF.</Text>
-                                    <Text style={{
-                                        width: 80, marginLeft: 0,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold', textAlign: 'center'
-                                    }}>HOME GOAL DIFF.</Text>
-                                    <Text style={{
-                                        width: 80, marginLeft: 0,
-                                        color: colors.text,
-                                        fontSize: 14,
-                                        opacity: .5,
-                                        fontFamily: 'Sora_600SemiBold', textAlign: 'center'
-                                    }}>ROAD GOAL DIFF.</Text>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("soWins")
+                                    }}>
+                                        <Text style={{
+                                            width: 48, marginLeft: 20,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "soWins" ? 1 : .5,
+
+                                            fontFamily: 'Sora_600SemiBold', textAlign: 'center'
+                                        }}>SO Wins</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("goalDifferential")
+                                    }}>
+                                        <Text style={{
+                                            width: 48, marginLeft: 16,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "goalDifferential" ? 1 : .5,
+                                            fontFamily: 'Sora_600SemiBold', textAlign: 'center'
+                                        }}>GOAL DIFF.</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("homeGoalDifferential")
+                                    }}>
+                                        <Text style={{
+                                            width: 80, marginLeft: 0,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "homeGoalDifferential" ? 1 : .5,
+
+                                            fontFamily: 'Sora_600SemiBold', textAlign: 'center'
+                                        }}>HOME GOAL DIFF.</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => {
+                                        setSortBy("roadGoalDifferential")
+                                    }}>
+                                        <Text style={{
+                                            width: 80, marginLeft: 0,
+                                            color: colors.text,
+                                            fontSize: 14,
+                                            opacity: sortBy === "roadGoalDifferential" ? 1 : .5,
+                                            fontFamily: 'Sora_600SemiBold', textAlign: 'center'
+                                        }}>ROAD GOAL DIFF.</Text>
+                                    </TouchableOpacity>
 
                                 </View>
                             }
                             {tab === 3 &&
                                 <ScrollView
                                     showsHorizontalScrollIndicator={false}>
-                                    <View style={{marginLeft: -10}}>
+                                    <View>
 
 
-                                        {selView === "League" ? standings?.map((rank, i) => {
+                                        {selView === "League" ? standings?.sort(sort_by(sortBy, true, parseFloat)).map((rank, i) => {
 
                                             return <MotiView from={{
                                                 opacity: 0,
@@ -807,12 +857,12 @@ export default function Rankings() {
                                                     justifyContent: 'flex-start',
                                                     alignItems: 'center',
                                                     paddingVertical: 5,
+                                                    marginLeft: 14,
                                                     marginBottom: 4,
-                                                    borderRadius: 15,
-                                                    marginHorizontal: favTeam === rank.teamAbbrev.default ? 15 : 5,
-                                                    paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                    paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                     borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                    borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                    borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
+                                                    borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
                                                 }}>
 
                                                     <View style={{
@@ -826,7 +876,7 @@ export default function Rankings() {
                                                             color: colors.text,
                                                             fontSize: 16,
                                                             fontFamily: 'Sora_800ExtraBold'
-                                                        }}>{i + 1}</Text>
+                                                        }}>{rank.leagueSequence}</Text>
 
                                                         <View style={{
                                                             alignItems: 'center'
@@ -947,17 +997,18 @@ export default function Rankings() {
                                                 </View>
 
                                             </MotiView>
-                                        }) : selView === "Conference" ? <View>
+                                        }) : selView === "Conference" ? <View style={{marginLeft: 14}}>
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontSize: 16,
                                                     marginVertical: 10,
+
                                                     fontFamily: 'Sora_500Medium'
                                                 }}>Eastern Conference</Text>
                                                 {
                                                     standings?.filter((s) => {
                                                         return s.conferenceAbbrev === "E"
-                                                    }).map((rank, i) => {
+                                                    })?.sort(sort_by(sortBy, true, parseFloat)).map((rank, i) => {
                                                         return <MotiView from={{
                                                             opacity: 0,
                                                             translateY: -15
@@ -978,10 +1029,10 @@ export default function Rankings() {
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
                                                                 marginBottom: 4,
-                                                                borderRadius: 15,
-                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                                borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
+                                                                borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
                                                             }}>
                                                                 <View style={{
                                                                     flexDirection: 'row',
@@ -994,7 +1045,7 @@ export default function Rankings() {
                                                                         color: colors.text,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_800ExtraBold'
-                                                                    }}>{i + 1}</Text>
+                                                                    }}>{rank.conferenceSequence}</Text>
 
                                                                     <View style={{
                                                                         alignItems: 'center'
@@ -1108,12 +1159,13 @@ export default function Rankings() {
                                                     color: colors.text,
                                                     fontSize: 16,
                                                     marginVertical: 10,
+
                                                     fontFamily: 'Sora_500Medium'
                                                 }}>Western Conference</Text>
                                                 {
                                                     standings?.filter((s) => {
                                                         return s.conferenceAbbrev === "W"
-                                                    }).map((rank, i) => {
+                                                    })?.sort(sort_by(sortBy, true, parseFloat)).map((rank, i) => {
                                                         return <MotiView from={{
                                                             opacity: 0,
                                                             translateY: -15
@@ -1133,10 +1185,10 @@ export default function Rankings() {
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
                                                                 marginBottom: 4,
-                                                                borderRadius: 15,
-                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                                borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
+                                                                borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
                                                             }}>
                                                                 <View style={{
                                                                     flexDirection: 'row',
@@ -1149,7 +1201,7 @@ export default function Rankings() {
                                                                         color: colors.text,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_800ExtraBold'
-                                                                    }}>{i + 1}</Text>
+                                                                    }}>{rank.conferenceSequence}</Text>
 
                                                                     <View style={{
                                                                         alignItems: 'center'
@@ -1270,7 +1322,7 @@ export default function Rankings() {
                                                 {
                                                     standings?.filter((s) => {
                                                         return s.divisionAbbrev === "M"
-                                                    }).map((rank, i) => {
+                                                    })?.sort(sort_by(sortBy, true, parseFloat)).map((rank, i) => {
                                                         return <MotiView from={{
                                                             opacity: 0,
                                                             translateY: -15
@@ -1290,10 +1342,10 @@ export default function Rankings() {
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
                                                                 marginBottom: 4,
-                                                                borderRadius: 15,
-                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                                borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
+                                                                borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
                                                             }}>
                                                                 <View style={{
                                                                     flexDirection: 'row',
@@ -1306,7 +1358,7 @@ export default function Rankings() {
                                                                         color: colors.text,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_800ExtraBold'
-                                                                    }}>{i + 1}</Text>
+                                                                    }}>{rank.divisionSequence}</Text>
 
                                                                     <View style={{
                                                                         alignItems: 'center'
@@ -1419,13 +1471,15 @@ export default function Rankings() {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontSize: 16,
+
                                                     marginVertical: 10,
+
                                                     fontFamily: 'Sora_500Medium'
                                                 }}>Atlantic Division</Text>
                                                 {
                                                     standings?.filter((s) => {
                                                         return s.divisionAbbrev === "A"
-                                                    }).map((rank, i) => {
+                                                    })?.sort(sort_by(sortBy, true, parseFloat)).map((rank, i) => {
                                                         return <MotiView from={{
                                                             opacity: 0,
                                                             translateY: -15
@@ -1444,10 +1498,10 @@ export default function Rankings() {
                                                             alignItems: 'center',
                                                             paddingVertical: 5,
                                                             marginBottom: 4,
-                                                            borderRadius: 15,
-                                                            paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                            paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                             borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                            borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                            borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
+                                                            borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
                                                         }}>
                                                             <View style={{
                                                                 flexDirection: 'row',
@@ -1460,7 +1514,7 @@ export default function Rankings() {
                                                                     color: colors.text,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_800ExtraBold'
-                                                                }}>{i + 1}</Text>
+                                                                }}>{rank.divisionSequence}</Text>
 
                                                                 <View style={{
                                                                     alignItems: 'center'
@@ -1573,13 +1627,14 @@ export default function Rankings() {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontSize: 16,
+
                                                     marginVertical: 10,
                                                     fontFamily: 'Sora_500Medium'
                                                 }}>Central Division</Text>
                                                 {
                                                     standings?.filter((s) => {
                                                         return s.divisionAbbrev === "C"
-                                                    }).map((rank, i) => {
+                                                    })?.sort(sort_by(sortBy, true, parseFloat)).map((rank, i) => {
                                                         return <MotiView from={{
                                                             opacity: 0,
                                                             translateY: -15
@@ -1599,10 +1654,10 @@ export default function Rankings() {
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
                                                                 marginBottom: 4,
-                                                                borderRadius: 15,
-                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                                borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
+                                                                borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
                                                             }}>
                                                                 <View style={{
                                                                     flexDirection: 'row',
@@ -1615,7 +1670,7 @@ export default function Rankings() {
                                                                         color: colors.text,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_800ExtraBold'
-                                                                    }}>{i + 1}</Text>
+                                                                    }}>{rank.divisionSequence}</Text>
 
                                                                     <View style={{
                                                                         alignItems: 'center'
@@ -1728,13 +1783,14 @@ export default function Rankings() {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontSize: 16,
+
                                                     marginVertical: 10,
                                                     fontFamily: 'Sora_500Medium'
                                                 }}>Pacific Division</Text>
                                                 {
                                                     standings?.filter((s) => {
                                                         return s.divisionAbbrev === "P"
-                                                    }).map((rank, i) => {
+                                                    })?.sort(sort_by(sortBy, true, parseFloat)).map((rank, i) => {
                                                         return <MotiView from={{
                                                             opacity: 0,
                                                             translateY: -15
@@ -1754,10 +1810,11 @@ export default function Rankings() {
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
                                                                 marginBottom: 4,
-                                                                borderRadius: 15,
-                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 18 : 20,
+                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
-                                                                borderWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+                                                                borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
+                                                                borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
+
                                                             }}>
                                                                 <View style={{
                                                                     flexDirection: 'row',
@@ -1770,7 +1827,7 @@ export default function Rankings() {
                                                                         color: colors.text,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_800ExtraBold'
-                                                                    }}>{i + 1}</Text>
+                                                                    }}>{rank.divisionSequence}</Text>
 
                                                                     <View style={{
                                                                         alignItems: 'center'

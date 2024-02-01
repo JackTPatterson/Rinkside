@@ -24,6 +24,7 @@
     "expo-splash-screen": "~0.20.5",
     "expo-status-bar": "~1.6.0",
     "expo-system-ui": "^2.6.0",
+    "fs": "^0.0.1-security",
     "iconsax-react-native": "^0.0.8",
     "link": "^2.1.0",
     "moment": "^2.30.1",

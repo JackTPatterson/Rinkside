@@ -11,7 +11,7 @@ export default function DataLineChart(props) {
         <View style={{
             flexDirection: 'row',
             justifyContent: 'space-between',
-            alignItems: 'flex-end'
+            alignItems: 'center'
         }}>
             {props.title &&
                 <Text style={!props.titleStyle ? {

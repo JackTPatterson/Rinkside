@@ -897,7 +897,7 @@ export default function Games({navigation}) {
                                     color: colors.text,
                                     fontFamily: 'Sora_600SemiBold',
                                     fontSize: 16
-                                }}>{awayGoalie.name.split(" ")[0] !== "" ? awayGoalie.name.split(" ")[0] !== "" : "Unknown"}</Text>
+                                }}>{awayGoalie.name.split(" ")[0] !== "" ? awayGoalie.name.split(" ")[0] !== "" : "\n Unknown"}</Text>
                                 <Text style={{
                                     color: colors.text,
                                     fontFamily: 'Sora_600SemiBold',
