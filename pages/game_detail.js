@@ -85,6 +85,32 @@ export default function GamesDetail({navigation}) {
     const [teamSummaryDataHome, setTeamSummeryDataHome] = useState(null)
     const [teamSummaryDataAway, setTeamSummeryDataAway] = useState(null)
 
+    function evaluateGame(playoffPercentageBefore, playoffPercentageAfterWin, playoffPercentageAfterLoss) {
+        // Define a threshold for significant change
+        var threshold = .05; // You can adjust this threshold based on your analysis
+
+        // Calculate the change in playoff percentage after winning and losing
+        var winChange = playoffPercentageAfterWin - playoffPercentageBefore;
+        var lossChange = playoffPercentageAfterLoss - playoffPercentageBefore;
+
+        // Evaluate the significance of the change
+        var evaluation = "";
+
+        console.log("Change:", Math.abs(playoffPercentageBefore))
+
+        if (Math.abs(winChange) >= threshold || Math.abs(lossChange) >= threshold) {
+            evaluation = "This is an important game";
+        } else if (Math.abs(winChange) >= threshold) {
+            evaluation = "This is an important game";
+        } else if (Math.abs(lossChange) >= threshold) {
+            evaluation = "This is an important game";
+        } else {
+            evaluation = "This game is not important";
+        }
+
+        return evaluation;
+    }
+
 
     const getTeamStats = (franchiseIdHome, franchiseIdAway) => {
 
@@ -1699,7 +1725,6 @@ export default function GamesDetail({navigation}) {
                                                     <Text style={{fontFamily: ""}}> •</Text> {goal.timeInPeriod} <Text
                                                         style={{fontFamily: ""}}>•</Text> {goal.strength.toUpperCase()}
                                                 </Text>
-
                                                 {goal.highlightClip &&
                                                     <TouchableOpacity onPress={() => {
                                                         Linking.openURL(`https://players.brightcove.net/6415718365001/EXtG1xJ7H_default/index.html?videoId=${goal.highlightClip}`).then(r => {
@@ -1933,13 +1958,13 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     fontFamily: 'Sora_500Medium',
                                                     fontSize: 16, color: colors.text
-                                                }}>{selPP ? getPPCDataF().h : getPPCData().h * 100}{!selPP && "%"}</Text>
+                                                }}>{selPP ? getPPCDataF().h : isNaN(getPPCData().h) ? 0 : getPPCData().h * 100}{!selPP && "%"}</Text>
                                                 <Text style={{fontFamily: 'Sora_500Medium', fontSize: 16, color: colors.text}}>Power
                                                     Play</Text>
                                                 <Text style={{
                                                     fontFamily: 'Sora_500Medium',
                                                     fontSize: 16, color: colors.text
-                                                }}>{selPP ? getPPCDataF().a : getPPCData().a * 100}{!selPP && "%"}</Text>
+                                                }}>{selPP ? getPPCDataF().a : isNaN(getPPCData().a) ? 0 : getPPCData().a * 100}{!selPP && "%"}</Text>
                                             </View>
 
                                             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
@@ -1947,13 +1972,13 @@ export default function GamesDetail({navigation}) {
                                                     color={getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}
                                                     unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                     style={{marginTop: 20, transform: [{rotate: '180deg'}]}}
-                                                    progress={getPPCData().h}
+                                                    progress={isNaN(getPPCData().h) ? 0 : getPPCData().h}
                                                     height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                                 <Progress.Bar
                                                     color={getTeamColor(route.params?.data.data.awayTeam.abbrev, colors)}
                                                     unfilledColor={colors.card} borderRadius={100} borderWidth={0}
                                                     style={{marginTop: 20}}
-                                                    progress={getPPCData().a}
+                                                    progress={isNaN(getPPCData().a) ? 0 : getPPCData().a}
                                                     height={6} width={(Dimensions.get('window').width - 20) / 2 - 2.5}/>
                                             </View>
                                         </TouchableOpacity>
@@ -2179,7 +2204,15 @@ export default function GamesDetail({navigation}) {
                                             getSIMData(!isReg)
                                             setIsReg(!isReg)
                                         }}>
+                                            {/*<Text style={{*/}
+                                            {/*    fontFamily: 'Sora_500Medium',*/}
+                                            {/*    textAlign: 'center',*/}
+                                            {/*    fontSize: 20, marginBottom: 30,*/}
+                                            {/*    color: colors.text*/}
+                                            {/*}}>{` ${evaluateGame(stat.home, sim.a.w, sim.a.l)} for`} {route.params?.data.data.homeTeam.abbrev}</Text>*/}
                                             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+
+
                                                 <Text style={{
                                                     fontFamily: 'Sora_500Medium',
                                                     fontSize: 16,
@@ -2274,13 +2307,11 @@ export default function GamesDetail({navigation}) {
                                                 <View style={{
                                                     alignItems: 'center'
                                                 }}>
-
                                                     <Image style={{
                                                         borderRadius: 100,
                                                         borderWidth: 3,
                                                         height: 80,
                                                         width: 80,
-                                                        marginTop: 10,
                                                         borderColor: `${getTeamColor(route.params?.data.data.homeTeam.abbrev, colors)}`,
                                                         backgroundColor: colors.card
                                                     }}
@@ -2363,7 +2394,8 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    width: '33%'
                                                 }}>{homeGoalieStats.SP.toFixed(3)}</Text>
                                                 <Text style={{
                                                     color: colors.text,
@@ -2375,7 +2407,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
                                                 }}>{awayGoalieStats.SP.toFixed(3)}</Text>
 
                                             </View>
@@ -2391,7 +2425,8 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    width: '33%'
                                                 }}>{homeGoalieStats.GSA.toFixed(2)}</Text>
                                                 <Text style={{
                                                     color: colors.text,
@@ -2403,7 +2438,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
                                                 }}>{awayGoalieStats.GSA.toFixed(2)}</Text>
 
                                             </View>
@@ -2419,7 +2456,8 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    width: '33%'
                                                 }}>{homeGoalieStats.GSAx.toFixed(1)}</Text>
                                                 <Text style={{
                                                     color: colors.text,
@@ -2431,7 +2469,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
                                                 }}>{awayGoalieStats.GSAx.toFixed(1)}</Text>
                                             </View>
                                         </View>
@@ -2464,8 +2504,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
-                                                }}>{teamSummaryDataHome?.goalsForPerGame.toFixed(2)}</Text>
+                                                    fontSize: 16,
+                                                    width: '33%'
+                                                }}>{teamSummaryDataHome?.goalsForPerGame.toFixed(2) ?? 0}</Text>
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
@@ -2476,8 +2517,10 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
-                                                }}>{teamSummaryDataAway?.goalsForPerGame.toFixed(2)}</Text>
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
+                                                }}>{teamSummaryDataAway?.goalsForPerGame.toFixed(2) ?? 0}</Text>
 
                                             </View>
 
@@ -2492,8 +2535,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
-                                                }}>{teamSummaryDataHome?.goalsAgainstPerGame.toFixed(2)}</Text>
+                                                    fontSize: 16,
+                                                    width: '33%'
+                                                }}>{teamSummaryDataHome?.goalsAgainstPerGame.toFixed(2) ?? 0}</Text>
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
@@ -2504,8 +2548,10 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
-                                                }}>{teamSummaryDataAway?.goalsAgainstPerGame.toFixed(2)}</Text>
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
+                                                }}>{teamSummaryDataAway?.goalsAgainstPerGame.toFixed(2) ?? 0}</Text>
 
                                             </View>
 
@@ -2520,8 +2566,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
-                                                }}>{teamSummaryDataHome?.powerPlayNetPct.toFixed(2) * 100}%</Text>
+                                                    fontSize: 16,
+                                                    width: '33%'
+                                                }}>{isNaN(teamSummaryDataHome?.powerPlayNetPct.toFixed(2) * 100) ? 0 : teamSummaryDataHome?.powerPlayNetPct.toFixed(2) * 100}%</Text>
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
@@ -2532,8 +2579,10 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
-                                                }}>{teamSummaryDataAway?.powerPlayNetPct.toFixed(2) * 100}%</Text>
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
+                                                }}>{isNaN(teamSummaryDataAway?.powerPlayNetPct.toFixed(2) * 100) ? 0 : teamSummaryDataAway?.powerPlayNetPct.toFixed(2) * 100}%</Text>
                                             </View>
                                         </View>
                                         <View style={{
@@ -2551,7 +2600,8 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    width: '33%'
                                                 }}>{teamSummaryDataHome?.penaltyKillNetPct.toFixed(2) * 100}%</Text>
                                                 <Text style={{
                                                     color: colors.text,
@@ -2563,7 +2613,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
                                                 }}>{teamSummaryDataAway?.penaltyKillNetPct.toFixed(2) * 100}%</Text>
                                             </View>
                                         </View>
@@ -2577,7 +2629,8 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    width: '33%'
                                                 }}>{teamSummaryDataHome?.faceoffWinPct.toFixed(2) * 100}%</Text>
                                                 <Text style={{
                                                     color: colors.text,
@@ -2589,7 +2642,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
                                                 }}>{teamSummaryDataAway?.faceoffWinPct.toFixed(2) * 100}%</Text>
                                             </View>
                                         </View>
@@ -2603,8 +2658,9 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
-                                                }}>{teamSummaryDataHome?.shotsForPerGame.toFixed(2)}</Text>
+                                                    fontSize: 16,
+                                                    width: '33%'
+                                                }}>{teamSummaryDataHome?.shotsForPerGame.toFixed(2) ?? 0}</Text>
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
@@ -2615,13 +2671,14 @@ export default function GamesDetail({navigation}) {
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontFamily: 'Sora_600SemiBold',
-                                                    fontSize: 16
-                                                }}>{teamSummaryDataHome?.shotsForPerGame.toFixed(2)}</Text>
+                                                    fontSize: 16,
+                                                    textAlign: 'right',
+                                                    width: '33%'
+                                                }}>{teamSummaryDataHome?.shotsForPerGame.toFixed(2) ?? 0}</Text>
                                             </View>
                                         </View>
                                         <View style={{marginBottom: 50}}/>
                                     </View>
-
                                 : tab === 4 ?
                                     <ScrollView style={{height: 400}} horizontal
                                                 showsVerticalScrollIndicator={false}>
@@ -3002,7 +3059,7 @@ export default function GamesDetail({navigation}) {
                     paddingHorizontal: 20
                 }}
                 backgroundStyle={{
-                    backgroundColor: colors.back
+                    backgroundColor: colors.background
                 }}
             >
                 <View style={{flexDirection: 'column', gap: 20}}>
@@ -3124,7 +3181,7 @@ export default function GamesDetail({navigation}) {
                     paddingHorizontal: 20
                 }}
                 backgroundStyle={{
-                    backgroundColor: colors.card
+                    backgroundColor: colors.background
                 }}
             >
                 <View style={{flexDirection: 'column', gap: 20}}>

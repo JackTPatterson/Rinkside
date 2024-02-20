@@ -461,7 +461,7 @@ export default function Games({navigation}) {
                             fontFamily: 'Sora_700Bold',
                             fontSize: 20,
                             width: !props.game.awayTeam.score ? 60 : 40
-                        }}>{props.game.homeTeam.score ?? `${Math.round(parseFloat(1 - hwp).toFixed(2) * 100)}%`}</Text>
+                        }}>{props.game.homeTeam.score ?? ((1 - hwp !== 1) ? `${Math.round(parseFloat(1 - hwp).toFixed(2) * 100)}%` : "--")}</Text>
                     </View>
                     {
 
@@ -512,7 +512,7 @@ export default function Games({navigation}) {
                             fontFamily: 'Sora_700Bold',
                             fontSize: 20, color: colors.text,
                             width: !props.game.awayTeam.score ? 60 : 40
-                        }}>{props.game.awayTeam.score ?? `${Math.round(parseFloat(hwp).toFixed(2) * 100)}%`}</Text>
+                        }}>{props.game.awayTeam.score ?? ((parseFloat(hwp) !== 0) ? `${Math.round(parseFloat(hwp).toFixed(2) * 100)}%` : "--")}</Text>
                     </View>
                 </View>
 
@@ -772,7 +772,7 @@ export default function Games({navigation}) {
             snapPoints={snapPoints}
             enablePanDownToClose
             backgroundStyle={{
-                backgroundColor: colors.card
+                backgroundColor: colors.background
             }}
 
         >
@@ -1174,7 +1174,7 @@ export default function Games({navigation}) {
                                 color: colors.text,
                                 fontFamily: 'Sora_600SemiBold',
                                 fontSize: 16
-                            }}>{teamSummaryDataHome?.shotsForPerGame.toFixed(2)}</Text>
+                            }}>{teamSummaryDataAway?.shotsForPerGame.toFixed(2)}</Text>
                         </View>
                     </View>
 

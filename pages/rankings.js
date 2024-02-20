@@ -859,7 +859,6 @@ export default function Rankings() {
                                                     paddingVertical: 5,
                                                     marginLeft: 14,
                                                     marginBottom: 4,
-                                                    paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                     borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
                                                     borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
                                                     borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
@@ -908,7 +907,6 @@ export default function Rankings() {
                                                     }}>
                                                         <Text style={{
                                                             width: 30,
-                                                            marginLeft: favTeam === rank.teamAbbrev.default ? -10 : 0,
                                                             color: colors.text,
                                                             fontSize: 16,
                                                             fontFamily: 'Sora_400Regular'
@@ -997,7 +995,7 @@ export default function Rankings() {
                                                 </View>
 
                                             </MotiView>
-                                        }) : selView === "Conference" ? <View style={{marginLeft: 14}}>
+                                        }) : selView === "Conference" ? <View>
                                                 <Text style={{
                                                     color: colors.text,
                                                     fontSize: 16,
@@ -1029,7 +1027,7 @@ export default function Rankings() {
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
                                                                 marginBottom: 4,
-                                                                paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
+                                                                marginLeft: 14,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
                                                                 borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
                                                                 borderBottomWidth: favTeam === rank.teamAbbrev.default ? 2 : 0
@@ -1093,6 +1091,23 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.pointPctg.toFixed(3)}</Text>
                                                                     <Text style={{
+                                                                        color: rank.streakCode === "W" ? '#7adba2' : '#f54242',
+                                                                        width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCode}{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 80, marginLeft: 13,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.l10Wins} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10Losses} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10OtLosses}</Text>
+                                                                    <Text style={{
                                                                         color: colors.text, width: 30,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
@@ -1107,13 +1122,9 @@ export default function Rankings() {
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.otLosses}</Text>
+
                                                                     <Text style={{
-                                                                        color: colors.text, width: 30,
-                                                                        fontSize: 16,
-                                                                        fontFamily: 'Sora_400Regular'
-                                                                    }}>{rank.streakCount}</Text>
-                                                                    <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 60, marginLeft: 7,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeWins} <Text
@@ -1139,12 +1150,12 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.goalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 40,
+                                                                        color: colors.text, width: 40, marginLeft: 15,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeGoalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 30, marginLeft: 32,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.roadGoalDifferential}</Text>
@@ -1185,6 +1196,7 @@ export default function Rankings() {
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
                                                                 marginBottom: 4,
+                                                                marginLeft: 14,
                                                                 paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
                                                                 borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
@@ -1195,7 +1207,6 @@ export default function Rankings() {
                                                                     justifyContent: 'flex-start',
                                                                     alignItems: 'center',
                                                                     width: 150
-
                                                                 }}>
                                                                     <Text style={{
                                                                         color: colors.text,
@@ -1249,6 +1260,23 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.pointPctg.toFixed(3)}</Text>
                                                                     <Text style={{
+                                                                        color: rank.streakCode === "W" ? '#7adba2' : '#f54242',
+                                                                        width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCode}{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 80, marginLeft: 13,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.l10Wins} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10Losses} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10OtLosses}</Text>
+                                                                    <Text style={{
                                                                         color: colors.text, width: 30,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
@@ -1263,13 +1291,9 @@ export default function Rankings() {
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.otLosses}</Text>
+
                                                                     <Text style={{
-                                                                        color: colors.text, width: 30,
-                                                                        fontSize: 16,
-                                                                        fontFamily: 'Sora_400Regular'
-                                                                    }}>{rank.streakCount}</Text>
-                                                                    <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 60, marginLeft: 7,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeWins} <Text
@@ -1295,12 +1319,12 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.goalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 40,
+                                                                        color: colors.text, width: 40, marginLeft: 15,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeGoalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 30, marginLeft: 32,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.roadGoalDifferential}</Text>
@@ -1341,6 +1365,7 @@ export default function Rankings() {
                                                                 justifyContent: 'flex-start',
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
+                                                                marginLeft: 14,
                                                                 marginBottom: 4,
                                                                 paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
@@ -1406,6 +1431,23 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.pointPctg.toFixed(3)}</Text>
                                                                     <Text style={{
+                                                                        color: rank.streakCode === "W" ? '#7adba2' : '#f54242',
+                                                                        width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCode}{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 80, marginLeft: 13,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.l10Wins} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10Losses} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10OtLosses}</Text>
+                                                                    <Text style={{
                                                                         color: colors.text, width: 30,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
@@ -1420,13 +1462,9 @@ export default function Rankings() {
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.otLosses}</Text>
+
                                                                     <Text style={{
-                                                                        color: colors.text, width: 30,
-                                                                        fontSize: 16,
-                                                                        fontFamily: 'Sora_400Regular'
-                                                                    }}>{rank.streakCount}</Text>
-                                                                    <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 60, marginLeft: 7,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeWins} <Text
@@ -1452,12 +1490,12 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.goalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 40,
+                                                                        color: colors.text, width: 40, marginLeft: 15,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeGoalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 30, marginLeft: 32,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.roadGoalDifferential}</Text>
@@ -1498,6 +1536,7 @@ export default function Rankings() {
                                                             alignItems: 'center',
                                                             paddingVertical: 5,
                                                             marginBottom: 4,
+                                                            marginLeft: 14,
                                                             paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                             borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
                                                             borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
@@ -1562,6 +1601,23 @@ export default function Rankings() {
                                                                     fontFamily: 'Sora_400Regular'
                                                                 }}>{rank.pointPctg.toFixed(3)}</Text>
                                                                 <Text style={{
+                                                                    color: rank.streakCode === "W" ? '#7adba2' : '#f54242',
+                                                                    width: 40,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.streakCode}{rank.streakCount}</Text>
+                                                                <Text style={{
+                                                                    color: colors.text, width: 80, marginLeft: 13,
+                                                                    fontSize: 16,
+                                                                    fontFamily: 'Sora_400Regular'
+                                                                }}>{rank.l10Wins} <Text
+                                                                    style={{
+                                                                        fontFamily: ''
+                                                                    }}>•</Text> {rank.l10Losses} <Text
+                                                                    style={{
+                                                                        fontFamily: ''
+                                                                    }}>•</Text> {rank.l10OtLosses}</Text>
+                                                                <Text style={{
                                                                     color: colors.text, width: 30,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_400Regular'
@@ -1576,13 +1632,9 @@ export default function Rankings() {
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_400Regular'
                                                                 }}>{rank.otLosses}</Text>
+
                                                                 <Text style={{
-                                                                    color: colors.text, width: 30,
-                                                                    fontSize: 16,
-                                                                    fontFamily: 'Sora_400Regular'
-                                                                }}>{rank.streakCount}</Text>
-                                                                <Text style={{
-                                                                    color: colors.text, width: 60,
+                                                                    color: colors.text, width: 60, marginLeft: 7,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_400Regular'
                                                                 }}>{rank.homeWins} <Text
@@ -1608,12 +1660,12 @@ export default function Rankings() {
                                                                     fontFamily: 'Sora_400Regular'
                                                                 }}>{rank.goalDifferential}</Text>
                                                                 <Text style={{
-                                                                    color: colors.text, width: 40,
+                                                                    color: colors.text, width: 40, marginLeft: 15,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_400Regular'
                                                                 }}>{rank.homeGoalDifferential}</Text>
                                                                 <Text style={{
-                                                                    color: colors.text, width: 60,
+                                                                    color: colors.text, width: 30, marginLeft: 32,
                                                                     fontSize: 16,
                                                                     fontFamily: 'Sora_400Regular'
                                                                 }}>{rank.roadGoalDifferential}</Text>
@@ -1653,6 +1705,7 @@ export default function Rankings() {
                                                                 justifyContent: 'flex-start',
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
+                                                                marginLeft: 14,
                                                                 marginBottom: 4,
                                                                 paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
@@ -1718,6 +1771,23 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.pointPctg.toFixed(3)}</Text>
                                                                     <Text style={{
+                                                                        color: rank.streakCode === "W" ? '#7adba2' : '#f54242',
+                                                                        width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCode}{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 80, marginLeft: 13,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.l10Wins} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10Losses} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10OtLosses}</Text>
+                                                                    <Text style={{
                                                                         color: colors.text, width: 30,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
@@ -1732,13 +1802,9 @@ export default function Rankings() {
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.otLosses}</Text>
+
                                                                     <Text style={{
-                                                                        color: colors.text, width: 30,
-                                                                        fontSize: 16,
-                                                                        fontFamily: 'Sora_400Regular'
-                                                                    }}>{rank.streakCount}</Text>
-                                                                    <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 60, marginLeft: 7,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeWins} <Text
@@ -1764,12 +1830,12 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.goalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 40,
+                                                                        color: colors.text, width: 40, marginLeft: 15,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeGoalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 30, marginLeft: 32,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.roadGoalDifferential}</Text>
@@ -1810,6 +1876,7 @@ export default function Rankings() {
                                                                 alignItems: 'center',
                                                                 paddingVertical: 5,
                                                                 marginBottom: 4,
+                                                                marginLeft: 14,
                                                                 paddingLeft: favTeam === rank.teamAbbrev.default ? 0 : 0,
                                                                 borderColor: favTeam === rank.teamAbbrev.default ? getTeamColor(rank.teamAbbrev.default, colors) : "",
                                                                 borderTopWidth: favTeam === rank.teamAbbrev.default ? 2 : 0,
@@ -1875,6 +1942,23 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.pointPctg.toFixed(3)}</Text>
                                                                     <Text style={{
+                                                                        color: rank.streakCode === "W" ? '#7adba2' : '#f54242',
+                                                                        width: 40,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.streakCode}{rank.streakCount}</Text>
+                                                                    <Text style={{
+                                                                        color: colors.text, width: 80, marginLeft: 13,
+                                                                        fontSize: 16,
+                                                                        fontFamily: 'Sora_400Regular'
+                                                                    }}>{rank.l10Wins} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10Losses} <Text
+                                                                        style={{
+                                                                            fontFamily: ''
+                                                                        }}>•</Text> {rank.l10OtLosses}</Text>
+                                                                    <Text style={{
                                                                         color: colors.text, width: 30,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
@@ -1889,13 +1973,9 @@ export default function Rankings() {
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.otLosses}</Text>
+
                                                                     <Text style={{
-                                                                        color: colors.text, width: 30,
-                                                                        fontSize: 16,
-                                                                        fontFamily: 'Sora_400Regular'
-                                                                    }}>{rank.streakCount}</Text>
-                                                                    <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 60, marginLeft: 7,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeWins} <Text
@@ -1921,12 +2001,12 @@ export default function Rankings() {
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.goalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 40,
+                                                                        color: colors.text, width: 40, marginLeft: 15,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.homeGoalDifferential}</Text>
                                                                     <Text style={{
-                                                                        color: colors.text, width: 60,
+                                                                        color: colors.text, width: 30, marginLeft: 32,
                                                                         fontSize: 16,
                                                                         fontFamily: 'Sora_400Regular'
                                                                     }}>{rank.roadGoalDifferential}</Text>
@@ -1961,7 +2041,7 @@ export default function Rankings() {
                         paddingHorizontal: 20
                     }}
                     backgroundStyle={{
-                        backgroundColor: colors.card
+                        backgroundColor: colors.background
                     }}
                 >
                     <View style={{flexDirection: 'column', gap: 20}}>
@@ -2026,7 +2106,7 @@ export default function Rankings() {
                         paddingHorizontal: 20
                     }}
                     backgroundStyle={{
-                        backgroundColor: colors.card
+                        backgroundColor: colors.background
                     }}
                 >
                     <View>

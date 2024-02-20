@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Rinkside Stats",
+    "name": "Rinkside",
     "slug": "rinkside",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,7 +13,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.jpdigital.rinkside",
       "icon": "./assets/icon.png",
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "adaptiveIcon": {

@@ -13,6 +13,8 @@ export function getTeamColor(teamCode, colors) {
     if (team.length) {
         if (isDark) {
             return team[0]?.secondary_color ?? team[0].primary_color;
+        } else {
+            return team[0].primary_color;
         }
 
     } else {

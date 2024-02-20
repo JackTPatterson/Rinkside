@@ -352,7 +352,7 @@ export default function Players({navigation}) {
                         paddingHorizontal: 20
                     }}
                     backgroundStyle={{
-                        backgroundColor: colors.card
+                        backgroundColor: colors.background
                     }}
                 >
                     <ScrollView showsVerticalScrollIndicator={false}>

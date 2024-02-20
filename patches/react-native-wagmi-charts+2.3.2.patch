@@ -1,0 +1,55 @@
+diff --git a/node_modules/react-native-wagmi-charts/lib/typescript/src/charts/line/Gradient.d.ts b/node_modules/react-native-wagmi-charts/lib/typescript/src/charts/line/Gradient.d.ts
+index b3e3475..de963e4 100644
+--- a/node_modules/react-native-wagmi-charts/lib/typescript/src/charts/line/Gradient.d.ts
++++ b/node_modules/react-native-wagmi-charts/lib/typescript/src/charts/line/Gradient.d.ts
+@@ -4,8 +4,10 @@ import { PathProps } from 'react-native-svg';
+ export type LineChartGradientProps = Animated.AnimateProps<PathProps> & {
+     color?: string;
+     children?: React.ReactNode;
++    gradientOffsets?: []
++    gradientOpacity?: []
+ };
+-export declare function LineChartGradient({ color: overrideColor, children, ...props }: LineChartGradientProps): React.JSX.Element;
++export declare function LineChartGradient({ color: overrideColor, children, gradientOffsets, gradientOpacity, ...props }: LineChartGradientProps): React.JSX.Element;
+ export declare namespace LineChartGradient {
+     var displayName: string;
+ }
+diff --git a/node_modules/react-native-wagmi-charts/src/charts/line/Gradient.tsx b/node_modules/react-native-wagmi-charts/src/charts/line/Gradient.tsx
+index 4c3d82f..dbfc9a0 100644
+--- a/node_modules/react-native-wagmi-charts/src/charts/line/Gradient.tsx
++++ b/node_modules/react-native-wagmi-charts/src/charts/line/Gradient.tsx
+@@ -11,6 +11,9 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
+ export type LineChartGradientProps = Animated.AnimateProps<PathProps> & {
+   color?: string;
+   children?: React.ReactNode;
++  gradientOffsets?: []
++  gradientOpacity?: []
++
+ };
+ 
+ let id = 0;
+@@ -19,7 +22,8 @@ LineChartGradient.displayName = 'LineChartGradient';
+ 
+ export function LineChartGradient({
+   color: overrideColor = undefined,
+-  children,
++  children, gradientOffsets, gradientOpacity,
++
+   ...props
+ }: LineChartGradientProps) {
+   const { area } = React.useContext(LineChartDimensionsContext);
+@@ -65,9 +69,11 @@ export function LineChartGradient({
+             y1="0"
+             y2="100%"
+           >
+-            <Stop offset="20%" stopColor={color} stopOpacity={0.15} />
+-            <Stop offset="40%" stopColor={color} stopOpacity={0.05} />
+-            <Stop offset="100%" stopColor={color} stopOpacity={0} />
++            {gradientOffsets.map((offset, i)=>{
++              return <Stop offset={`${gradientOffsets?.[i] ?? offset}%`} stopColor={color} stopOpacity={gradientOpacity?.[i] ?? (1 / gradientOpacity.length)/2} />
++
++            })}
++
+           </LinearGradient>
+         </Defs>
+       )}
