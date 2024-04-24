@@ -16,8 +16,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
                BuildableName = "Rinkside.app"
-               BlueprintName = "RinksideStats"
-               ReferencedContainer = "container:RinksideStats.xcodeproj">
+               BlueprintName = "Rinkside"
+               ReferencedContainer = "container:Rinkside.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "RinksideStatsTests.xctest"
-               BlueprintName = "RinksideStatsTests"
-               ReferencedContainer = "container:RinksideStats.xcodeproj">
+               BuildableName = "RinksideTests.xctest"
+               BlueprintName = "RinksideTests"
+               ReferencedContainer = "container:Rinkside.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -56,8 +56,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "Rinkside.app"
-            BlueprintName = "RinksideStats"
-            ReferencedContainer = "container:RinksideStats.xcodeproj">
+            BlueprintName = "Rinkside"
+            ReferencedContainer = "container:Rinkside.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -73,8 +73,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
             BuildableName = "Rinkside.app"
-            BlueprintName = "RinksideStats"
-            ReferencedContainer = "container:RinksideStats.xcodeproj">
+            BlueprintName = "Rinkside"
+            ReferencedContainer = "container:Rinkside.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
