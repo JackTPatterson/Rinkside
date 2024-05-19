@@ -550,6 +550,7 @@ export default function Games({navigation}) {
             </View>
         </TouchableOpacity>
     }
+
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = useCallback(() => {

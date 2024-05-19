@@ -178,7 +178,7 @@ export default function Home({navigation}) {
             redirect: 'follow'
         };
 
-        fetch(`https://api-web.nhle.com/v1/club-schedule/${code}/${type ? "week" : "month"}/now`, requestOptions)
+        fetch(`https://api-web.nhle.com/v1/club-schedule/${code}/${type ? "week" : "week"}/now`, requestOptions)
             .then(response => response.text())
             .then(result => {
                 setSchedule(JSON.parse(result)['games'])
@@ -273,6 +273,309 @@ export default function Home({navigation}) {
         );
     }
 
+    const isUTCDateTimeToday = (utcDateTime) => {
+        const utcDate = new Date(utcDateTime);
+        const today = new Date();
+        return utcDate.getDate() === today.getDate() &&
+            utcDate.getMonth() === today.getMonth() &&
+            utcDate.getFullYear() === today.getFullYear();
+    }
+
+
+    const Team = (props) => {
+
+
+        const [hwp, setHwp] = useState(0)
+        const [pp, setPP] = useState({h: 5, a: 5});
+
+
+        useEffect(() => {
+
+
+            if (props.game.homeTeam.score) {
+                if (!hwp) {
+                    Papa.parse(
+                        `https://moneypuck.com/moneypuck/gameData/${game?.season}/${game?.id}.csv`,
+                        {
+                            ...commonConfig,
+                            header: true,
+                            download: true,
+                            complete: (result) => {
+                                setHwp(1 - parseFloat((result.data.slice(-2)[0]).homeWinProbability));
+
+
+                            }
+                        }
+                    );
+                }
+            } else {
+                if (!hwp) {
+                    Papa.parse(
+                        `https://moneypuck.com/moneypuck/predictions/${game?.id}.csv`,
+                        {
+                            ...commonConfig,
+                            header: true,
+                            download: true,
+                            complete: (result) => {
+                                setHwp(1 - parseFloat((result.data.slice(-2)[0]).preGameHomeTeamWinOverallScore));
+                                setPP({h: 5, a: 5});
+                            }
+                        }
+                    );
+                }
+            }
+
+        }, [])
+
+        const game = props.game;
+        const dt = props.dt;
+
+
+        const getTimeLabel = () => {
+
+
+            if (props.game.homeTeam.score !== undefined) {
+                if (props.game.gameState === "OFF" || props.game.gameState === "OVER" || props.game.gameState === "FINAL") {
+                    return props.game.gameOutcome.lastPeriodType === "REG" ? "Final" : props.game.gameOutcome.lastPeriodType === "OT" ? "Final • OT" : "Final • SO"
+                } else if (props.game.clock?.inIntermission) {
+                    return "INT"
+                } else return props.game.clock?.timeRemaining
+            }
+
+
+            return formatAMPM(new Date(game.startTimeUTC))
+
+        }
+
+        return <TouchableOpacity onPress={() => {
+            Haptics.selectionAsync().then(r => {
+            });
+            navigation.push("Games_Detail", {data: {data: game, date: dt, prob: {h: 1 - hwp, a: hwp}}})
+        }}
+                                 onLongPress={() => {
+                                     getTeamStats(props.game.homeTeam.id, props.game.awayTeam.id)
+                                     bottomSheetRef.current.expand();
+                                     Haptics.selectionAsync().then(r => {
+                                     });
+                                     setAwayGoalieStats({
+                                         GSA: 0,
+                                         SP: 0,
+                                         GSAx: 0
+                                     })
+                                     setHomeGoalieStats({
+                                         GSA: 0,
+                                         SP: 0,
+                                         GSAx: 0
+                                     })
+                                     setSelectedTeam(props.game)
+                                     Papa.parse(
+                                         `https://moneypuck.com/moneypuck/tweets/starting_goalies/${game?.id}A.csv`,
+                                         {
+                                             ...commonConfig,
+                                             header: true,
+                                             download: true,
+                                             complete: (result) => {
+                                                 setAwayGoalie({
+                                                     name: result?.data[0].goalie_name,
+                                                     confirmed_by: result?.data[0].handle,
+                                                     id: result?.data[0].goalie_id
+                                                 })
+                                                 Papa.parse(
+                                                     `https://moneypuck.com/moneypuck/playerData/seasonSummary/2023_goalies.csv`,
+                                                     {
+                                                         ...commonConfig,
+                                                         header: true,
+                                                         download: true,
+                                                         complete: (resultG) => {
+                                                             const g = resultG.data.filter((goalie) => {
+                                                                 return goalie.playerId === result?.data[0].goalie_id && goalie.situation === "all"
+                                                             })
+
+                                                             setAwayGoalieStats({
+                                                                 GSA: (g[0].goals * 60) / (g[0].icetime / 60).toFixed(2),
+                                                                 SP: (g[0].ongoal - g[0].goals) / g[0].ongoal,
+                                                                 GSAx: g[0].xGoals - g[0].goals
+                                                             })
+                                                         }
+                                                     }
+                                                 );
+                                             }
+                                         }
+                                     );
+                                     Papa.parse(
+                                         `https://moneypuck.com/moneypuck/tweets/starting_goalies/${game?.id}H.csv`,
+                                         {
+                                             ...commonConfig,
+                                             header: true,
+                                             download: true,
+                                             complete: (result) => {
+                                                 setHomeGoalie({
+                                                     name: result?.data[0].goalie_name,
+                                                     confirmed_by: result?.data[0].handle,
+                                                     id: result?.data[0].goalie_id
+                                                 })
+                                                 Papa.parse(
+                                                     `https://moneypuck.com/moneypuck/playerData/seasonSummary/2023_goalies.csv`,
+                                                     {
+                                                         ...commonConfig,
+                                                         header: true,
+                                                         download: true,
+                                                         complete: (resultG) => {
+
+                                                             const g = resultG.data.filter((goalie) => {
+                                                                 return goalie.playerId === result?.data[0].goalie_id && goalie.situation === "all"
+                                                             })
+
+                                                             setHomeGoalieStats({
+                                                                 GSA: (g[0].goals * 60) / (g[0].icetime / 60).toFixed(2),
+                                                                 SP: (g[0].ongoal - g[0].goals) / g[0].ongoal,
+                                                                 GSAx: g[0].xGoals - g[0].goals
+
+                                                             })
+                                                         }
+                                                     }
+                                                 );
+
+                                             }
+                                         }
+                                     );
+
+
+                                 }}
+                                 style={{
+                                     backgroundColor: colors.card,
+                                     marginBottom: 4,
+                                     paddingVertical: 15,
+                                     borderRadius: 15
+
+                                 }}>
+            {
+                (props.game.gameState === "LIVE" || props.game.gameState === "CRIT") && !props.game.clock.inIntermission &&
+
+                <MotiView from={{
+                    opacity: 1
+                }}
+                          animate={{
+                              opacity: .4
+                          }}
+                          transition={{
+                              type: 'timing',
+                              duration: 1000,
+                              loop: true
+                          }}
+                          style={{
+                              backgroundColor: !props.game.clock.inIntermission ? '#f54242' : colors.text,
+                              paddingVertical: 0,
+                              borderRadius: 15,
+                              height: 10, width: 10,
+                              position: 'absolute',
+                              zIndex: 1000,
+                              top: 15,
+                              right: 15
+                          }}>
+                </MotiView>}
+            <View style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center'
+            }}>
+                <View style={{
+                    alignItems: 'center'
+                }}>
+
+                    <Image style={{
+                        height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
+                        justifyContent: 'center'
+                    }} source={assets[teamAbbreviations.indexOf(game.homeTeam.abbrev)]}/>
+
+                    {
+                        (pp?.a < pp?.h && (game.gameState !== "OFF" && game.gameState !== "OVER" && game.gameState !== "FINAL")) ?
+                            <MotiView from={{
+                                opacity: 1
+                            }}
+                                      animate={{
+                                          opacity: .4
+
+                                      }}
+                                      transition={{
+                                          type: 'timing',
+                                          duration: 1000,
+                                          loop: true
+                                      }}
+
+                                      style={{
+                                          backgroundColor: '#f54242',
+                                          paddingVertical: 0,
+                                          borderRadius: 15,
+                                          paddingHorizontal: 5,
+                                          flexDirection: 'row',
+                                          justifyContent: 'center'
+
+                                      }}>
+                                <Text style={{
+                                    color: 'white',
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>{game.homeTeam.abbrev}</Text>
+                            </MotiView> : <Text
+                                style={{color: colors.text, fontFamily: 'Sora_500Medium'}}>{game.homeTeam.abbrev}</Text>
+                    }
+                </View>
+                <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}>
+                    <View>
+                        <View style={{
+                            backgroundColor: colors.background,
+                            paddingVertical: 5,
+                            borderRadius: 25,
+                            paddingHorizontal: 15
+                        }}>
+                            <Text style={{
+                                color: colors.text,
+                                textAlign: 'center',
+                                fontFamily: 'Sora_500Medium'
+                            }}>1:22</Text>
+                        </View>
+                    </View>
+                </View>
+
+                <View style={{
+                    alignItems: 'center'
+                }}>
+
+                    <Image style={{
+                        height: 50, width: 70, transform: [{scale: .7}], flexDirection: 'column',
+                        justifyContent: 'center'
+                    }} source={assets[teamAbbreviations.indexOf(game.awayTeam.abbrev)]}/>
+                    {
+                        (pp?.a > pp?.h && (game.gameState !== "OFF" && game.gameState !== "OVER" && game.gameState !== "FINAL")) ?
+                            <View style={{
+                                backgroundColor: '#f54242',
+                                paddingVertical: 0,
+                                borderRadius: 15,
+                                paddingHorizontal: 5,
+                                flexDirection: 'row',
+                                justifyContent: 'center'
+
+                            }}>
+                                <Text style={{
+                                    color: 'white',
+                                    fontFamily: 'Sora_600SemiBold'
+                                }}>{game.awayTeam.abbrev}</Text>
+                            </View> : <Text
+                                style={{color: colors.text, fontFamily: 'Sora_500Medium'}}>{game.awayTeam.abbrev}</Text>
+
+
+                    }
+                </View>
+
+
+            </View>
+        </TouchableOpacity>
+    }
+
     function getWeekNameOrDate(dateInput) {
         // Get today's date
         var today = new Date();
@@ -332,7 +635,7 @@ export default function Home({navigation}) {
     useEffect(() => {
 
         getData().then(r => {
-            getSchedule(true, r)
+            getSchedule(false, r)
             getTimeLine(r)
             getTeamData(r)
             getRoster(r)
@@ -352,6 +655,31 @@ export default function Home({navigation}) {
 
         // Format as MM/DD
         return `${month.replace(/^0+/, '')}/${day.replace(/^0+/, '')}`;
+    }
+
+    function getTimeUntilGame(utcDateString) {
+        // Parse the UTC date string
+        const utcDate = new Date(utcDateString);
+
+        // Get the current date
+        const now = new Date();
+
+        // Calculate the difference in milliseconds
+        const diff = utcDate - now;
+
+        // Calculate the difference in hours, minutes, and seconds
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        // Return the time until the game
+        if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        } else if (minutes > 0) {
+            return `${minutes}m ${seconds}s`;
+        } else {
+            return `${seconds}s`;
+        }
     }
 
 
@@ -375,6 +703,21 @@ export default function Home({navigation}) {
                 }
             );
         }
+
+        //update every second
+        const isToday = isUTCDateTimeToday(game.startTimeUTC);
+
+        let timeUntilGame = getTimeUntilGame(game.startTimeUTC);
+
+        const [countdown, setCountdown] = useState(timeUntilGame);
+
+        useEffect(() => {
+            const interval = setInterval(() => {
+                setCountdown(getTimeUntilGame(game.startTimeUTC));
+            }, getTimeUntilGame(game.startTimeUTC).includes("s") ? 1000 : 60000);
+
+            return () => clearInterval(interval);
+        })
 
 
         return <View
@@ -414,19 +757,22 @@ export default function Home({navigation}) {
                         }}>{(game.awayTeam.abbrev === `${selectedTeam}`) ? `${Math.round(parseFloat(hwp).toFixed(2) * 100)}%` : `${Math.round(parseFloat(1 - hwp).toFixed(2) * 100)}%`}</Text>
                     </View>
                     <View>
-                        <View style={{
-                            backgroundColor: colors.background,
-                            paddingVertical: 5,
-                            borderRadius: 15,
-                            paddingHorizontal: 15
-                        }}>
-                            <Text style={{
-                                color: colors.text,
-                                textAlign: 'center',
-                                fontFamily: 'Sora_500Medium'
+                        {
+                            !isToday &&
+                            <View style={{
+                                backgroundColor: colors.background,
+                                paddingVertical: 5,
+                                borderRadius: 15,
+                                paddingHorizontal: 15
+                            }}>
+                                <Text style={{
+                                    color: colors.text,
+                                    textAlign: 'center',
+                                    fontFamily: 'Sora_500Medium'
 
-                            }}>{getWeekNameOrDate(convertUTCtoMMDD(game.startTimeUTC))}</Text>
-                        </View>
+                                }}>{getWeekNameOrDate(convertUTCtoMMDD(game.startTimeUTC))}</Text>
+                            </View>}
+
                         <View style={{
                             backgroundColor: colors.background,
                             paddingVertical: 5,
@@ -434,11 +780,13 @@ export default function Home({navigation}) {
                             paddingHorizontal: 15,
                             marginTop: 4
                         }}>
+
+
                             <Text style={{
                                 textAlign: 'center',
                                 color: colors.text,
                                 fontFamily: 'Sora_500Medium'
-                            }}>{formatAMPM(new Date(game.startTimeUTC))}</Text>
+                            }}>{isToday ? countdown : formatAMPM(new Date(game.startTimeUTC))}</Text>
                         </View>
                     </View>
                     <View style={{backgroundColor: '', borderRadius: 100, paddingLeft: 15}}>
@@ -471,7 +819,6 @@ export default function Home({navigation}) {
         <GestureHandlerRootView>
             <View style={styles.container}>
                 <TouchableOpacity
-
                     onPress={() => {
                         Haptics.selectionAsync().then(() => {
                         })
@@ -486,29 +833,59 @@ export default function Home({navigation}) {
                         paddingBottom: 20,
                         borderRadius: 0,
                         flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                    }}>
+
+                    <View style={{
+                        flexDirection: 'row',
                         justifyContent: 'flex-start',
                         alignItems: 'center'
                     }}>
-                    {assets && selectedTeam &&
-                        <Image style={{
-                            height: 50, width: 70, flexDirection: 'column',
-                            justifyContent: 'center'
-                        }} source={assets[teamAbbreviations.indexOf(`${selectedTeam}`)]}/>}
-                    <View>
-                        <Text style={{fontFamily: 'Sora_500Medium', fontSize: 24, color: 'white'}}>{
-                            teamData.filter((t) => {
-                                return t.abbreviation === selectedTeam
-                            })[0]?.name
-                        }
+                        {assets && selectedTeam &&
+                            <Image style={{
+                                height: 50, width: 70, flexDirection: 'column',
+                                justifyContent: 'center'
+                            }} source={assets[teamAbbreviations.indexOf(`${selectedTeam}`)]}/>}
+                        <View>
+                            <Text style={{fontFamily: 'Sora_500Medium', fontSize: 24, color: 'white'}}>{
+                                teamData.filter((t) => {
+                                    return t.abbreviation === selectedTeam
+                                })[0]?.name
+                            }
+                            </Text>
+                            <Text style={{
+                                fontFamily: 'Sora_500Medium',
+                                fontSize: 16,
+                                color: 'white',
+                                opacity: .7
+                            }}>{stats.w}<Text style={{fontFamily: ""}}>•</Text>{stats.l}<Text
+                                style={{fontFamily: ""}}>•</Text>{stats.o}
+                            </Text>
+                        </View>
+
+                    </View>
+
+                    <View style={{
+                        marginRight: 10
+                    }}>
+                        <Text style={{
+                            textAlign: 'right',
+                            fontFamily: 'Sora_500Medium',
+                            fontSize: 24,
+
+                            color: 'white'
+                        }}>
+                            {stats.s}{stats.s === 4 || stats.s === 5 || stats.s === 6 || stats.s === 7 ? "th" : stats.s === 3 ? "rd" : stats.s === 2 ? "nd" : stats.s !== "Wildcard" ? "st" : ""}
                         </Text>
                         <Text style={{
+                            textAlign: 'right',
                             fontFamily: 'Sora_500Medium',
                             fontSize: 16,
                             color: 'white',
                             opacity: .7
-                        }}>{stats.w}<Text style={{fontFamily: ""}}>•</Text>{stats.l}<Text
-                            style={{fontFamily: ""}}>•</Text>{stats.o} <Text
-                            style={{fontFamily: 'default'}}>•</Text> {stats.s}{stats.s === 4 || stats.s === 5 || stats.s === 6 || stats.s === 7 ? "th" : stats.s === 3 ? "rd" : stats.s === 2 ? "nd" : stats.s !== "Wildcard" ? "st" : ""} {stats.d}
+                        }}>
+                            {stats.d}
                         </Text>
                     </View>
                 </TouchableOpacity>
@@ -560,17 +937,47 @@ export default function Home({navigation}) {
 
                     {!tab ?
                         <View style={{marginHorizontal: 10}}>
+                            {schedule ? schedule?.[0] && schedule?.[0].gameState !== "OFF" && schedule?.[0].gameState !== "FINAL" && schedule?.[0].gameState !== "LIVE" && schedule?.[0].gameState !== "CRIT" && isUTCDateTimeToday(schedule?.[0].startTimeUTC) === false &&
+                                <View>
+                                    <Text style={{
+                                        fontFamily: 'Sora_600SemiBold',
+                                        fontSize: 24, color: colors.text
+                                    }}>Today's Game</Text>
+
+                                </View> : null
+                            }
+                            {schedule ? schedule?.[0] && schedule?.[0].gameState !== "OFF" && schedule?.[0].gameState !== "FINAL" && schedule?.[0].gameState !== "LIVE" && schedule?.[0].gameState !== "CRIT" && isUTCDateTimeToday(schedule?.[0].startTimeUTC) === false &&
+                                <MotiView from={{
+                                    opacity: 0
+                                }}
+                                          animate={{
+                                              opacity: 1
+                                          }}
+                                          transition={{
+                                              type: 'timing',
+                                              duration: 300
+                                          }}>
+                                    <Match game={schedule?.[0]}/>
+                                </MotiView>
+                                : <View style={{gap: 10}}>
+                                    <Skeleton colorMode={colors.text === 'white' ? 'light' : 'dark'}
+                                              width={Dimensions.get('window').width - 20} height={70} radius={15}/>
+
+                                </View>
+                            }
                             <View>
                                 <Text style={{
                                     fontFamily: 'Sora_600SemiBold',
-                                    fontSize: 24, color: colors.text
+                                    fontSize: 24, color: colors.text,
+                                    marginTop: 14
                                 }}>This Weeks Games</Text>
 
                             </View>
-
-
                             <ScrollView style={{height: '100%', marginTop: 20}} showsVerticalScrollIndicator={false}>
-                                {schedule ? schedule?.map((game, i) => {
+                                {schedule ? schedule?.filter(g => {
+                                    return g.gameState !== "OFF" && g.gameState !== "FINAL" && g.gameState !== "LIVE" && g.gameState !== "CRIT" && isUTCDateTimeToday(g.startTimeUTC) === false
+                                }).map((game, i) => {
+
 
                                     return <MotiView from={{
                                         opacity: 0

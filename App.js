@@ -172,7 +172,7 @@ export const Onboarding = ({navigation}) => {
                     color: colors.text
                 }}>Choose your favorite team</Text>
                 <ScrollView style={{paddingTop: 20, width: Dimensions.get('window').width - 20, marginTop: 20}}>
-                    {teamData.map((team, i) => {
+                    {teamData?.map((team, i) => {
                         return <TouchableOpacity style={{
                             flexDirection: 'row',
                             justifyContent: 'space-between',
