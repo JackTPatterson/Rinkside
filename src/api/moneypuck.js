@@ -5,6 +5,7 @@ import {request} from './client';
 // so callers should treat errors as "no data" rather than fatal.
 const MP = 'https://moneypuck.com/moneypuck';
 const MIN = 60 * 1000;
+const MP_TEAM_CODES = {LAK: 'L.A', NJD: 'N.J', SJS: 'S.J', TBL: 'T.B'};
 
 export const mpUrls = {
     prediction: (gameId) => `${MP}/predictions/${gameId}.csv`,
@@ -24,7 +25,16 @@ export const moneypuck = {
     gameData: (seasonId, gameId, o) => csv(mpUrls.gameData(seasonId, gameId), 20 * 1000, o),
     startingGoalie: (gameId, side, o) => csv(mpUrls.startingGoalie(gameId, side), 10 * MIN, o),
     goalieSeason: (seasonId, o) => csv(mpUrls.goalieSeason(seasonId), 60 * MIN, {persist: true, ...o}),
-    teamGameByGame: (team, seasonId, o) => csv(mpUrls.teamGameByGame(team, seasonId), 30 * MIN, {persist: true, ...o}),
+    // MoneyPuck spells four teams with dots (L.A, N.J, S.J, T.B); try the NHL code first, then theirs.
+    teamGameByGame: async (team, seasonId, o) => {
+        try {
+            return await csv(mpUrls.teamGameByGame(team, seasonId), 30 * MIN, {persist: true, ...o});
+        } catch (e) {
+            const alt = MP_TEAM_CODES[team];
+            if (!alt) throw e;
+            return csv(mpUrls.teamGameByGame(alt, seasonId), 30 * MIN, {persist: true, ...o});
+        }
+    },
     simulations: (o) => csv(mpUrls.simulations(), 30 * MIN, {persist: true, ...o}),
     powerRankings: (date, o) => csv(mpUrls.powerRankings(date), 60 * MIN, {persist: true, ...o}),
 };
