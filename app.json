@@ -2,9 +2,10 @@
   "expo": {
     "name": "Rinkside",
     "slug": "rinkside",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "scheme": "rinkside",
     "userInterfaceStyle": "automatic",
     "assetBundlePatterns": [
       "**/*"
@@ -13,18 +14,39 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.jpdigital.rinkside",
       "icon": "./assets/icon.png",
-      "buildNumber": "5"
+      "buildNumber": "6",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "CADisableMinimumFrameDurationOnPhone": true
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.jpdigital.rinkside"
+      "package": "com.jpdigital.rinkside",
+      "versionCode": 6
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-status-bar",
+      "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image": "./assets/icon.png",
+            "backgroundColor": "#010101"
+          }
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "6a1cebad-c730-48e1-b136-5a8b2ea74133"
