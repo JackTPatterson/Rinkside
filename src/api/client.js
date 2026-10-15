@@ -66,9 +66,21 @@ export async function request(url, {type = 'json', ttl = 60000, persist = false,
     if (inflight.has(key)) return inflight.get(key);
 
     const p = (async () => {
-        const text = await fetchTextWithRetry(url, {
-            headers: type === 'json' ? {accept: 'application/json'} : undefined,
-        });
+        let text;
+        try {
+            text = await fetchTextWithRetry(url, {
+                headers: type === 'json' ? {accept: 'application/json'} : undefined,
+            });
+        } catch (e) {
+            // Offline / server down: serve the last copy we have rather than an error screen.
+            // A 404 is a real answer ("no such file"), so don't mask it.
+            const is404 = e instanceof HttpError && e.status === 404;
+            if (!is404) {
+                const stale = hit?.value ?? (persist ? await readPersisted(url, type) : undefined);
+                if (stale !== undefined) return stale;
+            }
+            throw e;
+        }
         const value = PARSERS[type](text);
         memory.set(key, {value, at: Date.now()});
         if (persist) {

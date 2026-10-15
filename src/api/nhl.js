@@ -26,18 +26,19 @@ export const urls = {
 const sortParam = (pairs) =>
     encodeURIComponent(JSON.stringify(pairs.map(([property, direction]) => ({property, direction}))));
 
-function statsUrl(kind, {seasonId = currentSeasonId(), sort, limit = 50, gameTypeId = 2, minGames = 1} = {}) {
+function statsUrl(kind, {seasonId = currentSeasonId(), sort, start = 0, limit = 50, gameTypeId = 2, minGames = 1} = {}) {
     return `${STATS}/${kind}/summary?isAggregate=false&isGame=false&sort=${sortParam(sort)}` +
-        `&start=0&limit=${limit}&factCayenneExp=gamesPlayed%3E=${minGames}` +
+        `&start=${start}&limit=${limit}&factCayenneExp=gamesPlayed%3E=${minGames}` +
         `&cayenneExp=gameTypeId=${gameTypeId}%20and%20seasonId%3C=${seasonId}%20and%20seasonId%3E=${seasonId}`;
 }
 
+// opts: {seasonId, sortBy, direction: 'DESC' | 'ASC', start, limit, minGames, gameTypeId}
 export const statsUrls = {
     skaters: (opts = {}) => statsUrl('skater', {
-        sort: [[opts.sortBy ?? 'points', 'DESC'], ['gamesPlayed', 'ASC'], ['playerId', 'ASC']], ...opts,
+        sort: [[opts.sortBy ?? 'points', opts.direction ?? 'DESC'], ['gamesPlayed', 'ASC'], ['playerId', 'ASC']], ...opts,
     }),
     goalies: (opts = {}) => statsUrl('goalie', {
-        sort: [[opts.sortBy ?? 'wins', 'DESC'], ['savePct', 'DESC'], ['playerId', 'ASC']], ...opts,
+        sort: [[opts.sortBy ?? 'wins', opts.direction ?? 'DESC'], ['savePct', 'DESC'], ['playerId', 'ASC']], ...opts,
     }),
     // Every team's season summary in one call; index it by teamId / teamFullName.
     teams: (opts = {}) => statsUrl('team', {sort: [['points', 'DESC'], ['wins', 'DESC']], limit: 50, ...opts}),

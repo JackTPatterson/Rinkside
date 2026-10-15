@@ -14,10 +14,13 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import * as SplashScreen from 'expo-splash-screen';
 import {StatusBar} from 'expo-status-bar';
-import React, {useCallback} from 'react';
+import React, {useCallback, useEffect} from 'react';
 import {View} from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
+import ErrorBoundary from './src/components/ErrorBoundary';
+import {nhl} from './src/api/nhl';
+import {toISODate} from './src/utils/format';
 import {Brodcast, Chart, Home2, Setting2, User} from './src/components/icons';
 import {FavoriteTeamProvider, useFavoriteTeam} from './src/hooks/useFavoriteTeam';
 import {ROUTES} from './src/navigation/routes';
@@ -40,6 +43,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+const screenLayout = ({children}) => <ErrorBoundary>{children}</ErrorBoundary>;
+
 const TAB_ICONS = {
     [ROUTES.home]: Home2,
     [ROUTES.scores]: Brodcast,
@@ -52,6 +57,7 @@ function Tabs() {
     const {colors, fonts} = useAppTheme();
     return (
         <Tab.Navigator
+            screenLayout={screenLayout}
             screenListeners={{tabPress: () => Haptics.selectionAsync().catch(() => {})}}
             screenOptions={({route}) => ({
                 headerShown: false,
@@ -92,6 +98,13 @@ function RootNavigator() {
         Sora_800ExtraBold,
     });
 
+    // Warm the caches the first tabs need while the splash screen is still up.
+    useEffect(() => {
+        nhl.standings().catch(() => {});
+        // Same key the Scores tab uses: the hockey day rolls over at 4am.
+        nhl.score(toISODate(new Date(Date.now() - 4 * 3600 * 1000))).catch(() => {});
+    }, []);
+
     const onLayout = useCallback(() => {
         if (fontsLoaded && ready) SplashScreen.hideAsync().catch(() => {});
     }, [fontsLoaded, ready]);
@@ -105,6 +118,7 @@ function RootNavigator() {
             <StatusBar style={theme.dark ? 'light' : 'dark'}/>
             <NavigationContainer theme={theme.navigation}>
                 <Stack.Navigator
+                    screenLayout={screenLayout}
                     screenOptions={{
                         headerShown: false,
                         contentStyle: {backgroundColor: theme.colors.background},
