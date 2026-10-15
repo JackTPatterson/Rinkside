@@ -68,7 +68,7 @@ const LuckRow = memo(function LuckRow({item, rank, scale, fav, onTeamPress}) {
 });
 
 /** Luck & projection: actual vs Pythagorean points, pace, projected final points (80% interval). */
-export default function LuckView({rows, fav, onTeamPress, refreshControl, listRef}) {
+export default memo(function LuckView({rows, fav, onTeamPress, refreshControl, listRef}) {
     const [sort, setSort] = useState('projected');
     const lp = useMemo(() => leaguePointPct(rows), [rows]);
     const profiles = useMemo(
@@ -125,7 +125,7 @@ export default function LuckView({rows, fav, onTeamPress, refreshControl, listRe
             initialNumToRender={12}
         />
     );
-}
+});
 
 const st = StyleSheet.create({
     title: {flexDirection: 'row', alignItems: 'center', gap: 6},

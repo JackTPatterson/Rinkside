@@ -57,22 +57,20 @@ function cleanPower(rows) {
 
 // MoneyPuck names snapshots rankings_YYYY_MM_DD.csv (underscores; the format the old app used
 // in production). Snapshots aren't published every day, so look around "a week ago".
+// The lookback is up to 11 requests, so its outcome (hit *or* miss) is cached for the day and
+// concurrent callers share one search; the network is only retried after MISS_TTL.
 const mpDate = (d) => `${d.getFullYear()}_${pad2(d.getMonth() + 1)}_${pad2(d.getDate())}`;
 const OFFSET_BATCHES = [[7], [6, 8], [5, 9], [4, 10], [11, 12, 13, 14]];
-let previousDateCache = null; // date string that worked last time (survives refreshes)
+const MISS_TTL = 30 * 60 * 1000;
+let lookback = null; // {day, at, result: {date, rows} | null}
+let lookbackInflight = null;
 
 async function tryPrevious(date, force) {
     const rows = cleanPower(await moneypuck.powerRankings(date, {force}).catch(() => null));
     return rows.length >= 16 ? rows : null;
 }
 
-async function findPrevious(force) {
-    if (previousDateCache) {
-        const rows = await tryPrevious(previousDateCache, force);
-        if (rows) return {date: previousDateCache, rows};
-        previousDateCache = null;
-    }
-    const today = new Date();
+async function searchPrevious(today) {
     for (const batch of OFFSET_BATCHES) {
         const dates = batch.map((o) => {
             const d = new Date(today);
@@ -81,19 +79,37 @@ async function findPrevious(force) {
         });
         const results = await Promise.all(dates.map((d) => tryPrevious(d, false)));
         const idx = results.findIndex(Boolean);
-        if (idx >= 0) {
-            previousDateCache = dates[idx];
-            return {date: dates[idx], rows: results[idx]};
-        }
+        if (idx >= 0) return {date: dates[idx], rows: results[idx]};
     }
     return null;
+}
+
+async function findPrevious() {
+    const today = new Date();
+    const day = mpDate(today);
+    const c = lookback;
+    // A dated snapshot never changes, so a hit is reused even on pull-to-refresh; a miss is
+    // retried only after MISS_TTL (or on a new day).
+    if (c && c.day === day && (c.result || Date.now() - c.at < MISS_TTL)) return c.result;
+    if (!lookbackInflight) {
+        lookbackInflight = searchPrevious(today)
+            .catch(() => null)
+            .then((result) => {
+                lookback = {day, at: Date.now(), result};
+                return result;
+            })
+            .finally(() => {
+                lookbackInflight = null;
+            });
+    }
+    return lookbackInflight;
 }
 
 /** {rows: [{abbrev, rank, prevRank, movement}], previousDate} or null when MoneyPuck has nothing. */
 export async function fetchPowerRankings({force}) {
     const current = cleanPower(await moneypuck.powerRankings(undefined, {force}).catch(() => null));
     if (!current.length) return null;
-    const prev = await findPrevious(force).catch(() => null);
+    const prev = await findPrevious().catch(() => null);
     const prevRank = new Map((prev?.rows ?? []).map((r) => [r.abbrev, r.rank]));
     return {
         previousDate: prev?.date?.replace(/_/g, '-') ?? null,

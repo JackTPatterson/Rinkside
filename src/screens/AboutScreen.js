@@ -126,6 +126,8 @@ export default function AboutScreen({navigation}) {
 
                 <Pressable
                     accessibilityRole="link"
+                    accessibilityLabel="Thanks to MoneyPuck for sharing its data. Opens moneypuck.com"
+                    hitSlop={8}
                     onPress={() => {
                         tap();
                         openLink(LINKS.moneypuckData);
@@ -156,6 +158,6 @@ const styles = StyleSheet.create({
     privacyHead: {flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2},
     bullet: {flexDirection: 'row', alignItems: 'flex-start', gap: 10},
     dot: {width: 6, height: 6, borderRadius: 3, marginTop: 8},
-    footer: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 28, paddingVertical: 8},
+    footer: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 28, paddingVertical: 12, minHeight: 44},
     pressed: {opacity: 0.6},
 });

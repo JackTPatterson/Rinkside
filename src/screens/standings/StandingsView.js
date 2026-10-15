@@ -214,8 +214,8 @@ const TableSection = memo(function TableSection({section, sort, onSort, fav, onT
     );
 });
 
-/** Standings tables. rows: api-web standings rows. */
-export default function StandingsView({rows, fav, onTeamPress, refreshControl, listRef}) {
+/** Standings tables. rows: api-web standings rows. Memoised: the full table isn't virtualised. */
+export default memo(function StandingsView({rows, fav, onTeamPress, refreshControl, listRef}) {
     const [view, setView] = useState('league');
     const [sort, setSort] = useState(DEFAULT_SORT);
     const onSort = useCallback((key) => {
@@ -234,7 +234,7 @@ export default function StandingsView({rows, fav, onTeamPress, refreshControl, l
                         {isDefault ? 'Sorted by points' : `Sorted by ${COL_BY_KEY[sort.key]?.title} ${sort.desc ? '↓' : '↑'}`}
                     </T>
                     {!isDefault ? (
-                        <Pressable hitSlop={8} onPress={() => {
+                        <Pressable accessibilityRole="button" accessibilityLabel="Reset sort to points" hitSlop={14} onPress={() => {
                             tap();
                             setSort(DEFAULT_SORT);
                         }}>
@@ -252,7 +252,7 @@ export default function StandingsView({rows, fav, onTeamPress, refreshControl, l
             ) : null}
         </ScrollView>
     );
-}
+});
 
 const st = StyleSheet.create({
     section: {marginTop: 12},

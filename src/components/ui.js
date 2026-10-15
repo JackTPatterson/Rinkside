@@ -203,7 +203,7 @@ export function InfoTip({title, body, size = 16}) {
     return (
         <>
             <Pressable
-                hitSlop={10}
+                hitSlop={14}
                 accessibilityRole="button"
                 accessibilityLabel={`About ${title}`}
                 onPress={() => {

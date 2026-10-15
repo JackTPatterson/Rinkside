@@ -77,7 +77,7 @@ export default function PdoView({q, rows, fav, onTeamPress, refreshControl, list
         </View>
     );
 
-    if (q.loading && !q.data) return <View>{header}<SkeletonList count={8} height={48} style={st.pad}/></View>;
+    if (q.data === undefined && !q.error) return <View>{header}<SkeletonList count={8} height={44} gap={4} style={st.pad}/></View>;
     if (!data.length) {
         return (
             <View>

@@ -77,8 +77,10 @@ export default function OddsView({q, fav, onTeamPress, refreshControl, listRef})
     );
 
     let body;
-    if (q.loading && !q.data) {
-        body = <View>{header}<SkeletonList count={8} height={48} style={st.pad}/></View>;
+    // First load: data is undefined until the fetch settles (loading is still false on the render
+    // that enables the query, so checking `loading` alone flashed the error state).
+    if (q.data === undefined && !q.error) {
+        body = <View>{header}<SkeletonList count={8} height={44} gap={4} style={st.pad}/></View>;
     } else if (!data.length) {
         body = (
             <View>

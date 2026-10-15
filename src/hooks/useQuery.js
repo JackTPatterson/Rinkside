@@ -80,7 +80,10 @@ export function useQuery(fetcher, deps = [], {refetchInterval = 0, enabled = tru
     }, [enabled, refetchInterval, focused, appActive, run]);
 
     const refresh = useCallback(() => run({force: true, manual: true}), [run]);
-    return {data, error, loading, refreshing, refresh, setData};
+    // The render that flips `enabled` on runs before the effect sets `loading`; treat "enabled,
+    // no data, no error" as loading so screens never flash an empty/error state for a frame.
+    const pending = enabled && data === undefined && error == null;
+    return {data, error, loading: loading || pending, refreshing, refresh, setData};
 }
 
 /** Re-render every `ms` (for countdowns / clocks). */

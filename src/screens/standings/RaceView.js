@@ -55,7 +55,7 @@ const RaceRow = memo(function RaceRow({item, rank, fav, onTeamPress}) {
 });
 
 /** Projected playoff line per conference with each team's cushion and required pace. */
-export default function RaceView({rows, fav, onTeamPress, refreshControl, listRef}) {
+export default memo(function RaceView({rows, fav, onTeamPress, refreshControl, listRef}) {
     const favConf = useMemo(() => (getTeam(fav)?.conference === 'Western' ? 'W' : 'E'), [fav]);
     const [conf, setConf] = useState(favConf);
     const lp = useMemo(() => leaguePointPct(rows), [rows]);
@@ -111,7 +111,7 @@ export default function RaceView({rows, fav, onTeamPress, refreshControl, listRe
             initialNumToRender={16}
         />
     );
-}
+});
 
 const st = StyleSheet.create({
     tiles: {flexDirection: 'row', gap: 10},

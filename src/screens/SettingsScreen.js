@@ -42,8 +42,15 @@ export default function SettingsScreen({navigation}) {
     const [cleared, setCleared] = useState(false);
     const [clearing, setClearing] = useState(false);
     const timer = useRef(null);
+    const mounted = useRef(true);
 
-    useEffect(() => () => clearTimeout(timer.current), []);
+    useEffect(() => {
+        mounted.current = true;
+        return () => {
+            mounted.current = false;
+            clearTimeout(timer.current);
+        };
+    }, []);
 
     const go = useCallback((route) => navigation.navigate(route), [navigation]);
 
@@ -59,6 +66,7 @@ export default function SettingsScreen({navigation}) {
                     onPress: () => {
                         setClearing(true);
                         clearCache().finally(() => {
+                            if (!mounted.current) return;
                             setClearing(false);
                             setCleared(true);
                             tap();

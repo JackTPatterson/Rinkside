@@ -1,4 +1,4 @@
-import React, {useCallback} from 'react';
+import React, {useCallback, useRef} from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {BackButton, Header, Screen} from '../components/ui';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
@@ -9,9 +9,13 @@ export default function FavoriteTeamScreen({navigation}) {
     const {team, setTeam} = useFavoriteTeam();
     const insets = useSafeAreaInsets();
 
+    // A quick double tap must not pop twice (the second goBack would act on the tabs).
+    const done = useRef(false);
     const onSelect = useCallback((abbrev) => {
+        if (done.current) return;
+        done.current = true;
         if (abbrev !== team) setTeam(abbrev);
-        navigation.goBack();
+        if (navigation.canGoBack()) navigation.goBack();
     }, [team, setTeam, navigation]);
 
     return (

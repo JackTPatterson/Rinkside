@@ -3,7 +3,7 @@ import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {RefreshControl, StyleSheet, View} from 'react-native';
 import {nhl} from '../api/nhl';
 import {Activity, Crown1, Diagram, Radar, RowVertical, Speedometer, Status} from '../components/icons';
-import {ErrorState, Header, PillTabs, Screen, SkeletonList} from '../components/ui';
+import {ErrorState, Header, PillTabs, Screen, Skeleton, SkeletonList} from '../components/ui';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {useLeague} from '../hooks/useLeague';
 import {useQuery} from '../hooks/useQuery';
@@ -72,14 +72,29 @@ export default function StandingsScreen() {
     }, [leagueRefresh, extraRefresh]);
     const refreshing = !!(league.refreshing || extra?.refreshing);
     const refreshControl = useMemo(
-        () => <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textSecondary}/>,
-        [refreshing, onRefresh, colors.textSecondary],
+        () => (
+            <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.textSecondary}
+                colors={[colors.text]}
+                progressBackgroundColor={colors.card}
+            />
+        ),
+        [refreshing, onRefresh, colors.textSecondary, colors.text, colors.card],
     );
 
     const common = {rows, fav, onTeamPress, refreshControl, listRef};
     let content;
     if (NEEDS_STANDINGS.has(tab) && !rows.length && league.loading) {
-        content = <SkeletonList count={9} height={44} style={styles.skeleton}/>;
+        // Mirrors the loaded layout (segmented control / title row, then 44pt rows) so nothing jumps.
+        content = (
+            <View style={styles.skeleton}>
+                <Skeleton height={34} radius={12}/>
+                <Skeleton width="45%" height={14} style={styles.skeletonCaption}/>
+                <SkeletonList count={10} height={40} gap={4}/>
+            </View>
+        );
     } else if (NEEDS_STANDINGS.has(tab) && !rows.length) {
         content = <ErrorState message={league.error ? 'Couldn’t load the standings.' : 'No standings yet.'} onRetry={league.refresh}/>;
     } else if (tab === 'standings') {
@@ -110,5 +125,6 @@ export default function StandingsScreen() {
 const styles = StyleSheet.create({
     tabs: {marginBottom: 4},
     body: {flex: 1},
-    skeleton: {paddingHorizontal: 16, paddingTop: 12},
+    skeleton: {paddingHorizontal: 16, paddingTop: 8},
+    skeletonCaption: {marginTop: 12, marginBottom: 16},
 });

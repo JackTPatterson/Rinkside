@@ -63,7 +63,7 @@ const RatingRow = memo(function RatingRow({item, rank, maxNet, fav, onTeamPress}
 });
 
 /** Rinkside Ratings: attack/defence multipliers → net goals per game vs an average opponent. */
-export default function RatingsView({ratings, fav, onTeamPress, refreshControl, listRef}) {
+export default memo(function RatingsView({ratings, fav, onTeamPress, refreshControl, listRef}) {
     const [sort, setSort] = useState('net');
     // Render the cheap columns first; the 32 model runs happen in a deferred re-render.
     const deferredRatings = useDeferredValue(ratings, null);
@@ -73,7 +73,8 @@ export default function RatingsView({ratings, fav, onTeamPress, refreshControl, 
         const lr = ratings?.leagueRate;
         if (!ratings?.teams || !Number.isFinite(lr)) return [];
         return Object.entries(ratings.teams)
-            .filter(([a, t]) => a && Number.isFinite(t?.attack) && Number.isFinite(t?.defense))
+            // buildRatings keys rows with a missing abbrev as 'undefined'; drop those.
+            .filter(([a, t]) => a && a !== 'undefined' && Number.isFinite(t?.attack) && Number.isFinite(t?.defense))
             .map(([abbrev, t]) => ({
                 abbrev,
                 gp: t.gp,
@@ -133,7 +134,7 @@ export default function RatingsView({ratings, fav, onTeamPress, refreshControl, 
             initialNumToRender={16}
         />
     );
-}
+});
 
 const st = StyleSheet.create({
     title: {flexDirection: 'row', alignItems: 'center', gap: 6},

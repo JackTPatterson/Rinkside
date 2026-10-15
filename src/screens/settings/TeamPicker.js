@@ -12,7 +12,12 @@ const ROW_HEIGHT = 64;
 const ROW_GAP = 8;
 const ITEM = ROW_HEIGHT + ROW_GAP;
 
-const fold = (s) => String(s).toLowerCase().replace(/[éèê]/g, 'e');
+// Case-, accent- and punctuation-insensitive ("st louis" finds "St. Louis", "montreal" finds "Montréal").
+const fold = (s) => String(s ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, '');
 
 function matches(team, q) {
     if (!q) return true;

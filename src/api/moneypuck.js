@@ -14,7 +14,7 @@ export const mpUrls = {
     goalieSeason: (seasonId) => `${MP}/playerData/seasonSummary/${moneyPuckYear(seasonId)}_goalies.csv`,
     teamGameByGame: (team, seasonId) => `${MP}/playerData/teamGameByGame/${moneyPuckYear(seasonId)}/regular/${team}.csv`,
     simulations: () => `${MP}/simulations/simulations_recent.csv`,
-    powerRankings: (date /* YYYY-MM-DD or undefined */) =>
+    powerRankings: (date /* YYYY_MM_DD (underscores, as MoneyPuck names snapshots) or undefined */) =>
         date ? `${MP}/powerRankings/rankings_${date}.csv` : `${MP}/powerRankings/rankings.csv`,
 };
 

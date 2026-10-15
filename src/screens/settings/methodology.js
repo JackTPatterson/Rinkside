@@ -98,7 +98,7 @@ export const METHOD_SECTIONS = [
                 math: [
                     'xG = 1 / (1 + e^(−z)), clamped to 0.005–0.85',
                     'z = −0.85 − 0.058 × distance (ft) − 0.011 × angle (°) + shot type + 0.95 rebound + 0.35 rush + 0.3 power play (−0.15 short-handed)',
-                    'shot type: tip-in +0.25, deflection +0.2, snap +0.08, slap +0.05, backhand −0.12, wrap-around −0.55',
+                    'shot type: tip-in +0.25, deflection +0.2, between-the-legs / cradle +0.1, snap +0.08, slap +0.05, wrist 0, backhand −0.12, poke / bat −0.2, wrap-around −0.55',
                     'empty net: 0.95 − 0.004 × distance, clamped to 0.5–0.95; shootouts excluded',
                 ],
             },
@@ -158,11 +158,13 @@ export const METHOD_SECTIONS = [
                 title: 'Hot and cold streaks',
                 plain: [
                     'Is a player’s last 10 games a real hot streak or just noise? Rinkside asks how likely a run at least this extreme would be if the player were performing at their usual rate from the rest of the season. If it would happen less than 10% of the time, it’s flagged hot or cold.',
+                    'Goalies are judged on goals allowed over their last 8 games, compared with what their shrunk true-talent save percentage (from their other games) would allow on the same shots.',
                     'The form line weights recent games more heavily: each game counts half as much as one five games newer.',
                 ],
                 math: [
                     'expected = usual rate × 10 (usual rate from the other games, or all games if fewer than 5)',
                     'hot if P(X ≥ actual) < 0.10, cold if P(X ≤ actual) < 0.10, X ~ Poisson(expected)',
+                    'goalies: expected goals against = shots faced in last 8 × (1 − true-talent save %); hot if P(X ≤ actual) < 0.10',
                     'form = exponentially weighted average, half-life 5 games',
                 ],
             },
@@ -204,7 +206,7 @@ export const METHOD_SECTIONS = [
                 math: [
                     'projected points: Gamma-Poisson, prior = league points per game over 15 games',
                     'line = 8th-highest projected total in the conference; cushion = projected − line',
-                    'needed per game = (line − points) / games left',
+                    'needed points % = max(0, line − points) / (2 × games left)',
                 ],
             },
         ],
