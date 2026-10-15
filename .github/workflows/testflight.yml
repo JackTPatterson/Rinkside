@@ -1,0 +1,52 @@
+# Builds the iOS app on EAS and submits it to TestFlight.
+#
+# One-time setup (see README "Shipping to TestFlight"):
+#   1. Repo secret  EXPO_TOKEN   – expo.dev → Account settings → Access tokens
+#   2. Repo variable ASC_APP_ID  – App Store Connect → Rinkside → App Information → Apple ID (numeric)
+#   3. App Store Connect API key stored on EAS (run `eas credentials -p ios` once locally, or let the
+#      first interactive `eas submit` create it).
+name: TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  ship:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit tests + import check
+        run: |
+          npm test
+          node scripts/check.js
+
+      - name: Verify the JS bundle builds
+        run: npx expo export --platform ios --output-dir .expo-export-check
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Point submit profile at the App Store Connect app
+        if: ${{ vars.ASC_APP_ID != '' }}
+        run: |
+          jq --arg id "${{ vars.ASC_APP_ID }}" '.submit.production.ios.ascAppId = $id' eas.json > eas.tmp && mv eas.tmp eas.json
+
+      - name: Build on EAS and auto-submit to TestFlight
+        run: eas build --platform ios --profile production --non-interactive --auto-submit --no-wait
