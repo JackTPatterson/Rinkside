@@ -85,13 +85,25 @@ export function buildRatings(standings) {
  * Finds the tied-in-the-3rd scoring multiplier that makes an average matchup reach overtime at
  * the observed league rate. Bisection over [0.3, 1.3].
  */
+const calibrationCache = new Map();
+
 export function calibrateTiedLate(lambda, targetTie) {
+    // Standings refreshes barely move these inputs; reuse the answer (key ≈ 0.1% resolution).
+    const key = `${lambda.toFixed(3)}:${targetTie.toFixed(4)}`;
+    if (calibrationCache.has(key)) return calibrationCache.get(key);
+    const m = bisectTiedLate(lambda, targetTie);
+    calibrationCache.set(key, m);
+    return m;
+}
+
+function bisectTiedLate(lambda, targetTie) {
     const tie = (m) => simulateRegulation({lambdaHome: lambda, lambdaAway: lambda, tiedLate: m}).ot;
     let lo = 0.3; // low multiplier → more ties
     let hi = 1.3;
     if (tie(lo) <= targetTie) return lo;
     if (tie(hi) >= targetTie) return hi;
-    for (let i = 0; i < 25; i++) {
+    // 14 halvings of a width-1 interval → ±0.00006, far below what moves any probability.
+    for (let i = 0; i < 14; i++) {
         const mid = (lo + hi) / 2;
         if (tie(mid) > targetTie) lo = mid;
         else hi = mid;

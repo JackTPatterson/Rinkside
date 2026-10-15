@@ -1,12 +1,12 @@
-import React, {memo, useMemo} from 'react';
+import React, {memo, useCallback, useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {leaguePointPct, pdo, playoffLine, predictGame, teamProfile} from '../../analytics';
+import {leaguePointPct, pdo, playoffLine, teamProfile} from '../../analytics';
 import {isLive} from '../../api/nhl';
 import {Card, ErrorState, FadeInView, InfoTip, ProgressBar, Row, Section, Skeleton, SplitBar, StatTile, T, TeamLogo} from '../../components/ui';
 import {useAppTheme, withAlpha} from '../../theme';
 import {formatTime, num, ordinal, pct, relativeDayLabel, signed} from '../../utils/format';
 import {REGULAR_SEASON_GAMES} from '../../utils/season';
-import {findStandingsRow, findTeamSummary, gameTime, sides} from './data';
+import {findStandingsRow, findTeamSummary, gamePrediction, gameTime, sides} from './data';
 
 const INFO = {
     prediction: 'A model estimate, not a guarantee. Rinkside rates each team’s scoring and goal prevention from this season’s results (pulled toward league average early on), adds home ice, then plays out regulation minute by minute, including power plays and pulled goalies, to get every possible outcome.',
@@ -23,13 +23,11 @@ const INFO = {
 
 /* ----------------------------------------------------- next-game prediction */
 
-const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onPress}) {
+const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onOpenGame}) {
     const {teamColor, colors} = useAppTheme();
-    const {isHome, opp, home, away} = sides(game, abbrev);
-    const pred = useMemo(
-        () => (ratings && home && away ? predictGame(ratings, home, away, {playoff: game?.gameType === 3}) : null),
-        [ratings, home, away, game?.gameType],
-    );
+    const {isHome, opp} = sides(game, abbrev);
+    const pred = gamePrediction(ratings, game); // cached per ratings + matchup
+    const onPress = useCallback(() => onOpenGame(game), [onOpenGame, game]);
     if (!pred) return null;
     const win = isHome ? pred.homeWin : pred.awayWin;
     const regWin = isHome ? pred.homeRegWin : pred.awayRegWin;
@@ -52,8 +50,8 @@ const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onPr
                     <T variant="caption" muted>{isHome ? 'vs' : '@'}</T>
                     <TeamLogo abbrev={opp} size={28}/>
                     <View style={styles.flex}>
-                        <T variant="label">{opp}</T>
-                        <T variant="caption" muted>
+                        <T variant="label" numberOfLines={1}>{opp ?? 'TBD'}</T>
+                        <T variant="caption" muted numberOfLines={1}>
                             {isLive(game) ? 'Live now · pregame prediction' : start ? `${relativeDayLabel(start)} · ${formatTime(start)}` : 'TBD'}
                         </T>
                     </View>
@@ -62,7 +60,7 @@ const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onPr
             </Row>
 
             <View style={styles.bigRow}>
-                <T variant="display" color={us} style={styles.bigNum}>{pct(win)}</T>
+                <T variant="display" color={us} style={styles.bigNum} numberOfLines={1}>{pct(win)}</T>
                 <T variant="body" muted style={styles.flex}>chance {abbrev} wins</T>
             </View>
 
@@ -130,9 +128,9 @@ function RaceBar({lo, hi, projected, line, color}) {
                 <View style={[styles.raceLine, {left: x(line), backgroundColor: colors.text}]}/>
             </View>
             <Row style={styles.between}>
-                <T variant="caption" muted>{min} pts</T>
-                <T variant="caption" muted>Cut line ≈ {Math.round(line)}</T>
-                <T variant="caption" muted>{max} pts</T>
+                <T variant="caption" muted style={styles.tabular}>{min} pts</T>
+                <T variant="caption" muted style={styles.tabular}>Cut line ≈ {Math.round(line)}</T>
+                <T variant="caption" muted style={styles.tabular}>{max} pts</T>
             </Row>
         </View>
     );
@@ -199,13 +197,14 @@ function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry,
     if (!model) return <ErrorState message="This team isn’t in the current standings." onRetry={onRetry}/>;
 
     const {profile, me, line} = model;
+    const race = me ? raceSentence(me) : null;
     const early = profile.gp < 10;
     const noGames = profile.gp === 0;
 
     return (
         <FadeInView style={styles.pad}>
             {hero ? (
-                <PredictionCard abbrev={abbrev} game={hero} ratings={ratings} onPress={() => onOpenGame(hero)}/>
+                <PredictionCard abbrev={abbrev} game={hero} ratings={ratings} onOpenGame={onOpenGame}/>
             ) : (
                 <Card><T variant="body" muted>No upcoming game to predict.</T></Card>
             )}
@@ -254,7 +253,7 @@ function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry,
                             Projected {ordinal(model.projRank)} of {model.confSize} in the {model.confName}
                         </T>
                         <RaceBar lo={profile.projectedLo} hi={profile.projectedHi} projected={profile.projected} line={line} color={color}/>
-                        {raceSentence(me) ? <T variant="body" style={styles.mt12}>{raceSentence(me)}</T> : null}
+                        {race ? <T variant="body" style={styles.mt12}>{race}</T> : null}
                     </Card>
                 </Section>
             ) : null}
@@ -349,7 +348,8 @@ const styles = StyleSheet.create({
     gap16: {gap: 16},
     predCard: {padding: 16},
     bigRow: {flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginTop: 14, marginBottom: 12},
-    bigNum: {fontSize: 44, lineHeight: 50},
+    bigNum: {fontSize: 44, lineHeight: 50, fontVariant: ['tabular-nums']},
+    tabular: {fontVariant: ['tabular-nums']},
     splitLabels: {justifyContent: 'space-between', marginTop: 8},
     centerText: {alignItems: 'center'},
     rightText: {alignItems: 'flex-end'},

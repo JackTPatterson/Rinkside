@@ -96,8 +96,9 @@ export default function HomeScreen({navigation, route}) {
     }, [weekGames, weekHero]);
 
     const heroId = hero?.id;
+    const heroPregame = !!heroId && !isLive(hero) && !isFinal(hero);
     const mpProb = useQuery(() => preGameHomeWinProb(heroId), [heroId], {
-        enabled: !!heroId && !isLive(hero) && !isFinal(hero),
+        enabled: heroPregame,
         keepPreviousData: false,
     });
 
@@ -138,13 +139,20 @@ export default function HomeScreen({navigation, route}) {
 
     const tabQuery = {stats: mp, roster, injuries, insights: summary}[tab];
     const refreshing = league.refreshing || week.refreshing || !!tabQuery?.refreshing;
+    // Depend on the (stable) refresh functions, not the query objects, which are new every render.
+    const refreshLeague = league.refresh;
+    const refreshWeek = week.refresh;
+    const refreshSeason = season.refresh;
+    const refreshMp = mpProb.refresh;
+    const refreshTab = tabQuery?.refresh;
+    const seasonNeeded = !weekHero && !!week.data;
     const onRefresh = useCallback(() => {
-        league.refresh();
-        week.refresh();
-        if (!weekHero && week.data) season.refresh();
-        if (heroId) mpProb.refresh();
-        tabQuery?.refresh();
-    }, [league, week, season, weekHero, heroId, mpProb, tabQuery]);
+        refreshLeague();
+        refreshWeek();
+        if (seasonNeeded) refreshSeason();
+        if (heroPregame) refreshMp();
+        refreshTab?.();
+    }, [refreshLeague, refreshWeek, refreshSeason, refreshMp, refreshTab, seasonNeeded, heroPregame]);
 
     const onHeaderLayout = useCallback((e) => {
         headerH.current = e.nativeEvent.layout.height;
@@ -173,6 +181,9 @@ export default function HomeScreen({navigation, route}) {
 
     const headerBg = teamColor(abbrev);
     const headerFg = readableOn(headerBg);
+    // The tab bar sits below the My Team tab; the root-stack Team page has no tab bar, so clear the
+    // home indicator there.
+    const contentStyle = isTeamRoute ? [styles.content, {paddingBottom: 48 + insets.bottom}] : styles.content;
     const barStyle = pastHeader ? (dark ? 'light' : 'dark') : headerFg === '#FFFFFF' ? 'light' : 'dark';
 
     let content = null;
@@ -186,7 +197,7 @@ export default function HomeScreen({navigation, route}) {
                 onRetry={week.refresh}
                 hero={hero}
                 heroFromSeason={!!seasonHero}
-                mpHomeProb={mpProb.data ?? null}
+                mpHomeProb={heroPregame && Number.isFinite(mpProb.data) ? mpProb.data : null}
                 ratings={league.ratings}
                 onOpenGame={onOpenGame}
             />
@@ -219,7 +230,7 @@ export default function HomeScreen({navigation, route}) {
             />
         );
     } else {
-        content = <InjuriesTab injuries={injuries.data} loading={injuries.loading} error={injuries.error}/>;
+        content = <InjuriesTab injuries={injuries.data} loading={injuries.loading} error={injuries.error} onRetry={injuries.refresh}/>;
     }
 
     return (
@@ -231,7 +242,7 @@ export default function HomeScreen({navigation, route}) {
                 stickyHeaderIndices={STICKY}
                 onScroll={onScroll}
                 scrollEventThrottle={32}
-                contentContainerStyle={styles.content}
+                contentContainerStyle={contentStyle}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={headerFg} colors={[headerBg]}/>

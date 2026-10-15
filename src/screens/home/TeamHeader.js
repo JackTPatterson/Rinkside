@@ -35,6 +35,8 @@ function TeamHeader({abbrev, row, loading, bg, onPickTeam, onBack, onFavorite, i
                         ) : (
                             <Pressable
                                 accessibilityRole="button"
+                                accessibilityLabel={`Make ${team?.name ?? abbrev} your team`}
+                                hitSlop={8}
                                 onPress={() => {
                                     tap();
                                     onFavorite();
@@ -64,7 +66,7 @@ function TeamHeader({abbrev, row, loading, bg, onPickTeam, onBack, onFavorite, i
                         <ArrowDown2 size={18} color={fg}/>
                     </View>
                     {record ? (
-                        <T variant="body" color={fg} style={styles.dim}>
+                        <T variant="body" color={fg} style={styles.record} numberOfLines={1}>
                             {record}
                             {row?.points != null ? `  ·  ${row.points} pts` : ''}
                         </T>
@@ -72,7 +74,7 @@ function TeamHeader({abbrev, row, loading, bg, onPickTeam, onBack, onFavorite, i
                 </View>
                 {rank ? (
                     <View style={styles.rank}>
-                        <T variant="title" color={fg}>{rank.big}</T>
+                        <T variant="title" color={fg} numberOfLines={1}>{rank.big}</T>
                         <T variant="caption" color={fg} style={styles.dim} numberOfLines={1}>{rank.small}</T>
                     </View>
                 ) : null}
@@ -99,6 +101,7 @@ const styles = StyleSheet.create({
     nameRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
     name: {flexShrink: 1},
     dim: {opacity: 0.8},
+    record: {opacity: 0.8, fontVariant: ['tabular-nums']},
     skel: {marginTop: 4, opacity: 0.5},
     rank: {alignItems: 'flex-end', maxWidth: 120},
     chips: {flexDirection: 'row', gap: 8, marginTop: 12},

@@ -2,7 +2,7 @@
 import {request} from '../../api/client';
 import {moneypuck} from '../../api/moneypuck';
 import {isFinal, isLive, isUpcoming, nhl} from '../../api/nhl';
-import {formLine} from '../../analytics';
+import {formLine, predictGame} from '../../analytics';
 import {getTeam} from '../../data/teams';
 import {loc, ordinal, parseISODate, shortDate} from '../../utils/format';
 import {currentSeasonId, previousSeasonId} from '../../utils/season';
@@ -92,6 +92,35 @@ export function nextFromSeason(season) {
 }
 
 export const fetchWeek = (abbrev, force) => nhl.clubWeek(abbrev, {force});
+
+// predictGame runs an exact Markov chain; cache per ratings object so schedule polls, tab switches
+// and the Insights card reuse one result per matchup.
+const predCache = new WeakMap();
+
+/** Pre-game model prediction for a schedule game (cached), or null when it can't be computed. */
+export function gamePrediction(ratings, game) {
+    const home = game?.homeTeam?.abbrev;
+    const away = game?.awayTeam?.abbrev;
+    if (!ratings || !home || !away) return null;
+    let cache = predCache.get(ratings);
+    if (!cache) {
+        cache = new Map();
+        predCache.set(ratings, cache);
+    }
+    const playoff = game?.gameType === 3;
+    const key = `${home}:${away}:${playoff ? 'p' : 'r'}`;
+    if (!cache.has(key)) {
+        let pred = null;
+        try {
+            pred = predictGame(ratings, home, away, {playoff});
+            if (!Number.isFinite(pred?.homeWin) || !Number.isFinite(pred?.awayWin)) pred = null;
+        } catch {
+            pred = null;
+        }
+        cache.set(key, pred);
+    }
+    return cache.get(key);
+}
 
 /* --------------------------------------------------------------- injuries */
 

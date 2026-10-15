@@ -2,7 +2,7 @@
 // the "Game of the night" pick. No React in here.
 import {liveWinProbability, predictGame} from '../../analytics';
 import {isFinal, isLive, isUpcoming} from '../../api/nhl';
-import {formatTime, periodLabel} from '../../utils/format';
+import {formatTime, mmssToSeconds, periodLabel} from '../../utils/format';
 
 export const isPostponed = (g) => g?.gameScheduleState === 'PPD' || g?.gameScheduleState === 'CNCL' || g?.gameScheduleState === 'SUSP';
 
@@ -26,13 +26,16 @@ export function statusLabel(g) {
         return 'Final';
     }
     if (isLive(g)) {
-        const p = periodLabel(gamePeriod(g), g.periodDescriptor?.periodType);
+        const period = gamePeriod(g);
+        if (!period) return 'Live';
+        const p = periodLabel(period, g.periodDescriptor?.periodType);
         if (g.clock?.inIntermission) return `${p} INT`;
         if (g.periodDescriptor?.periodType === 'SO') return 'Shootout';
         const clock = g.clock?.timeRemaining;
         return clock ? `${p} · ${clock}` : p;
     }
     if (g.gameState === 'PRE') return 'Pregame';
+    if (g.gameScheduleState === 'TBD') return 'TBD';
     const start = g.startTimeUTC ? new Date(g.startTimeUTC) : null;
     return start && !Number.isNaN(start.getTime()) ? formatTime(start) : 'TBD';
 }
@@ -42,22 +45,24 @@ export function statusLabel(g) {
 // predictGame / liveWinProbability run an exact Markov chain; cache per ratings object so
 // re-renders and 15 s polls only recompute games whose state actually changed.
 const modelCache = new WeakMap();
+// Live keys change every poll (clock); keep the per-ratings map from growing all night.
+const MAX_LIVE_ENTRIES = 300;
 function cacheFor(ratings) {
     let m = modelCache.get(ratings);
     if (!m) {
-        m = new Map();
+        m = {pre: new Map(), live: new Map()};
         modelCache.set(ratings, m);
     }
     return m;
 }
 
-function pregame(ratings, home, away) {
-    const cache = cacheFor(ratings);
-    const key = `pre:${home}:${away}`;
+function pregame(ratings, home, away, playoff) {
+    const cache = cacheFor(ratings).pre;
+    const key = `${home}:${away}:${playoff ? 'p' : 'r'}`;
     if (!cache.has(key)) {
         try {
-            const p = predictGame(ratings, home, away);
-            cache.set(key, {home: p.homeWin, away: p.awayWin, kind: 'pregame'});
+            const p = predictGame(ratings, home, away, {playoff});
+            cache.set(key, Number.isFinite(p.homeWin) && Number.isFinite(p.awayWin) ? {home: p.homeWin, away: p.awayWin, kind: 'pregame'} : null);
         } catch {
             cache.set(key, null);
         }
@@ -69,19 +74,27 @@ function live(ratings, g) {
     const home = g.homeTeam?.abbrev;
     const away = g.awayTeam?.abbrev;
     const period = gamePeriod(g) || 1;
+    // secondsRemaining is per period; during intermission the clock counts the break, not play.
     const secondsRemaining = g.clock?.inIntermission ? 0 : Number(g.clock?.secondsRemaining);
     const hs = Number(g.homeTeam?.score) || 0;
     const as = Number(g.awayTeam?.score) || 0;
-    const cache = cacheFor(ratings);
-    const key = `live:${home}:${away}:${hs}:${as}:${period}:${secondsRemaining}`;
+    // The score feed carries the manpower situation during power plays / pulled goalies.
+    const situationCode = g.situation?.situationCode ?? g.situationCode;
+    const ppLeft = g.situation?.timeRemaining != null ? mmssToSeconds(g.situation.timeRemaining) : undefined;
+    const ppSeconds = Number.isFinite(ppLeft) && ppLeft > 0 ? ppLeft : undefined;
+    const cache = cacheFor(ratings).live;
+    const key = `${home}:${away}:${hs}:${as}:${period}:${secondsRemaining}:${situationCode ?? ''}:${ppSeconds ?? ''}`;
     if (!cache.has(key)) {
+        if (cache.size >= MAX_LIVE_ENTRIES) cache.clear();
         try {
             const p = liveWinProbability(ratings, {
                 home, away, homeScore: hs, awayScore: as, period,
                 secondsRemaining: Number.isFinite(secondsRemaining) ? secondsRemaining : undefined,
+                situationCode,
+                ppSeconds,
                 playoff: g.gameType === 3,
             });
-            cache.set(key, {home: p.home, away: p.away, kind: 'live'});
+            cache.set(key, Number.isFinite(p.home) && Number.isFinite(p.away) ? {home: p.home, away: p.away, kind: 'live'} : null);
         } catch {
             cache.set(key, null);
         }
@@ -96,7 +109,7 @@ function live(ratings, g) {
 export function modelProbability(ratings, g) {
     if (!ratings || !g?.homeTeam?.abbrev || !g?.awayTeam?.abbrev) return null;
     // Cached objects keep their identity across polls, so memoised cards can skip re-rendering.
-    return isLive(g) ? live(ratings, g) : pregame(ratings, g.homeTeam.abbrev, g.awayTeam.abbrev);
+    return isLive(g) ? live(ratings, g) : pregame(ratings, g.homeTeam.abbrev, g.awayTeam.abbrev, g.gameType === 3);
 }
 
 /* ------------------------------------------------------- game of night */
@@ -163,6 +176,23 @@ export function gameSignature(g) {
     return [
         g.id, g.gameState, g.gameScheduleState, g.startTimeUTC, g.period, g.periodDescriptor?.number,
         g.periodDescriptor?.periodType, g.clock?.timeRemaining, g.clock?.inIntermission, g.gameOutcome?.lastPeriodType,
-        g.season, t(g.homeTeam), t(g.awayTeam),
+        g.season, g.gameType, t(g.homeTeam), t(g.awayTeam),
     ].join('~');
+}
+
+/**
+ * Polling interval for a day's scores: fast while anything is live, slow while a game is about to
+ * start (so it flips to live without a manual refresh), otherwise none.
+ */
+export function pollInterval(games, now = new Date(), {live = 15000, soon = 60000} = {}) {
+    if (games.some(isLive)) return live;
+    const t = now.getTime();
+    const starting = games.some((g) => {
+        if (isFinal(g) || isPostponed(g)) return false;
+        if (g.gameState === 'PRE') return true;
+        const start = g.startTimeUTC ? new Date(g.startTimeUTC).getTime() : NaN;
+        // From 10 minutes before puck drop until a few hours after (delays, stuck FUT states).
+        return Number.isFinite(start) && start - t < 10 * 60000 && t - start < 4 * 3600000;
+    });
+    return starting ? soon : 0;
 }

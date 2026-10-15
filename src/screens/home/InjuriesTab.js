@@ -1,6 +1,6 @@
 import React, {memo} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {Badge, Card, EmptyState, FadeInView, Row, SkeletonList, T} from '../../components/ui';
+import {Badge, Card, EmptyState, ErrorState, FadeInView, Row, SkeletonList, T} from '../../components/ui';
 import {useAppTheme} from '../../theme';
 
 function statusColor(status, colors) {
@@ -20,19 +20,19 @@ const InjuryRow = memo(function InjuryRow({item}) {
             <View style={styles.flex}>
                 <Row gap={6}>
                     <T variant="label" numberOfLines={1} style={styles.shrink}>{name}</T>
-                    {item?.position ? <T variant="caption" muted>{item.position}</T> : null}
+                    {item?.position ? <T variant="caption" muted>{String(item.position)}</T> : null}
                 </Row>
-                <T variant="caption" muted numberOfLines={2}>{item?.injury || 'Undisclosed'}</T>
+                <T variant="caption" muted numberOfLines={2}>{item?.injury ? String(item.injury) : 'Undisclosed'}</T>
             </View>
-            {item?.status ? <Badge label={String(item.status)} color={color}/> : null}
+            {item?.status ? <Badge label={String(item.status)} color={color} style={styles.badge}/> : null}
         </Card>
     );
 });
 
-function InjuriesTab({injuries, loading, error}) {
-    if (loading && !injuries) return <SkeletonList count={4} height={60} style={styles.pad}/>;
+function InjuriesTab({injuries, loading, error, onRetry}) {
+    if (loading && !injuries) return <SkeletonList count={4} height={64} style={styles.pad}/>;
     if (error && !injuries) {
-        return <EmptyState title="Injury report unavailable" message="The injury feed couldn’t be reached. Pull down to try again."/>;
+        return <ErrorState message="The injury report couldn’t be reached right now." onRetry={onRetry}/>;
     }
     if (!injuries?.length) return <EmptyState title="No injuries reported" message="Everyone’s healthy, at least officially."/>;
     return (
@@ -51,5 +51,6 @@ const styles = StyleSheet.create({
     shrink: {flexShrink: 1},
     list: {paddingHorizontal: 16, gap: 8},
     row: {flexDirection: 'row', alignItems: 'center', gap: 12},
+    badge: {alignSelf: 'center', maxWidth: 140},
     source: {marginTop: 8},
 });

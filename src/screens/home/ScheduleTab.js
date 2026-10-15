@@ -1,12 +1,11 @@
-import React, {memo, useMemo} from 'react';
+import React, {memo, useCallback, useMemo} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {predictGame} from '../../analytics';
 import {isFinal, isLive} from '../../api/nhl';
 import {Badge, Card, EmptyState, ErrorState, FadeInView, InfoTip, LiveDot, Row, Section, Skeleton, SkeletonList, SplitBar, T, TeamLogo} from '../../components/ui';
 import {useNow} from '../../hooks/useQuery';
 import {useAppTheme} from '../../theme';
-import {countdown, formatTime, isSameDay, pct, periodLabel, relativeDayLabel} from '../../utils/format';
-import {finalSuffix, gameTime, resultFor, sides} from './data';
+import {countdown, formatTime, isSameDay, loc, pct, periodLabel, relativeDayLabel} from '../../utils/format';
+import {finalSuffix, gamePrediction, gameTime, resultFor, sides} from './data';
 
 const WIN_INFO = 'Chance to win from the Rinkside game model: a model estimate built from each team’s goals for and against this season (pulled toward league average early on) plus home ice. MoneyPuck’s number, when shown, comes from their own shot-quality model.';
 
@@ -22,7 +21,7 @@ const Countdown = memo(function Countdown({start}) {
     const now = useNow(left < 3600000 ? 1000 : 30000, left > 0);
     if (!start) return null;
     if (start - now <= 0) return <T variant="label">Starting soon</T>;
-    return <T variant="stat">{countdown(start, now)}</T>;
+    return <T variant="stat">{countdown(start, now)}</T>; // `stat` is tabular, so the clock doesn't jitter
 });
 
 function HeroCenter({game, start}) {
@@ -31,10 +30,10 @@ function HeroCenter({game, start}) {
         const clock = game?.clock?.inIntermission ? 'INT' : game?.clock?.timeRemaining;
         return (
             <View style={styles.center}>
-                <T variant="display">{game?.awayTeam?.score ?? 0} – {game?.homeTeam?.score ?? 0}</T>
+                <T variant="display" style={styles.tabular}>{game?.awayTeam?.score ?? 0} – {game?.homeTeam?.score ?? 0}</T>
                 <Row gap={6}>
                     <LiveDot/>
-                    <T variant="caption" muted>
+                    <T variant="caption" muted style={styles.tabular}>
                         {pd?.number ? periodLabel(pd.number, pd.periodType) : 'Live'}{clock ? ` · ${clock}` : ''}
                     </T>
                 </Row>
@@ -64,13 +63,13 @@ function HeroSide({team, prob}) {
     return (
         <View style={styles.side}>
             <TeamLogo abbrev={team?.abbrev} size={44}/>
-            <T variant="label" style={styles.sideAbbrev}>{team?.abbrev ?? '–'}</T>
-            {prob != null ? <T variant="caption" muted>{pct(prob)}</T> : null}
+            <T variant="label" numberOfLines={1} style={styles.sideAbbrev}>{team?.abbrev ?? '–'}</T>
+            {prob != null ? <T variant="caption" muted style={styles.tabular}>{pct(prob)}</T> : <View style={styles.probSpacer}/>}
         </View>
     );
 }
 
-export const NextGameCard = memo(function NextGameCard({game, abbrev, mpHomeProb, pred, onPress}) {
+export const NextGameCard = memo(function NextGameCard({game, abbrev, mpHomeProb, pred, onOpenGame}) {
     const {colors, teamColor} = useAppTheme();
     const start = gameTime(game);
     const live = isLive(game);
@@ -82,12 +81,14 @@ export const NextGameCard = memo(function NextGameCard({game, abbrev, mpHomeProb
     const homeP = hasMP ? mpHomeProb : pred?.homeWin;
     const ourP = homeP == null ? null : isHome ? homeP : 1 - homeP;
     const title = live ? 'Live now' : today ? 'Today’s game' : 'Next game';
+    const venue = loc(game?.venue);
+    const onPress = useCallback(() => onOpenGame(game), [onOpenGame, game]);
 
     return (
-        <Card onPress={onPress} accessibilityLabel={`${title}: ${away?.abbrev} at ${home?.abbrev}`} style={styles.hero}>
+        <Card onPress={onPress} accessibilityLabel={`${title}: ${away?.abbrev ?? 'TBD'} at ${home?.abbrev ?? 'TBD'}`} style={styles.hero}>
             <Row style={styles.heroTop}>
                 <T variant="label" color={live ? colors.live : undefined}>{title.toUpperCase()}</T>
-                {game?.venue ? <T variant="caption" muted numberOfLines={1} style={styles.venue}>{game.venue?.default ?? game.venue}</T> : null}
+                {venue ? <T variant="caption" muted numberOfLines={1} style={styles.venue}>{venue}</T> : null}
             </Row>
             <Row style={styles.heroMain}>
                 <HeroSide team={away} prob={homeP != null && !live ? 1 - homeP : null}/>
@@ -112,38 +113,42 @@ export const NextGameCard = memo(function NextGameCard({game, abbrev, mpHomeProb
 
 /* ------------------------------------------------------------ week rows */
 
-const GameRow = memo(function GameRow({game, abbrev, winProb, onPress}) {
+const GameRow = memo(function GameRow({game, abbrev, winProb, onOpenGame}) {
     const {colors, teamColor} = useAppTheme();
+    const onPress = useCallback(() => onOpenGame(game), [onOpenGame, game]);
     const start = gameTime(game);
     const {isHome, opp, us, them} = sides(game, abbrev);
     const result = resultFor(game, abbrev);
     const live = isLive(game);
     const resultColor = result === 'W' ? colors.positive : result === 'OTL' ? colors.warning : colors.negative;
     return (
-        <Card onPress={onPress} style={styles.row} accessibilityLabel={`${isHome ? 'vs' : 'at'} ${opp}`}>
+        <Card
+            onPress={onPress}
+            style={styles.row}
+            accessibilityLabel={`${start ? relativeDayLabel(start) : 'TBD'}, ${isHome ? 'versus' : 'at'} ${opp ?? 'TBD'}${result ? `, ${result} ${us?.score ?? ''}–${them?.score ?? ''}` : ''}`}>
             <View style={[styles.rowStripe, {backgroundColor: teamColor(opp)}]}/>
             <View style={styles.rowDate}>
-                <T variant="label">{start ? relativeDayLabel(start) : 'TBD'}</T>
-                <T variant="caption" muted>{isFinal(game) ? `Final${finalSuffix(game)}` : live ? 'Live' : start ? formatTime(start) : ''}</T>
+                <T variant="label" numberOfLines={1}>{start ? relativeDayLabel(start) : 'TBD'}</T>
+                <T variant="caption" muted numberOfLines={1}>{isFinal(game) ? `Final${finalSuffix(game)}` : live ? 'Live' : start ? formatTime(start) : ''}</T>
             </View>
             <Row gap={6} style={styles.flex}>
                 <T variant="caption" muted>{isHome ? 'vs' : '@'}</T>
                 <TeamLogo abbrev={opp} size={26}/>
-                <T variant="label">{opp}</T>
+                <T variant="label" numberOfLines={1}>{opp ?? 'TBD'}</T>
             </Row>
             {result ? (
                 <Row gap={8}>
-                    <T variant="label">{us?.score ?? '–'}–{them?.score ?? '–'}</T>
+                    <T variant="label" style={styles.tabular}>{us?.score ?? '–'}–{them?.score ?? '–'}</T>
                     <Badge label={result} color={resultColor}/>
                 </Row>
             ) : live ? (
                 <Row gap={6}>
                     <LiveDot/>
-                    <T variant="label">{us?.score ?? 0}–{them?.score ?? 0}</T>
+                    <T variant="label" style={styles.tabular}>{us?.score ?? 0}–{them?.score ?? 0}</T>
                 </Row>
             ) : winProb != null ? (
                 <View style={styles.rowProb}>
-                    <T variant="label">{pct(winProb)}</T>
+                    <T variant="label" style={styles.tabular}>{pct(winProb)}</T>
                     <T variant="caption" muted>win</T>
                 </View>
             ) : null}
@@ -160,16 +165,19 @@ function ScheduleTab({abbrev, games, loading, error, onRetry, hero, heroFromSeas
     );
     const rest = useMemo(() => sorted.filter((g) => g?.id !== hero?.id), [sorted, hero]);
 
-    // Model win chance for every upcoming game (cheap, exact; memoised per ratings refresh).
+    // Model win chance for every upcoming game (exact chain, cached per ratings + matchup so the
+    // 30 s live poll doesn't recompute anything).
     const preds = useMemo(() => {
         const out = {};
         if (!ratings) return out;
         for (const g of sorted) {
-            if (isFinal(g) || isLive(g) || !g?.homeTeam?.abbrev || !g?.awayTeam?.abbrev) continue;
-            out[g.id] = predictGame(ratings, g.homeTeam.abbrev, g.awayTeam.abbrev, {playoff: g.gameType === 3});
+            if (isFinal(g) || isLive(g)) continue;
+            const p = gamePrediction(ratings, g);
+            if (p) out[g.id] = p;
         }
-        if (hero && !out[hero.id] && hero.homeTeam?.abbrev && hero.awayTeam?.abbrev) {
-            out[hero.id] = predictGame(ratings, hero.homeTeam.abbrev, hero.awayTeam.abbrev, {playoff: hero.gameType === 3});
+        if (hero && !out[hero.id]) {
+            const p = gamePrediction(ratings, hero);
+            if (p) out[hero.id] = p;
         }
         return out;
     }, [ratings, sorted, hero]);
@@ -177,8 +185,9 @@ function ScheduleTab({abbrev, games, loading, error, onRetry, hero, heroFromSeas
     if (loading && !games) {
         return (
             <View style={styles.pad}>
-                <Skeleton height={170} radius={16}/>
-                <SkeletonList count={3} height={64} style={styles.mt24}/>
+                <Skeleton height={210} radius={16}/>
+                <Skeleton height={24} width={120} style={styles.mt24}/>
+                <SkeletonList count={3} height={58} style={styles.mt12}/>
             </View>
         );
     }
@@ -193,7 +202,7 @@ function ScheduleTab({abbrev, games, loading, error, onRetry, hero, heroFromSeas
                         abbrev={abbrev}
                         mpHomeProb={mpHomeProb}
                         pred={preds[hero.id]}
-                        onPress={() => onOpenGame(hero)}
+                        onOpenGame={onOpenGame}
                     />
                 </FadeInView>
             ) : (
@@ -202,13 +211,13 @@ function ScheduleTab({abbrev, games, loading, error, onRetry, hero, heroFromSeas
             <Section title="This week" info={rest.some((g) => preds[g.id]) ? WIN_INFO : undefined}>
                 {rest.length ? (
                     <View style={styles.list}>
-                        {rest.map((g) => (
+                        {rest.map((g, i) => (
                             <GameRow
-                                key={g.id}
+                                key={g.id ?? `idx-${i}`}
                                 game={g}
                                 abbrev={abbrev}
                                 winProb={teamWinProb(preds[g.id], sides(g, abbrev).isHome)}
-                                onPress={() => onOpenGame(g)}
+                                onOpenGame={onOpenGame}
                             />
                         ))}
                     </View>
@@ -224,7 +233,10 @@ export default memo(ScheduleTab);
 
 const styles = StyleSheet.create({
     pad: {paddingHorizontal: 16},
+    mt12: {marginTop: 12},
     mt24: {marginTop: 24},
+    tabular: {fontVariant: ['tabular-nums']},
+    probSpacer: {height: 16},
     flex: {flex: 1},
     hero: {padding: 16},
     heroTop: {justifyContent: 'space-between', marginBottom: 12},

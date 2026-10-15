@@ -2,9 +2,9 @@ import {BottomSheetModalProvider} from '@gorhom/bottom-sheet';
 import {useScrollToTop} from '@react-navigation/native';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Pressable, RefreshControl, SectionList, StyleSheet, View} from 'react-native';
-import {EmptyState, ErrorState, FadeInView, Header, InfoTip, LiveDot, Row, Screen, SkeletonList, T, tap} from '../components/ui';
+import {EmptyState, ErrorState, FadeInView, Header, InfoTip, LiveDot, Row, Screen, Skeleton, SkeletonList, T, tap} from '../components/ui';
 import {Calendar} from '../components/icons';
-import {isLive, nhl} from '../api/nhl';
+import {nhl} from '../api/nhl';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {useLeague} from '../hooks/useLeague';
 import {useNow, useQuery} from '../hooks/useQuery';
@@ -14,9 +14,10 @@ import {parseISODate, relativeDayLabel, toISODate} from '../utils/format';
 import DateStrip from './scores/DateStrip';
 import GameCard from './scores/GameCard';
 import GamePreviewSheet from './scores/GamePreviewSheet';
-import {buildSections, gameOfTheNight, modelProbability} from './scores/gameLogic';
+import {buildSections, gameOfTheNight, modelProbability, pollInterval} from './scores/gameLogic';
 
 const POLL_MS = 15000;
+const SOON_POLL_MS = 60000;
 // Like the NHL's own apps, the hockey "day" rolls over at 4am so late West-coast games stay on
 // "Today" after midnight.
 const DAY_ROLLOVER_MS = 4 * 3600 * 1000;
@@ -44,7 +45,7 @@ function SectionHeader({section}) {
             <Row gap={6}>
                 {section.key === 'live' ? <LiveDot/> : null}
                 <T variant="heading">{section.title}</T>
-                {section.key !== 'favorite' ? <T variant="caption" muted>{section.data.length}</T> : null}
+                {section.key !== 'favorite' ? <T variant="caption" muted style={styles.tabular}>{section.data.length}</T> : null}
                 {SECTION_INFO[section.key] ? (
                     <InfoTip title={section.key === 'favorite' ? section.title : `${section.title} win probability`} body={SECTION_INFO[section.key]}/>
                 ) : null}
@@ -74,7 +75,10 @@ function TodayButton({onPress}) {
 function ScoresContent({navigation}) {
     const {colors} = useAppTheme();
     const {team: favorite} = useFavoriteTeam() ?? {};
-    const {ratings} = useLeague();
+    const league = useLeague();
+    const ratings = league.ratings;
+    // Ratings are still on their way (not failed): cards reserve space for the win-probability bar.
+    const modelPending = !ratings && league.loading;
 
     // Re-evaluate "today" every minute so the strip rolls over if the app stays open.
     const now = useNow(60000);
@@ -89,14 +93,19 @@ function ScoresContent({navigation}) {
         }
     }, [todayISO]);
 
-    const [poll, setPoll] = useState(false);
+    const [poll, setPoll] = useState(0);
     const scores = useQuery(({force}) => nhl.score(selected, {force}), [selected], {
-        refetchInterval: poll ? POLL_MS : 0,
+        refetchInterval: poll,
         keepPreviousData: false,
     });
-    const games = useMemo(() => (Array.isArray(scores.data?.games) ? scores.data.games : []), [scores.data]);
-    const hasLive = useMemo(() => games.some(isLive), [games]);
-    useEffect(() => setPoll(hasLive), [hasLive]);
+    // Games without an id can't be keyed or opened; drop them rather than risk duplicate keys.
+    const games = useMemo(
+        () => (Array.isArray(scores.data?.games) ? scores.data.games.filter((g) => g && g.id != null) : []),
+        [scores.data],
+    );
+    // Poll fast while live, slowly while a game is about to start (so it flips to live on its own).
+    const nextPoll = useMemo(() => pollInterval(games, now, {live: POLL_MS, soon: SOON_POLL_MS}), [games, now]);
+    useEffect(() => setPoll(nextPoll), [nextPoll]);
 
     const probs = useMemo(() => {
         const out = {};
@@ -131,17 +140,24 @@ function ScoresContent({navigation}) {
             model={probs[item.id]}
             favorite={favorite && (item.homeTeam?.abbrev === favorite || item.awayTeam?.abbrev === favorite) ? favorite : null}
             gameOfNight={item.id === gotn}
+            modelPending={modelPending}
             onOpen={openGame}
             onPreview={showPreview}
         />
-    ), [probs, favorite, gotn, openGame, showPreview]);
+    ), [probs, favorite, gotn, modelPending, openGame, showPreview]);
+    const listExtra = useMemo(() => ({probs, gotn, favorite, modelPending}), [probs, gotn, favorite, modelPending]);
 
     const subtitle = relativeDayLabel(parseISODate(selected), parseISODate(todayISO));
     const isToday = selected === todayISO;
 
     let body;
     if (scores.loading && !scores.data) {
-        body = <SkeletonList count={5} height={128} style={styles.skeleton}/>;
+        body = (
+            <View style={styles.skeleton}>
+                <Skeleton width={120} height={24} style={styles.skeletonHeader}/>
+                <SkeletonList count={4} height={160}/>
+            </View>
+        );
     } else if (scores.error && !scores.data) {
         body = <ErrorState message="Couldn’t load scores for this day." onRetry={scores.refresh}/>;
     } else {
@@ -153,13 +169,20 @@ function ScoresContent({navigation}) {
                 renderItem={renderItem}
                 renderSectionHeader={renderSectionHeader}
                 stickySectionHeadersEnabled
-                extraData={probs}
-                initialNumToRender={8}
+                extraData={listExtra}
+                initialNumToRender={6}
+                maxToRenderPerBatch={6}
                 windowSize={7}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={scores.refreshing} onRefresh={scores.refresh} tintColor={colors.textSecondary}/>
+                    <RefreshControl
+                        refreshing={scores.refreshing}
+                        onRefresh={scores.refresh}
+                        tintColor={colors.textSecondary}
+                        colors={[colors.accent]}
+                        progressBackgroundColor={colors.card}
+                    />
                 }
                 ListEmptyComponent={
                     <EmptyState
@@ -201,8 +224,10 @@ export default function ScoresScreen(props) {
 
 const styles = StyleSheet.create({
     flex: {flex: 1},
-    skeleton: {paddingHorizontal: 16, paddingTop: 8},
+    skeleton: {paddingHorizontal: 16, paddingTop: 12},
+    skeletonHeader: {marginBottom: 8},
+    tabular: {fontVariant: ['tabular-nums']},
     listContent: {paddingBottom: 32, flexGrow: 1},
     sectionHeader: {paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8},
-    todayBtn: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999},
+    todayBtn: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: 999},
 });

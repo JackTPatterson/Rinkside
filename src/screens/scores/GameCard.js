@@ -1,6 +1,6 @@
 import React, {memo, useCallback} from 'react';
 import {StyleSheet, View} from 'react-native';
-import {InfoTip, LiveDot, Row, SplitBar, T, TeamLogo, tap, Card} from '../../components/ui';
+import {Card, InfoTip, LiveDot, Row, Skeleton, SplitBar, T, TeamLogo, tap} from '../../components/ui';
 import {Star1} from '../../components/icons';
 import {useQuery} from '../../hooks/useQuery';
 import {isFinal, isLive, isUpcoming} from '../../api/nhl';
@@ -19,8 +19,9 @@ export const GAME_OF_NIGHT_INFO =
 function lastHomeWinProb(rows) {
     if (!Array.isArray(rows)) return null;
     for (let i = rows.length - 1; i >= 0; i--) {
-        const v = Number(rows[i]?.homeWinProbability);
-        if (rows[i]?.homeWinProbability != null && rows[i]?.homeWinProbability !== '' && Number.isFinite(v)) return v;
+        const raw = rows[i]?.homeWinProbability;
+        const v = Number(raw);
+        if (raw != null && raw !== '' && Number.isFinite(v) && v >= 0 && v <= 1) return v;
     }
     return null;
 }
@@ -41,7 +42,7 @@ export function useMoneyPuckProb(game) {
         [id, live, season],
         {enabled, refetchInterval: live ? 60000 : 0, keepPreviousData: false},
     );
-    return enabled && Number.isFinite(data) ? data : null;
+    return enabled && Number.isFinite(data) && data >= 0 && data <= 1 ? data : null;
 }
 
 function TeamSide({team, sub, dim}) {
@@ -49,7 +50,7 @@ function TeamSide({team, sub, dim}) {
         <View style={[styles.side, dim && styles.dim]}>
             <TeamLogo abbrev={team?.abbrev} size={34}/>
             <T variant="label" numberOfLines={1}>{team?.abbrev ?? '—'}</T>
-            {sub ? <T variant="caption" muted numberOfLines={1}>{sub}</T> : <View style={styles.subSpacer}/>}
+            {sub ? <T variant="caption" muted numberOfLines={1} style={styles.tabular}>{sub}</T> : <View style={styles.subSpacer}/>}
         </View>
     );
 }
@@ -81,25 +82,34 @@ function Center({game, live, final, upcoming}) {
             </Row>
             <Row gap={6}>
                 {live && !game.clock?.inIntermission ? <LiveDot size={7}/> : null}
-                <T variant="caption" color={live ? colors.live : undefined} muted={!live} numberOfLines={1}>{label}</T>
+                <T variant="caption" color={live ? colors.live : undefined} muted={!live} numberOfLines={1} style={styles.tabular}>{label}</T>
             </Row>
         </View>
     );
 }
 
-function WinProbability({game, model, mp, homeColor, awayColor}) {
+function WinProbability({game, model, mp, pending, homeColor, awayColor}) {
     const {colors} = useAppTheme();
     const home = game.homeTeam?.abbrev;
     const away = game.awayTeam?.abbrev;
     const left = model?.home ?? mp;
-    if (left == null) return null;
+    if (left == null) {
+        // Same footprint as the real block so cards don't jump when the model arrives.
+        return pending ? (
+            <View style={[styles.prob, {borderTopColor: colors.border}]}>
+                <Skeleton height={18} width="70%"/>
+                <Skeleton height={8} radius={4}/>
+                <Skeleton height={16} width="40%"/>
+            </View>
+        ) : null;
+    }
     const right = model ? model.away : 1 - mp;
     const live = model?.kind === 'live' || (!model && isLive(game));
     return (
         <View style={[styles.prob, {borderTopColor: colors.border}]}>
             <Row style={styles.between}>
-                <T variant="label" color={homeColor}>{home} {pct(left)}</T>
-                <T variant="label" color={awayColor}>{pct(right)} {away}</T>
+                <T variant="label" color={homeColor} style={styles.tabular}>{home} {pct(left)}</T>
+                <T variant="label" color={awayColor} style={styles.tabular}>{pct(right)} {away}</T>
             </Row>
             <SplitBar left={left} leftColor={homeColor} rightColor={awayColor} height={6} style={styles.bar}/>
             <Row style={styles.between}>
@@ -114,7 +124,7 @@ function WinProbability({game, model, mp, homeColor, awayColor}) {
  * One game in the scores list. Memoised with a custom comparator: each poll returns brand-new game
  * objects, so we compare a signature of the displayed fields and skip cards that didn't change.
  */
-function GameCard({game, model, favorite, gameOfNight, onOpen, onPreview}) {
+function GameCard({game, model, favorite, gameOfNight, modelPending, onOpen, onPreview}) {
     const {colors, teamColor} = useAppTheme();
     const mp = useMoneyPuckProb(game);
     const live = isLive(game);
@@ -149,7 +159,7 @@ function GameCard({game, model, favorite, gameOfNight, onOpen, onPreview}) {
         <Card
             onPress={onPress}
             onLongPress={onLongPress}
-            accessibilityLabel={`${game.awayTeam?.abbrev ?? ''} at ${game.homeTeam?.abbrev ?? ''}, ${statusLabel(game)}. Long press for preview.`}
+            accessibilityLabel={`${game.awayTeam?.abbrev ?? 'Away'} at ${game.homeTeam?.abbrev ?? 'Home'}, ${statusLabel(game)}. Long press for preview.`}
             style={[styles.card, borderColor && {borderWidth: 1.5, borderColor}]}>
             {gameOfNight ? (
                 <Row gap={6} style={styles.chipRow}>
@@ -172,7 +182,7 @@ function GameCard({game, model, favorite, gameOfNight, onOpen, onPreview}) {
                     </T>
                 ) : null
             ) : isPostponed(game) ? null : (
-                <WinProbability game={game} model={model} mp={mp} homeColor={homeColor} awayColor={awayColor}/>
+                <WinProbability game={game} model={model} mp={mp} pending={modelPending} homeColor={homeColor} awayColor={awayColor}/>
             )}
         </Card>
     );
@@ -182,6 +192,7 @@ const areEqual = (a, b) =>
     a.model === b.model &&
     a.favorite === b.favorite &&
     a.gameOfNight === b.gameOfNight &&
+    a.modelPending === b.modelPending &&
     a.onOpen === b.onOpen &&
     a.onPreview === b.onPreview &&
     (a.game === b.game || gameSignature(a.game) === gameSignature(b.game));
@@ -198,7 +209,8 @@ const styles = StyleSheet.create({
     prob: {marginTop: 12, paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, gap: 6},
     between: {justifyContent: 'space-between'},
     bar: {marginVertical: 1},
-    pregame: {marginTop: 10, textAlign: 'center'},
+    pregame: {marginTop: 10, textAlign: 'center', fontVariant: ['tabular-nums']},
+    tabular: {fontVariant: ['tabular-nums']},
     chipRow: {marginBottom: 8},
     chip: {flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999},
 });

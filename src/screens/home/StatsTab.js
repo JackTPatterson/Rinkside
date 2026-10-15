@@ -16,13 +16,13 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
     const [metric, setMetric] = useState('xg');
     const games = data?.games;
     const m = METRIC_BY_KEY[metric];
-    const series = useMemo(() => (games?.length ? buildMetric(games, metric) : null), [games, metric]);
+    const series = useMemo(() => (games?.length >= 2 ? buildMetric(games, metric) : null), [games, metric]);
 
     if (loading && !data) {
         return (
             <View style={styles.pad}>
-                <Skeleton height={36} radius={999}/>
-                <Skeleton height={260} radius={16} style={styles.mt12}/>
+                <Skeleton height={38} radius={999}/>
+                <Skeleton height={310} radius={16} style={styles.mt12}/>
                 <Row style={styles.mt12}>
                     <Skeleton height={72} radius={16} width="32%"/>
                     <Skeleton height={72} radius={16} width="32%"/>
@@ -32,7 +32,7 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
         );
     }
     if (error && !data) return <ErrorState message="Couldn’t load season stats." onRetry={onRetry}/>;
-    if (!games || games.length < 2) {
+    if (!series) {
         return (
             <EmptyState
                 title="No game data yet"

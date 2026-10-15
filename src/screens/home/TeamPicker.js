@@ -11,6 +11,8 @@ const SECTIONS = ['Atlantic', 'Metropolitan', 'Central', 'Pacific'].map((divisio
     data: TEAMS.filter((t) => t.division === division).sort((a, b) => a.name.localeCompare(b.name)),
 }));
 
+const keyExtractor = (t) => t.abbrev;
+
 const TeamOption = memo(function TeamOption({team, selected, onSelect}) {
     const {colors, teamColor} = useAppTheme();
     return (
@@ -40,6 +42,9 @@ function TeamPicker({visible, current, onSelect, onClose, title = 'Select a team
         [current, select],
     );
     const extra = useMemo(() => ({current}), [current]);
+    const renderSectionHeader = useCallback(({section}) => (
+        <T variant="label" muted style={[styles.sectionTitle, {backgroundColor: colors.background}]}>{section.title}</T>
+    ), [colors.background]);
     return (
         <Modal
             visible={visible}
@@ -56,11 +61,10 @@ function TeamPicker({visible, current, onSelect, onClose, title = 'Select a team
                 <SectionList
                     sections={SECTIONS}
                     extraData={extra}
-                    keyExtractor={(t) => t.abbrev}
+                    keyExtractor={keyExtractor}
                     renderItem={renderItem}
-                    renderSectionHeader={({section}) => (
-                        <T variant="label" muted style={[styles.sectionTitle, {backgroundColor: colors.background}]}>{section.title}</T>
-                    )}
+                    renderSectionHeader={renderSectionHeader}
+                    initialNumToRender={12}
                     ItemSeparatorComponent={Separator}
                     contentContainerStyle={styles.list}
                     stickySectionHeadersEnabled

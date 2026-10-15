@@ -36,7 +36,7 @@ function TeamHeader({team, align}) {
     return (
         <View style={[styles.teamHeader, {alignItems: align}]}>
             <TeamLogo abbrev={team?.abbrev} size={48}/>
-            <T variant="heading">{team?.abbrev ?? '—'}</T>
+            <T variant="heading" numberOfLines={1}>{team?.abbrev ?? '—'}</T>
             <T variant="caption" muted numberOfLines={1}>{meta?.name ?? loc(team?.name)}</T>
         </View>
     );
@@ -132,8 +132,8 @@ function PreviewBody({game, model, onOpen}) {
             {left != null ? (
                 <Block title="Win probability" info={INFO.winProb}>
                     <Row style={styles.between}>
-                        <T variant="label" color={homeColor}>{home} {pct(left)}</T>
-                        <T variant="label" color={awayColor}>{pct(1 - left)} {away}</T>
+                        <T variant="label" color={homeColor} style={styles.tabular}>{home} {pct(left)}</T>
+                        <T variant="label" color={awayColor} style={styles.tabular}>{pct(1 - left)} {away}</T>
                     </Row>
                     <SplitBar left={left} leftColor={homeColor} rightColor={awayColor} height={8} style={styles.bar}/>
                     <T variant="caption" muted>
@@ -223,6 +223,8 @@ export default function GamePreviewSheet({sheetRef, game, model, onOpen, onDismi
         sheetRef.current?.dismiss();
         onOpen(g);
     }, [sheetRef, onOpen]);
+    const backgroundStyle = useMemo(() => ({backgroundColor: colors.background}), [colors.background]);
+    const handleIndicatorStyle = useMemo(() => ({backgroundColor: colors.textSecondary}), [colors.textSecondary]);
     return (
         <BottomSheetModal
             ref={sheetRef}
@@ -231,8 +233,8 @@ export default function GamePreviewSheet({sheetRef, game, model, onOpen, onDismi
             enablePanDownToClose
             backdropComponent={renderBackdrop}
             onDismiss={onDismiss}
-            backgroundStyle={{backgroundColor: colors.background}}
-            handleIndicatorStyle={{backgroundColor: colors.textSecondary}}>
+            backgroundStyle={backgroundStyle}
+            handleIndicatorStyle={handleIndicatorStyle}>
             {game ? <PreviewBody key={game.id} game={game} model={model} onOpen={open}/> : null}
         </BottomSheetModal>
     );
@@ -250,6 +252,7 @@ const styles = StyleSheet.create({
     goalieRow: {justifyContent: 'space-around', alignItems: 'flex-start'},
     goalie: {alignItems: 'center', gap: 6, width: 130},
     centerText: {textAlign: 'center'},
+    tabular: {fontVariant: ['tabular-nums']},
     compare: {marginTop: 16},
     note: {marginTop: 12, textAlign: 'center'},
     skeletons: {gap: 14},
