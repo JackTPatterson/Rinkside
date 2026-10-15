@@ -1,9 +1,9 @@
 import {useScrollToTop} from '@react-navigation/native';
-import React, {memo, useCallback, useMemo, useRef, useState} from 'react';
+import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View} from 'react-native';
 import {nhl} from '../api/nhl';
 import {CloseCircle, People, RowVertical, SearchNormal1, Shield} from '../components/icons';
-import {EmptyState, ErrorState, Header, InfoTip, PillTabs, Screen, Segmented, SkeletonList, T, tap} from '../components/ui';
+import {EmptyState, ErrorState, Header, InfoTip, PillTabs, Screen, Segmented, T, tap} from '../components/ui';
 import {useLeague} from '../hooks/useLeague';
 import {useQuery} from '../hooks/useQuery';
 import {ROUTES} from '../navigation/routes';
@@ -11,21 +11,25 @@ import {useAppTheme} from '../theme';
 import {currentSeasonId, previousSeasonId, REGULAR_SEASON_GAMES, seasonLabel} from '../utils/season';
 import {
     compactColumns,
+    dedupeRows,
     GOALIE_COLUMNS,
     leagueGamesPlayed,
-    prepareRows,
+    rankRows,
+    searchItems,
     SKATER_COLUMNS,
     SORTS,
 } from './players/helpers';
 import {
     CompactHeader,
     LeaderboardRow,
+    LeaderboardSkeleton,
     ROW_HEIGHT,
     TABLE_NAME_WIDTH,
     TABLE_ROW_HEIGHT,
     TableHeader,
     TableRow,
 } from './players/LeaderboardRow';
+import {searchPlayers} from './players/search';
 
 const KIND_TABS = [
     {key: 'skaters', label: 'Skaters', icon: People},
@@ -33,7 +37,9 @@ const KIND_TABS = [
 ];
 const PAGE = 50;
 const FIRST_PAGE = {skaters: 50, goalies: 100};
-const MAX_LIMIT = 500;
+const MAX_ROWS = 500;
+const SEARCH_DEBOUNCE = 300;
+const EMPTY_MORE = {key: null, rows: [], done: false};
 const QUALIFY_SHARE = 0.3; // rate stats need 30% of team games (close to the NHL's own qualifiers)
 
 const SORT_INFO = {
@@ -48,7 +54,7 @@ const keyExtractor = (item) => String(item.row.playerId);
 const compactLayout = (_, index) => ({length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index});
 const tableLayout = (_, index) => ({length: TABLE_ROW_HEIGHT, offset: TABLE_ROW_HEIGHT * index, index});
 
-const SearchBox = memo(function SearchBox({value, onChange, placeholder}) {
+const SearchBox = memo(function SearchBox({value, onChange, placeholder, busy}) {
     const {colors, fonts} = useAppTheme();
     return (
         <View style={[styles.search, {backgroundColor: colors.card}]}>
@@ -63,10 +69,12 @@ const SearchBox = memo(function SearchBox({value, onChange, placeholder}) {
                 returnKeyType="search"
                 clearButtonMode="never"
                 maxFontSizeMultiplier={1.3}
+                accessibilityLabel={placeholder}
                 style={[styles.searchInput, {color: colors.text, fontFamily: fonts.medium}]}
             />
+            {busy ? <ActivityIndicator size="small" color={colors.textSecondary}/> : null}
             {value ? (
-                <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={10} onPress={() => onChange('')}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={13} onPress={() => onChange('')}>
                     <CloseCircle size={18} color={colors.textSecondary}/>
                 </Pressable>
             ) : null}
@@ -74,13 +82,14 @@ const SearchBox = memo(function SearchBox({value, onChange, placeholder}) {
     );
 });
 
-const ListFooter = memo(function ListFooter({loadingMore, canLoadMore, onLoadMore, searching, loadedCount}) {
+const ListFooter = memo(function ListFooter({loadingMore, canLoadMore, onLoadMore, searching, loadedCount, error}) {
     const {colors} = useAppTheme();
     if (loadingMore) return <ActivityIndicator style={styles.footer} color={colors.textSecondary}/>;
     if (!canLoadMore) return <View style={styles.footerSpace}/>;
     return (
         <View style={styles.footer}>
             {searching ? <T variant="caption" muted style={styles.center}>Searching the top {loadedCount}. Load more to search further.</T> : null}
+            {error ? <T variant="caption" muted style={styles.center}>Couldn’t load more players.</T> : null}
             <Pressable
                 accessibilityRole="button"
                 onPress={() => {
@@ -88,7 +97,7 @@ const ListFooter = memo(function ListFooter({loadingMore, canLoadMore, onLoadMor
                     onLoadMore();
                 }}
                 style={({pressed}) => [styles.more, {backgroundColor: colors.card}, pressed && {opacity: 0.6}]}>
-                <T variant="label">Load {PAGE} more</T>
+                <T variant="label">{error ? 'Try again' : `Load ${PAGE} more`}</T>
             </Pressable>
         </View>
     );
@@ -106,39 +115,108 @@ export default function PlayersScreen({navigation}) {
     ], [current]);
 
     const [kind, setKindRaw] = useState('skaters');
-    const [seasonId, setSeasonRaw] = useState(current);
-    const [sortKey, setSortRaw] = useState('points');
-    const [limit, setLimit] = useState(FIRST_PAGE.skaters);
+    const [seasonId, setSeasonId] = useState(current);
+    const [sortKey, setSortKey] = useState('points');
     const [query, setQuery] = useState('');
+    const [debounced, setDebounced] = useState('');
     const [table, setTable] = useState(false);
 
     const setKind = useCallback((k) => {
         setKindRaw(k);
-        setSortRaw(SORTS[k][0].key);
-        setLimit(FIRST_PAGE[k]);
+        setSortKey(SORTS[k][0].key);
     }, []);
-    const setSeason = useCallback((s) => {
-        setSeasonRaw(s);
-        setLimit(FIRST_PAGE[kind]);
-    }, [kind]);
+    const toggleTable = useCallback(() => {
+        tap();
+        setTable((t) => !t);
+    }, []);
+
+    useEffect(() => {
+        const t = setTimeout(() => setDebounced(query.trim()), SEARCH_DEBOUNCE);
+        return () => clearTimeout(t);
+    }, [query]);
 
     const sort = SORTS[kind].find((s) => s.key === sortKey) ?? SORTS[kind][0];
+    const direction = sort.direction ?? 'DESC';
 
     // Qualifying games for rate stats, from how far the season has gone.
     const {standings} = useLeague();
     const teamGames = seasonId === current ? leagueGamesPlayed(standings) : REGULAR_SEASON_GAMES;
     const minGames = sort.rate ? Math.max(1, Math.ceil(teamGames * QUALIFY_SHARE)) : 1;
+    const baseKey = `${kind}|${seasonId}|${sort.server}|${direction}|${minGames}`;
 
+    /* ---------------------------------------------------- first page */
     const q = useQuery(async ({force}) => {
         const fetcher = kind === 'skaters' ? nhl.skaters : nhl.goalies;
-        const res = await fetcher({seasonId, sortBy: sort.server, limit, minGames}, {force});
-        return {kind, seasonId, limit, rows: Array.isArray(res?.data) ? res.data : []};
-    }, [kind, seasonId, sort.server, limit, minGames]);
-
+        const limit = FIRST_PAGE[kind];
+        const res = await fetcher({seasonId, sortBy: sort.server, direction, start: 0, limit, minGames}, {force});
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        return {key: baseKey, kind, seasonId, rows, full: rows.length >= limit};
+    }, [baseKey]);
+    // Stale data from another sort is fine (re-sorted locally); another kind/season is not.
     const data = q.data && q.data.kind === kind && q.data.seasonId === seasonId ? q.data : null;
+
+    /* ------------------------------------------------ further pages */
+    const [more, setMore] = useState(EMPTY_MORE);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [moreError, setMoreError] = useState(false);
+    const keyRef = useRef(baseKey);
+    keyRef.current = baseKey;
+    const busyRef = useRef(false);
+    const moreRows = more.key === baseKey && data?.key === baseKey ? more.rows : EMPTY_MORE.rows;
+    const loaded = useMemo(() => (data ? dedupeRows(data.rows, moreRows) : []), [data, moreRows]);
+    const canLoadMore = !!data && data.key === baseKey && data.full && !(more.key === baseKey && more.done) &&
+        loaded.length < MAX_ROWS;
+
+    const loadMore = useCallback(async () => {
+        if (busyRef.current || !data || data.key !== baseKey) return;
+        busyRef.current = true;
+        setLoadingMore(true);
+        setMoreError(false);
+        const key = baseKey;
+        try {
+            const fetcher = kind === 'skaters' ? nhl.skaters : nhl.goalies;
+            const start = data.rows.length + moreRows.length;
+            const res = await fetcher({seasonId, sortBy: sort.server, direction, start, limit: PAGE, minGames});
+            const rows = Array.isArray(res?.data) ? res.data : [];
+            if (keyRef.current === key) {
+                setMore((prev) => ({
+                    key,
+                    rows: prev.key === key ? [...prev.rows, ...rows] : rows,
+                    done: rows.length < PAGE,
+                }));
+            }
+        } catch {
+            if (keyRef.current === key) setMoreError(true);
+        } finally {
+            busyRef.current = false;
+            setLoadingMore(false);
+        }
+    }, [data, baseKey, kind, seasonId, sort.server, direction, minGames, moreRows]);
+
+    const refresh = useCallback(() => {
+        setMore(EMPTY_MORE);
+        setMoreError(false);
+        q.refresh();
+    }, [q.refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* -------------------------------------------------------- search */
+    const searchOn = debounced.length >= 2;
+    const sq = useQuery(async ({force}) => {
+        try {
+            return {key: `${kind}|${seasonId}|${debounced}`, rows: await searchPlayers(kind, debounced, {seasonId, force})};
+        } catch {
+            return {key: `${kind}|${seasonId}|${debounced}`, rows: null}; // fall back to client filtering
+        }
+    }, [kind, seasonId, debounced], {enabled: searchOn, keepPreviousData: false});
+    const serverRows = searchOn && sq.data?.key === `${kind}|${seasonId}|${debounced}` ? sq.data.rows : null;
+    const searching = !!query.trim();
+    const searchPending = searching && (query.trim() !== debounced || (searchOn && sq.loading));
+
+    /* ---------------------------------------------------------- rows */
+    const ranked = useMemo(() => rankRows(loaded, kind, sort.key, minGames), [loaded, kind, sort.key, minGames]);
     const items = useMemo(
-        () => (data ? prepareRows(data.rows, kind, sort.key, query, minGames) : []),
-        [data, kind, sort.key, query, minGames],
+        () => (searching ? searchItems(ranked, serverRows, kind, sort.key, query) : ranked),
+        [searching, ranked, serverRows, kind, sort.key, query],
     );
     const compactCols = useMemo(() => compactColumns(kind, sort.key), [kind, sort.key]);
     const allCols = kind === 'skaters' ? SKATER_COLUMNS : GOALIE_COLUMNS;
@@ -146,10 +224,6 @@ export default function PlayersScreen({navigation}) {
         () => 32 + TABLE_NAME_WIDTH + allCols.reduce((a, c) => a + c.width + 8, 0),
         [allCols],
     );
-
-    const loadingMore = !!data && data.limit < limit && !q.error;
-    const canLoadMore = !!data && data.rows.length >= data.limit && limit < MAX_LIMIT;
-    const loadMore = useCallback(() => setLimit((l) => Math.min(MAX_LIMIT, l + PAGE)), []);
 
     const openPlayer = useCallback((row, name) => {
         navigation.navigate(ROUTES.player, {playerId: row.playerId, name});
@@ -162,26 +236,29 @@ export default function PlayersScreen({navigation}) {
         <TableRow item={item} columns={allCols} sortKey={sort.key} onPress={openPlayer}/>
     ), [allCols, sort.key, openPlayer]);
 
-    const refreshControl = (
-        <RefreshControl refreshing={q.refreshing} onRefresh={q.refresh} tintColor={colors.textSecondary}/>
-    );
+    // With server search results the list is complete, so paging only matters for plain browsing
+    // or the client-side fallback.
+    const serverSearchActive = searching && serverRows != null;
     const footer = (
         <ListFooter
             loadingMore={loadingMore}
-            canLoadMore={canLoadMore}
+            canLoadMore={canLoadMore && !serverSearchActive}
             onLoadMore={loadMore}
-            searching={!!query.trim()}
-            loadedCount={data?.rows.length ?? 0}
+            searching={searching}
+            loadedCount={loaded.length}
+            error={moreError}
         />
     );
-    const empty = data ? (
+    const empty = !data ? null : searchPending ? (
+        <ActivityIndicator style={styles.footer} color={colors.textSecondary}/>
+    ) : (
         <EmptyState
-            title={query.trim() ? 'No matches' : 'No stats yet'}
-            message={query.trim()
-                ? `Nobody in the loaded list matches “${query.trim()}”.`
+            title={searching ? 'No matches' : 'No stats yet'}
+            message={searching
+                ? `No ${kind} named “${query.trim()}” have played in ${seasonLabel(seasonId)}.`
                 : `There are no ${kind} stats for ${seasonLabel(seasonId)} yet. Try the previous season.`}
         />
-    ) : null;
+    );
 
     const listProps = {
         ref: listRef,
@@ -190,7 +267,7 @@ export default function PlayersScreen({navigation}) {
         keyExtractor,
         keyboardShouldPersistTaps: 'handled',
         keyboardDismissMode: 'on-drag',
-        refreshControl,
+        refreshControl: <RefreshControl refreshing={q.refreshing} onRefresh={refresh} tintColor={colors.textSecondary} colors={[colors.textSecondary]}/>,
         ListFooterComponent: footer,
         ListEmptyComponent: empty,
         initialNumToRender: 14,
@@ -201,9 +278,9 @@ export default function PlayersScreen({navigation}) {
 
     let body;
     if (!data && q.error) {
-        body = <ErrorState message="Couldn’t load the leaderboard." onRetry={q.refresh}/>;
+        body = <ErrorState message="Couldn’t load the leaderboard." onRetry={refresh}/>;
     } else if (!data) {
-        body = <SkeletonList count={8} height={56} style={styles.skeleton}/>;
+        body = <LeaderboardSkeleton/>;
     } else if (table) {
         body = (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flex}>
@@ -235,11 +312,7 @@ export default function PlayersScreen({navigation}) {
                         accessibilityRole="button"
                         accessibilityLabel={table ? 'Show compact list' : 'Show all stat columns'}
                         accessibilityState={{selected: table}}
-                        hitSlop={8}
-                        onPress={() => {
-                            tap();
-                            setTable((t) => !t);
-                        }}
+                        onPress={toggleTable}
                         style={[styles.iconBtn, {backgroundColor: table ? colors.text : colors.card}]}>
                         <RowVertical size={20} color={table ? colors.background : colors.text}/>
                     </Pressable>
@@ -247,18 +320,17 @@ export default function PlayersScreen({navigation}) {
             />
             <PillTabs tabs={KIND_TABS} value={kind} onChange={setKind}/>
             <View style={styles.controls}>
-                <Segmented options={seasons} value={seasonId} onChange={setSeason}/>
-                <SearchBox value={query} onChange={setQuery} placeholder={`Search ${kind}`}/>
+                <Segmented options={seasons} value={seasonId} onChange={setSeasonId}/>
+                <SearchBox value={query} onChange={setQuery} placeholder={`Search all ${kind}`} busy={searchPending}/>
             </View>
-            <PillTabs tabs={sortTabs} value={sort.key} onChange={setSortRaw} style={styles.sortTabs}/>
-            {sort.rate || info ? (
-                <View style={styles.note}>
-                    <T variant="caption" muted style={styles.flex}>
-                        {sort.rate ? `Qualified players only (${minGames}+ GP)` : `Sorted by ${sort.label}`}
-                    </T>
-                    {info ? <InfoTip title={sort.label} body={info} size={14}/> : null}
-                </View>
-            ) : <View style={styles.noteSpacer}/>}
+            <PillTabs tabs={sortTabs} value={sort.key} onChange={setSortKey} style={styles.sortTabs}/>
+            <View style={styles.note}>
+                <T variant="caption" muted numberOfLines={1} style={styles.flexShrink}>
+                    {sort.rate ? `Qualified players only (${minGames}+ GP)` : `Sorted by ${sort.label}`}
+                    {direction === 'ASC' ? ' · lowest first' : ''}
+                </T>
+                {info ? <InfoTip title={sort.label} body={info} size={14}/> : null}
+            </View>
             {body}
         </Screen>
     );
@@ -266,16 +338,15 @@ export default function PlayersScreen({navigation}) {
 
 const styles = StyleSheet.create({
     flex: {flex: 1},
+    flexShrink: {flexShrink: 1},
     center: {textAlign: 'center'},
     controls: {paddingHorizontal: 16, paddingTop: 12, gap: 10},
-    search: {flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 12, height: 42},
-    searchInput: {flex: 1, fontSize: 15, paddingVertical: 0},
+    search: {flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 12, height: 44},
+    searchInput: {flex: 1, fontSize: 15, paddingVertical: 0, height: 44},
     sortTabs: {marginTop: 12},
-    note: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4},
-    noteSpacer: {height: 8},
-    skeleton: {paddingHorizontal: 16, paddingTop: 12},
-    footer: {paddingVertical: 20, alignItems: 'center', gap: 10},
+    note: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4, minHeight: 34},
+    footer: {paddingVertical: 20, alignItems: 'center', gap: 10, paddingHorizontal: 16},
     footerSpace: {height: 32},
-    more: {paddingHorizontal: 20, paddingVertical: 10, borderRadius: 999},
-    iconBtn: {width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center'},
+    more: {paddingHorizontal: 20, minHeight: 44, justifyContent: 'center', borderRadius: 999},
+    iconBtn: {width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center'},
 });

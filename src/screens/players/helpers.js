@@ -16,11 +16,12 @@ const int = (v) => (toNum(v) == null ? '–' : String(Math.round(Number(v))));
 /** Last team for traded players ("TOR,NYR" → "NYR"). */
 export const lastTeam = (teamAbbrevs) => String(teamAbbrevs ?? '').split(',').filter(Boolean).pop() ?? '';
 
+// Goals saved vs. a league-average goalie on the same shots (cheap: no quantiles, safe in sorts).
 const gsaa = (r) => {
     const sa = toNum(r?.shotsAgainst);
     if (!sa) return null;
     const saves = toNum(r?.saves) ?? sa - n0(r?.goalsAgainst);
-    return goalieTalent({saves, shotsAgainst: sa}).goalsSavedAboveAvg;
+    return saves - sa * PRIORS.savePct.mean;
 };
 
 /** Every leaderboard column. `value` is used for client-side sorting; `text` for display. */
@@ -67,9 +68,9 @@ export const COLUMN_BY_KEY = {
 };
 
 /**
- * Sort options. `server` is the stats-API property to sort by (the API only sorts descending, so
- * ascending / derived stats sort client-side over a server list ordered by wins). `rate` stats are
- * restricted to qualified players.
+ * Sort options. `server`/`direction` drive the stats-API sort (so paging is in true order);
+ * GSAA has no API property, so it is sorted client-side over a list ordered by wins.
+ * `rate` stats are restricted to qualified players.
  */
 export const SORTS = {
     skaters: [
@@ -83,7 +84,7 @@ export const SORTS = {
     goalies: [
         {key: 'wins', label: 'Wins', server: 'wins'},
         {key: 'savePct', label: 'Save %', server: 'savePct', rate: true},
-        {key: 'goalsAgainstAverage', label: 'GAA', server: 'wins', rate: true},
+        {key: 'goalsAgainstAverage', label: 'GAA', server: 'goalsAgainstAverage', direction: 'ASC', rate: true},
         {key: 'shutouts', label: 'Shutouts', server: 'shutouts'},
         {key: 'gsaa', label: 'GSAA', server: 'wins'},
     ],
@@ -94,32 +95,82 @@ export function compactColumns(kind, sortKey) {
     const by = COLUMN_BY_KEY[kind];
     if (kind === 'skaters') {
         const base = ['goals', 'assists', 'points'];
-        return (base.includes(sortKey) ? base : ['gamesPlayed', sortKey, 'points']).map((k) => by[k]);
+        return (base.includes(sortKey) ? base : ['gamesPlayed', sortKey, 'points']).map((k) => by[k]).filter(Boolean);
     }
     if (sortKey === 'wins') return ['gamesPlayed', 'wins', 'savePct'].map((k) => by[k]);
-    return ['gamesPlayed', sortKey, 'wins'].map((k) => by[k]);
+    return ['gamesPlayed', sortKey, 'wins'].map((k) => by[k]).filter(Boolean);
 }
 
-/** Sort + filter loaded leaderboard rows client-side. */
-export function prepareRows(rows, kind, sortKey, query, minGames = 1) {
+/** Merge pages, dropping rows without an id and duplicate players (first occurrence wins). */
+export function dedupeRows(...lists) {
+    const seen = new Set();
+    const out = [];
+    for (const list of lists) {
+        for (const r of list ?? []) {
+            const id = r?.playerId;
+            if (id == null || seen.has(id)) continue;
+            seen.add(id);
+            out.push(r);
+        }
+    }
+    return out;
+}
+
+const nameKeyOf = (kind) => (kind === 'skaters' ? 'skaterFullName' : 'goalieFullName');
+
+/** Lower-case, accent-free text for matching ("Stützle" ↔ "stutzle"). */
+export function normalizeName(s) {
+    const lower = String(s ?? '').toLowerCase();
+    try {
+        return lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch {
+        return lower;
+    }
+}
+
+function sortByColumn(list, col) {
+    if (!col) return list;
+    const dir = col.ascending ? 1 : -1;
+    // Decorate once so expensive columns aren't recomputed per comparison.
+    return list
+        .map((r) => ({r, v: col.value(r), gp: n0(r.gamesPlayed)}))
+        .sort((a, b) => {
+            if (a.v == null && b.v == null) return 0;
+            if (a.v == null) return 1;
+            if (b.v == null) return -1;
+            return a.v === b.v ? a.gp - b.gp : (a.v - b.v) * dir;
+        })
+        .map((x) => x.r);
+}
+
+/** Leaderboard items [{row, rank, name}] — deduped, qualified (rate stats), sorted, ranked. */
+export function rankRows(rows, kind, sortKey, minGames = 1) {
     const col = COLUMN_BY_KEY[kind][sortKey];
-    const q = String(query ?? '').trim().toLowerCase();
-    const nameKey = kind === 'skaters' ? 'skaterFullName' : 'goalieFullName';
     const sort = SORTS[kind].find((s) => s.key === sortKey);
-    let list = (rows ?? []).filter((r) => r && r.playerId != null);
+    let list = dedupeRows(rows);
     if (sort?.rate) list = list.filter((r) => n0(r.gamesPlayed) >= minGames);
-    const dir = col?.ascending ? 1 : -1;
-    const ranked = col ? [...list].sort((a, b) => {
-        const va = col.value(a);
-        const vb = col.value(b);
-        if (va == null && vb == null) return 0;
-        if (va == null) return 1;
-        if (vb == null) return -1;
-        return va === vb ? n0(a.gamesPlayed) - n0(b.gamesPlayed) : (va - vb) * dir;
-    }) : list;
-    const withRank = ranked.map((r, i) => ({row: r, rank: i + 1, name: r[nameKey] ?? 'Unknown'}));
-    if (!q) return withRank;
-    return withRank.filter((x) => x.name.toLowerCase().includes(q));
+    const nk = nameKeyOf(kind);
+    return sortByColumn(list, col).map((r, i) => ({row: r, rank: i + 1, name: r[nk] || 'Unknown'}));
+}
+
+/**
+ * Search results: loaded-leaderboard matches (keep their rank) plus server matches that aren't
+ * loaded (rank null), sorted by the active column. `serverRows` null → client-side only.
+ */
+export function searchItems(ranked, serverRows, kind, sortKey, query) {
+    const q = normalizeName(query).trim();
+    if (!q) return ranked;
+    const nk = nameKeyOf(kind);
+    const local = ranked.filter((x) => normalizeName(x.name).includes(q));
+    if (!serverRows?.length) return local;
+    const byId = new Map(ranked.map((x) => [x.row.playerId, x]));
+    const extra = dedupeRows(serverRows)
+        .filter((r) => !byId.has(r.playerId))
+        .map((r) => ({row: r, rank: null, name: r[nk] || 'Unknown'}));
+    const all = [...local, ...extra];
+    const order = sortByColumn(all.map((x) => x.row), COLUMN_BY_KEY[kind][sortKey]);
+    const itemById = new Map(all.map((x) => [x.row.playerId, x]));
+    return order.map((r) => itemById.get(r.playerId));
 }
 
 /** Games played by the league leader (≈ team games so far) from the standings payload. */

@@ -5,7 +5,7 @@ import {StyleSheet, View} from 'react-native';
 import {formLine} from '../../analytics';
 import LineChart from '../../components/LineChart';
 import {TrendDown, TrendUp} from '../../components/icons';
-import {Badge, Card, DataTable, Headshot, InfoTip, PillTabs, Row, Section, T, TeamLogo} from '../../components/ui';
+import {Badge, Card, DataTable, Headshot, InfoTip, PillTabs, Row, Section, Skeleton, T, TeamLogo} from '../../components/ui';
 import {useAppTheme, withAlpha} from '../../theme';
 import {loc, num, pct, savePct, secondsToMMSS, signed} from '../../utils/format';
 import {seasonLabel} from '../../utils/season';
@@ -136,6 +136,15 @@ export const StatGrid = memo(function StatGrid({tiles, color}) {
         </View>
     );
 });
+
+/** Placeholder with the StatGrid's geometry (3 tiles per row). */
+export function StatGridSkeleton({count = 6}) {
+    return (
+        <View style={styles.grid}>
+            {Array.from({length: count}).map((_, i) => <Skeleton key={i} height={64} radius={14} style={styles.miniSkeleton}/>)}
+        </View>
+    );
+}
 
 /* -------------------------------------------------------------- streak */
 
@@ -533,6 +542,7 @@ const styles = StyleSheet.create({
     bioLabel: {width: 64, paddingTop: 1},
     grid: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
     mini: {flexGrow: 1, flexBasis: '30%', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12},
+    miniSkeleton: {flexGrow: 1, flexBasis: '30%'},
     tileRow: {flexDirection: 'row', gap: 8, marginTop: 8},
     tile: {borderRadius: 16, padding: 14},
     projRow: {gap: 2},

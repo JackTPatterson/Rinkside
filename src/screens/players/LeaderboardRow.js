@@ -1,7 +1,7 @@
 import React, {memo} from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
 import {headshotUrl} from '../../api/nhl';
-import {Headshot, T, TeamLogo} from '../../components/ui';
+import {Headshot, Skeleton, T, TeamLogo} from '../../components/ui';
 import {useAppTheme} from '../../theme';
 import {lastTeam} from './helpers';
 
@@ -18,10 +18,10 @@ export const LeaderboardRow = memo(function LeaderboardRow({item, columns, sortK
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${item.rank}. ${item.name}, ${team}`}
+            accessibilityLabel={`${item.rank ? `${item.rank}. ` : ''}${item.name}, ${team}`}
             onPress={() => onPress(r, item.name)}
             style={({pressed}) => [styles.row, {borderBottomColor: colors.border}, pressed && {backgroundColor: colors.card}]}>
-            <T variant="label" muted style={styles.rank}>{item.rank}</T>
+            <T variant="label" muted style={styles.rank}>{item.rank ?? '–'}</T>
             <Headshot uri={team ? headshotUrl(r.playerId, team, seasonId) : null} size={40} borderColor={accent}/>
             <View style={styles.name}>
                 <T variant="label" numberOfLines={1}>{item.name}</T>
@@ -71,13 +71,13 @@ export const TableRow = memo(function TableRow({item, columns, sortKey, onPress}
     return (
         <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${item.rank}. ${item.name}`}
+            accessibilityLabel={`${item.rank ? `${item.rank}. ` : ''}${item.name}`}
             onPress={() => onPress(r, item.name)}
             style={({pressed}) => [styles.tableRow, {borderBottomColor: colors.border}, pressed && {backgroundColor: colors.card}]}>
             <View style={styles.tableName}>
-                <T variant="caption" muted style={styles.tableRank}>{item.rank}</T>
+                <T variant="caption" muted style={styles.tableRank}>{item.rank ?? '–'}</T>
                 <TeamLogo abbrev={team} size={18}/>
-                <T variant="label" numberOfLines={1} style={{flex: 1}}>{item.name}</T>
+                <T variant="label" numberOfLines={1} style={styles.flex}>{item.name}</T>
             </View>
             {columns.map((c) => {
                 const active = c.key === sortKey;
@@ -108,7 +108,33 @@ export const TableHeader = memo(function TableHeader({columns, sortKey}) {
     );
 });
 
+/** Placeholder with the exact geometry of CompactHeader + LeaderboardRow, so nothing shifts. */
+export function LeaderboardSkeleton({count = 10}) {
+    const {colors} = useAppTheme();
+    return (
+        <View>
+            <View style={[styles.header, {borderBottomColor: colors.border}]}>
+                <Skeleton width={48} height={16} radius={6}/>
+            </View>
+            {Array.from({length: count}).map((_, i) => (
+                <View key={i} style={[styles.row, {borderBottomColor: colors.border}]}>
+                    <Skeleton width={18} height={14} style={styles.skRank}/>
+                    <Skeleton width={40} height={40} radius={20}/>
+                    <View style={styles.name}>
+                        <Skeleton width="70%" height={14}/>
+                        <Skeleton width="40%" height={10} style={styles.skSub}/>
+                    </View>
+                    <Skeleton width={120} height={14}/>
+                </View>
+            ))}
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
+    flex: {flex: 1},
+    skRank: {marginLeft: 6},
+    skSub: {marginTop: 6},
     row: {
         height: ROW_HEIGHT,
         flexDirection: 'row',

@@ -3,7 +3,7 @@ import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native';
 import {detectStreak, goalieTalent, projectCount, shootingTalent} from '../analytics';
 import {HttpError} from '../api/client';
 import {nhl} from '../api/nhl';
-import {BackButton, EmptyState, ErrorState, FadeInView, Header, Screen, Section, Segmented, Skeleton, SkeletonList} from '../components/ui';
+import {BackButton, EmptyState, ErrorState, FadeInView, Header, Screen, Section, Segmented, Skeleton} from '../components/ui';
 import {useLeague} from '../hooks/useLeague';
 import {useQuery} from '../hooks/useQuery';
 import {useAppTheme} from '../theme';
@@ -39,6 +39,7 @@ import {
     ShootingTalentCard,
     skaterTiles,
     StatGrid,
+    StatGridSkeleton,
     StreakCard,
 } from './players/PlayerSections';
 
@@ -52,13 +53,21 @@ async function fetchGameLog(playerId, seasonId, force) {
     }
 }
 
+// Mirrors the loaded layout (hero, bio card, season grid, chart) so nothing jumps when data lands.
 function LoadingBody() {
     return (
         <View style={styles.content}>
             <Skeleton height={124} radius={24}/>
-            <Skeleton height={36} radius={12} style={{marginTop: 24}}/>
-            <SkeletonList count={3} height={64} style={{marginTop: 12}}/>
-            <Skeleton height={200} radius={16} style={{marginTop: 24}}/>
+            <View style={styles.firstSection}>
+                <Skeleton width={56} height={24} style={styles.skTitle}/>
+                <Skeleton height={250} radius={16}/>
+            </View>
+            <View style={styles.section}>
+                <Skeleton width={80} height={24} style={styles.skTitle}/>
+                <Skeleton height={38} radius={12} style={styles.segmented}/>
+                <StatGridSkeleton count={12}/>
+            </View>
+            <Skeleton height={220} radius={16} style={styles.section}/>
         </View>
     );
 }
@@ -144,7 +153,9 @@ export default function PlayerScreen({navigation, route}) {
     /* ------------------------------------------------------------ render */
 
     let body;
-    if (!p && landing.error) {
+    if (playerId == null) {
+        body = <EmptyState title="Player not found" message="This link doesn’t point to a player."/>;
+    } else if (!p && landing.error) {
         body = <ErrorState message="Couldn’t load this player." onRetry={landing.refresh}/>;
     } else if (!p) {
         body = <LoadingBody/>;
@@ -165,7 +176,7 @@ export default function PlayerScreen({navigation, route}) {
                         {tiles.length && toNum(totals?.gamesPlayed) ? (
                             <StatGrid tiles={tiles} color={color}/>
                         ) : logQ.loading ? (
-                            <SkeletonList count={2} height={60}/>
+                            <StatGridSkeleton count={goalie ? 6 : 12}/>
                         ) : (
                             <EmptyState
                                 title="No games yet"
@@ -190,6 +201,8 @@ export default function PlayerScreen({navigation, route}) {
                 ) : null}
 
                 {streak ? <StreakCard streak={streak} goalie={goalie}/> : null}
+
+                {logQ.loading && !log.length ? <Skeleton height={220} radius={16} style={styles.section}/> : null}
 
                 {!noGames && log.length ? (
                     <>
@@ -243,5 +256,7 @@ const styles = StyleSheet.create({
     scroll: {paddingBottom: 48},
     content: {paddingHorizontal: 16},
     firstSection: {marginTop: 20},
+    section: {marginTop: 24},
+    skTitle: {marginBottom: 12},
     segmented: {marginBottom: 12},
 });
