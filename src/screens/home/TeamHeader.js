@@ -60,7 +60,7 @@ function TeamHeader({abbrev, row, loading, bg, onPickTeam, onBack, onFavorite, i
                 <TeamLogo abbrev={abbrev} size={48}/>
                 <View style={styles.nameCol}>
                     <View style={styles.nameRow}>
-                        <T variant="title" color={fg} numberOfLines={1} adjustsFontSizeToFit style={styles.name}>
+                        <T variant="title" color={fg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.name}>
                             {team?.name ?? abbrev}
                         </T>
                         <ArrowDown2 size={18} color={fg}/>

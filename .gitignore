@@ -42,3 +42,7 @@ yarn-error.*
 .idea/
 *.swp
 .expo-export-check/
+
+# Render smoke test output
+scripts/smoke/dist/
+scripts/smoke/out/

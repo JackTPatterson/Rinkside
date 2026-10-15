@@ -42,7 +42,7 @@ const RaceRow = memo(function RaceRow({item, rank, fav, onTeamPress}) {
     }
     return (
         <TeamRow abbrev={item.abbrev} fav={fav} onPress={onTeamPress}>
-            <TeamCell rank={rank} abbrev={item.abbrev} width={92}/>
+            <TeamCell rank={rank} abbrev={item.abbrev} width={100}/>
             <View style={st.ptsCol}>
                 <T variant="label" style={shared.num}>{item.points}</T>
                 <T variant="caption" muted style={shared.num}>{item.gp} GP</T>
@@ -89,7 +89,7 @@ export default memo(function RaceView({rows, fav, onTeamPress, refreshControl, l
                 </View>
             </View>
             <View style={shared.colHeader}>
-                <ColTitle width={92} align="left">TEAM</ColTitle>
+                <ColTitle width={100} align="left">TEAM</ColTitle>
                 <View style={st.ptsCol}><ColTitle>PTS</ColTitle></View>
                 <ColTitle width={48}>PROJ</ColTitle>
                 <View style={[st.c, st.hRow]}><ColTitle>+/−</ColTitle><InfoTip title="Cushion" body={CUSHION_INFO} size={12}/></View>

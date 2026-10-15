@@ -154,7 +154,7 @@ function GoalsTab({goals, shootout, header, pbp, xgShots, onPlayer}) {
         goals.forEach((g, i) => {
             const label = periodLabel(g.period, g.periodType);
             let grp = out[out.length - 1];
-            if (!grp || grp.label !== label) {
+            if (!grp || grp.key !== label) {
                 grp = {label: g.period <= 3 ? `${label} period` : label === 'OT' ? 'Overtime' : label, items: []};
                 grp.key = label;
                 out.push(grp);

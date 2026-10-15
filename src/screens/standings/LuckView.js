@@ -44,11 +44,11 @@ const LuckRow = memo(function LuckRow({item, rank, scale, fav, onTeamPress}) {
     return (
         <TeamRow abbrev={item.abbrev} fav={fav} onPress={onTeamPress} style={st.row}>
             <View style={st.top}>
-                <TeamCell rank={rank} abbrev={item.abbrev} width={92}/>
+                <TeamCell rank={rank} abbrev={item.abbrev} width={100}/>
                 <T variant="caption" style={[shared.num, st.c]}>{item.points}</T>
                 <T variant="caption" style={[shared.num, st.c]}>{num(item.expectedPoints, 0)}</T>
-                <T variant="caption" color={luckColor} style={[shared.num, st.c]}>{signed(item.luck, 1)}</T>
-                <T variant="caption" style={[shared.num, st.c]}>{num(item.pace, 0)}</T>
+                <T variant="caption" color={luckColor} style={[shared.num, st.cWide]}>{signed(item.luck, 1)}</T>
+                <T variant="caption" style={[shared.num, st.cWide]}>{num(item.pace, 0)}</T>
                 <T variant="label" style={[shared.num, st.p]}>{num(item.projected, 0)}</T>
             </View>
             <View style={st.bottom}>
@@ -102,11 +102,11 @@ export default memo(function LuckView({rows, fav, onTeamPress, refreshControl, l
                 <Segmented options={SORTS} value={sort} onChange={setSort}/>
             </View>
             <View style={shared.colHeader}>
-                <ColTitle width={92} align="left">TEAM</ColTitle>
+                <ColTitle width={100} align="left">TEAM</ColTitle>
                 <ColTitle width={C_W}>PTS</ColTitle>
                 <ColTitle width={C_W}>xPTS</ColTitle>
-                <View style={[st.c, st.hRow]}><ColTitle>LUCK</ColTitle><InfoTip title="Luck" body={LUCK_INFO} size={12}/></View>
-                <View style={[st.c, st.hRow]}><ColTitle>PACE</ColTitle><InfoTip title="Points pace" body={PACE_INFO} size={12}/></View>
+                <View style={[st.cWide, st.hRow]}><ColTitle>LUCK</ColTitle><InfoTip title="Luck" body={LUCK_INFO} size={12}/></View>
+                <View style={[st.cWide, st.hRow]}><ColTitle>PACE</ColTitle><InfoTip title="Points pace" body={PACE_INFO} size={12}/></View>
                 <ColTitle width={P_W}>PROJ</ColTitle>
             </View>
         </View>
@@ -134,6 +134,8 @@ const st = StyleSheet.create({
     bottom: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 28},
     hRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2},
     c: {width: C_W, flexShrink: 1},
+    // Columns whose header carries an (i) button need room for both.
+    cWide: {width: C_W + 16, flexShrink: 0},
     p: {width: P_W},
     range: {flex: 1, height: 8, borderRadius: 4},
     band: {position: 'absolute', top: 0, bottom: 0, borderRadius: 4},

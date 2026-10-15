@@ -70,7 +70,7 @@ function Tabs() {
                     backgroundColor: colors.background,
                     borderTopColor: colors.border,
                 },
-                tabBarLabelStyle: {fontFamily: fonts.semibold, fontSize: 11},
+                tabBarLabelStyle: {fontFamily: fonts.semibold, fontSize: 11, lineHeight: 15},
                 tabBarIcon: ({color, focused}) => {
                     const Icon = TAB_ICONS[route.name];
                     return <Icon size={24} color={color} variant={focused ? 'Bold' : 'Linear'}/>;

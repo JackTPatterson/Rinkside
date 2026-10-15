@@ -148,7 +148,7 @@ export default function RecapScreen({route, navigation}) {
     const hc = teamColor(home);
     const ac = teamColor(away);
     const winner = header.home.score > header.away.score ? header.home : header.away;
-    const winnerPre = prediction ? (winner === header.home ? prediction.homeWin : prediction.awayWin) : null;
+    const winnerPre = Number.isFinite(homeProb) ? (winner === header.home ? homeProb : 1 - homeProb) : null;
 
     return (
         <Screen>
@@ -188,7 +188,11 @@ export default function RecapScreen({route, navigation}) {
                                 </Row>
                                 {Number.isFinite(winnerPre) && header.home.score !== header.away.score ? (
                                     <T variant="body" muted style={{marginTop: 10, textAlign: 'center'}}>
-                                        {winner.shortName} {winnerPre < 0.45 ? `pulled off the upset as a ${pct(winnerPre)} underdog.` : `won as the ${pct(winnerPre)} favourite.`}
+                                        {winner.shortName} {winnerPre < 0.45
+                                            ? `pulled off the upset as a ${pct(winnerPre)} underdog`
+                                            : winnerPre < 0.55
+                                                ? `won a near coin-flip (${pct(winnerPre)} pre-game)`
+                                                : `won as the ${pct(winnerPre)} favourite`} per {source}.
                                     </T>
                                 ) : null}
                             </Card>
@@ -232,7 +236,7 @@ export default function RecapScreen({route, navigation}) {
                                     <SplitBar left={dtw.home} leftColor={hc} rightColor={ac} height={12}/>
                                     <Row gap={4} style={{marginTop: 10}}>
                                         <T variant="caption" muted style={{flex: 1}}>
-                                            Expected goals {home} {num(dtw.xgHome, 2)} · {away} {num(dtw.xgAway, 2)}
+                                            Expected goals {home} {num(dtw.xg.home.xg, 2)} · {away} {num(dtw.xg.away.xg, 2)}
                                         </T>
                                         <InfoTip
                                             size={13}

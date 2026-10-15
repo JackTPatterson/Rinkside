@@ -241,9 +241,13 @@ export function parseMoneyPuckGame(rows) {
  * that isn't already decided (playoffs → round 2 → …). scenario 'REG' | 'OT'.
  * Column is spelled `scenerio` in MoneyPuck's file.
  */
+// MoneyPuck spells four teams with dots.
+const MP_CODES = {'L.A': 'LAK', 'N.J': 'NJD', 'S.J': 'SJS', 'T.B': 'TBL'};
+const mpCode = (c) => MP_CODES[c] ?? c;
+
 export function playoffImpact(rows, home, away, scenario = 'REG') {
     if (!Array.isArray(rows) || !rows.length) return null;
-    const find = (team, sc) => rows.find((r) => r?.teamCode === team && (r?.scenerio ?? r?.scenario) === sc);
+    const find = (team, sc) => rows.find((r) => mpCode(r?.teamCode) === team && (r?.scenerio ?? r?.scenario) === sc);
     const hw = find(home, `WIN${scenario}`);
     const hl = find(home, `LOSS${scenario}`);
     const aw = find(away, `WIN${scenario}`);

@@ -57,7 +57,7 @@ export const TeamCell = memo(function TeamCell({rank, abbrev, width = 112, suffi
         <View style={[styles.teamCell, {width}]}>
             <T variant="caption" muted style={styles.rank}>{rank}</T>
             <TeamLogo abbrev={abbrev} size={20}/>
-            <T variant="label" numberOfLines={1}>{abbrev ?? '—'}</T>
+            <T variant="label" numberOfLines={1} style={styles.abbrev}>{abbrev ?? '—'}</T>
             {suffix ? <T variant="caption" muted>{suffix}</T> : null}
         </View>
     );
@@ -161,6 +161,8 @@ export function ColTitle({children, width, align = 'right'}) {
 }
 
 export const styles = StyleSheet.create({
+    // Team codes never truncate ("W…"); the cell's other content gives way instead.
+    abbrev: {flexShrink: 0, minWidth: 36},
     teamCell: {flexDirection: 'row', alignItems: 'center', gap: 6},
     rank: {width: 22, textAlign: 'right', fontVariant: ['tabular-nums']},
     row: {
