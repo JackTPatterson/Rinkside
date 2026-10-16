@@ -3,12 +3,12 @@ import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {RefreshControl, StyleSheet, View} from 'react-native';
 import {nhl} from '../api/nhl';
 import {Activity, Crown1, Diagram, Radar, RowVertical, Speedometer, Status} from '../components/icons';
-import {ErrorState, Header, PillTabs, Screen, Skeleton, SkeletonList} from '../components/ui';
+import {ErrorState, Header, Screen, Skeleton, UnderlineTabs} from '../components/ui';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {useLeague} from '../hooks/useLeague';
 import {useQuery} from '../hooks/useQuery';
 import {ROUTES} from '../navigation/routes';
-import {useAppTheme} from '../theme';
+import {GUTTER, useAppTheme} from '../theme';
 import {seasonLabel} from '../utils/season';
 import {fetchPowerRankings, fetchSimulations} from './standings/data';
 import LuckView from './standings/LuckView';
@@ -87,12 +87,19 @@ export default function StandingsScreen() {
     const common = {rows, fav, onTeamPress, refreshControl, listRef};
     let content;
     if (NEEDS_STANDINGS.has(tab) && !rows.length && league.loading) {
-        // Mirrors the loaded layout (segmented control / title row, then 44pt rows) so nothing jumps.
+        // Mirrors the loaded layout (segmented control / caption, then 56pt card-less rows) so nothing jumps.
         content = (
             <View style={styles.skeleton}>
-                <Skeleton height={34} radius={12}/>
-                <Skeleton width="45%" height={14} style={styles.skeletonCaption}/>
-                <SkeletonList count={10} height={40} gap={4}/>
+                <Skeleton height={44} radius={15}/>
+                <Skeleton width="45%" height={14} radius={15} style={styles.skeletonCaption}/>
+                {Array.from({length: 10}).map((_, i) => (
+                    <View key={i} style={styles.skeletonRow}>
+                        <Skeleton width={26} height={26} radius={13}/>
+                        <Skeleton width={48} height={14} radius={7}/>
+                        <View style={styles.flex}/>
+                        <Skeleton width={120} height={14} radius={7}/>
+                    </View>
+                ))}
             </View>
         );
     } else if (NEEDS_STANDINGS.has(tab) && !rows.length) {
@@ -115,16 +122,18 @@ export default function StandingsScreen() {
 
     return (
         <Screen>
-            <Header title="Standings" subtitle={`${seasonLabel()} regular season`}/>
-            <PillTabs tabs={TABS} value={tab} onChange={onTab} style={styles.tabs}/>
+            <Header title="Rankings" subtitle={`${seasonLabel()} regular season`}/>
+            <UnderlineTabs scrollable tabs={TABS} value={tab} onChange={onTab} style={styles.tabs}/>
             <View style={styles.body}>{content}</View>
         </Screen>
     );
 }
 
 const styles = StyleSheet.create({
-    tabs: {marginBottom: 4},
+    tabs: {marginTop: 10, marginBottom: 10},
     body: {flex: 1},
-    skeleton: {paddingHorizontal: 16, paddingTop: 8},
-    skeletonCaption: {marginTop: 12, marginBottom: 16},
+    skeleton: {paddingHorizontal: GUTTER, paddingTop: 10},
+    skeletonCaption: {marginTop: 10, marginBottom: 20},
+    skeletonRow: {height: 56, marginBottom: 4, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 26},
+    flex: {flex: 1},
 });

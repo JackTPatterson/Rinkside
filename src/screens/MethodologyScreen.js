@@ -2,15 +2,15 @@ import React, {memo} from 'react';
 import {ScrollView, StyleSheet, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Danger, Lamp} from '../components/icons';
-import {BackButton, Card, FadeInView, Header, Screen, Section, T} from '../components/ui';
-import {useAppTheme, withAlpha} from '../theme';
+import {BackButton, FadeInView, Header, Screen, Section, T} from '../components/ui';
+import {GUTTER, useAppTheme, withAlpha} from '../theme';
 import {METHOD_SECTIONS} from './settings/methodology';
 
 const ModelCard = memo(function ModelCard({model}) {
     const {colors} = useAppTheme();
     const Icon = model.icon;
     return (
-        <Card style={styles.card}>
+        <View style={styles.card}>
             <View style={styles.cardHead}>
                 <View style={[styles.icon, {backgroundColor: withAlpha(colors.accent, 0.12)}]}>
                     <Icon size={18} color={colors.accent}/>
@@ -23,13 +23,13 @@ const ModelCard = memo(function ModelCard({model}) {
             <View
                 accessible
                 accessibilityLabel={`The math. ${model.math.join('. ')}`}
-                style={[styles.math, {backgroundColor: colors.cardAlt, borderLeftColor: colors.accent}]}>
+                style={styles.math}>
                 <T variant="caption" muted style={styles.mathLabel}>THE MATH</T>
                 {model.math.map((line, i) => (
                     <T key={i} variant="caption" style={styles.mathLine} selectable>{line}</T>
                 ))}
             </View>
-        </Card>
+        </View>
     );
 });
 
@@ -41,40 +41,45 @@ export default function MethodologyScreen({navigation}) {
             <Header title="How the models work" subtitle="Plain English first, then the math" left={<BackButton onPress={() => navigation.goBack()}/>}/>
             <ScrollView contentContainerStyle={[styles.content, {paddingBottom: 32 + insets.bottom}]} showsVerticalScrollIndicator={false}>
                 <FadeInView>
-                    <Card style={styles.intro}>
+                    <View style={styles.intro}>
                         <View style={styles.cardHead}>
                             <Lamp size={20} color={colors.warning} variant="Bold"/>
-                            <T variant="label">Estimates, not certainties</T>
+                            <T variant="heading">Estimates, not certainties</T>
                         </View>
-                        <T variant="body" muted>
+                        <T variant="body" muted style={styles.para}>
                             Every probability, projection and “true talent” number in Rinkside comes from a statistical
                             model built on public NHL data. Models are useful because they’re honest about uncertainty:
                             a 70% favourite still loses three games in ten.
                         </T>
-                    </Card>
+                    </View>
                 </FadeInView>
 
                 {METHOD_SECTIONS.map((section) => (
                     <Section key={section.key} title={section.title}>
                         <T variant="body" muted style={styles.sectionIntro}>{section.intro}</T>
                         <View style={styles.stack}>
-                            {section.models.map((m) => <ModelCard key={m.key} model={m}/>)}
+                            {section.models.map((m, i) => (
+                                <React.Fragment key={m.key}>
+                                    {i > 0 ? <View style={[styles.divider, {backgroundColor: colors.text}]}/> : null}
+                                    <ModelCard model={m}/>
+                                </React.Fragment>
+                            ))}
                         </View>
                     </Section>
                 ))}
 
-                <Card style={[styles.caveat, {backgroundColor: withAlpha(colors.warning, 0.1)}]}>
+                <View style={styles.caveat}>
                     <View style={styles.cardHead}>
-                        <Danger size={18} color={colors.warning}/>
-                        <T variant="label">Limits worth knowing</T>
+                        <Danger size={20} color={colors.warning}/>
+                        <T variant="heading">Limits worth knowing</T>
                     </View>
-                    <T variant="caption" muted>
+                    <T variant="caption" muted style={styles.caveatText}>
                         The game model knows team scoring rates, home ice, manpower and the clock, but not injuries,
                         starting goalies, back-to-backs or trades until they show up in results. Rinkside xG is a
                         lightweight heuristic rather than a model fitted to NHL data. All outputs are model estimates
                         for fun and insight, not betting advice.
                     </T>
-                </Card>
+                </View>
             </ScrollView>
         </Screen>
     );
@@ -82,16 +87,19 @@ export default function MethodologyScreen({navigation}) {
 
 const styles = StyleSheet.create({
     flex: {flex: 1},
-    content: {paddingHorizontal: 16},
-    intro: {gap: 8, padding: 16},
-    sectionIntro: {marginTop: -4, marginBottom: 12},
-    stack: {gap: 12},
-    card: {gap: 10, padding: 16},
+    content: {paddingHorizontal: GUTTER},
+    intro: {gap: 10},
+    sectionIntro: {marginTop: -4, marginBottom: 10, lineHeight: 25},
+    stack: {},
+    divider: {height: 2, opacity: 0.2, marginVertical: 10},
+    card: {gap: 10},
     cardHead: {flexDirection: 'row', alignItems: 'center', gap: 10},
-    icon: {width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center'},
-    para: {lineHeight: 22},
-    math: {borderLeftWidth: 3, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, gap: 6, marginTop: 2},
+    icon: {width: 36, height: 36, borderRadius: 100, alignItems: 'center', justifyContent: 'center'},
+    para: {lineHeight: 25},
+    // "The math" follows the plain-English copy directly on the page background (no inset well).
+    math: {gap: 6, marginTop: 2},
     mathLabel: {letterSpacing: 1, fontSize: 10},
     mathLine: {lineHeight: 18, fontVariant: ['tabular-nums']},
-    caveat: {gap: 8, marginTop: 24, padding: 16},
+    caveat: {gap: 10, marginTop: 20},
+    caveatText: {fontSize: 14, lineHeight: 20},
 });

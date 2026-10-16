@@ -2,18 +2,18 @@
 import {useIsFocused, useScrollToTop} from '@react-navigation/native';
 import {StatusBar} from 'expo-status-bar';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native';
+import {Pressable, RefreshControl, ScrollView, StyleSheet, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {preGameHomeWinProb} from '../api/moneypuck';
 import {isFinal, isLive, nhl} from '../api/nhl';
-import {Activity, Calendar, Health, Lamp, People} from '../components/icons';
-import {Card, EmptyState, PillTabs, Screen, T} from '../components/ui';
+import {Activity, Calendar, Danger, Lamp, User} from '../components/icons';
+import {EmptyState, Screen, T, UnderlineTabs} from '../components/ui';
 import {getTeam} from '../data/teams';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {useLeague} from '../hooks/useLeague';
 import {useQuery} from '../hooks/useQuery';
 import {ROUTES} from '../navigation/routes';
-import {readableOn, useAppTheme} from '../theme';
+import {GUTTER, readableOn, useAppTheme} from '../theme';
 import {isSameDay} from '../utils/format';
 import {
     fetchInjuries,
@@ -27,6 +27,8 @@ import {
 import InjuriesTab from './home/InjuriesTab';
 import InsightsTab from './home/InsightsTab';
 import RosterTab from './home/RosterTab';
+import {fetchLines} from '../api/dailyfaceoff';
+import {fetchTeamMilestones} from '../api/fan';
 import ScheduleTab from './home/ScheduleTab';
 import StatsTab from './home/StatsTab';
 import TeamHeader from './home/TeamHeader';
@@ -35,9 +37,9 @@ import TeamPicker from './home/TeamPicker';
 const TABS = [
     {key: 'schedule', label: 'Schedule', icon: Calendar},
     {key: 'insights', label: 'Insights', icon: Lamp},
-    {key: 'stats', label: 'Season Stats', icon: Activity},
-    {key: 'roster', label: 'Roster', icon: People},
-    {key: 'injuries', label: 'Injuries', icon: Health},
+    {key: 'stats', label: 'Stats', icon: Activity}, // short: five labels share one underline bar
+    {key: 'roster', label: 'Roster', icon: User},
+    {key: 'injuries', label: 'Injuries', icon: Danger},
 ];
 
 const STICKY = [1];
@@ -115,6 +117,14 @@ export default function HomeScreen({navigation, route}) {
         keepPreviousData: false,
     });
     const summary = useQuery(({force}) => nhl.teams(undefined, {force}), [], {enabled: !!seen.insights});
+    const milestones = useQuery(({force}) => fetchTeamMilestones(abbrev, {force}), [abbrev], {
+        enabled: known && !!seen.insights,
+        keepPreviousData: false,
+    });
+    const lines = useQuery(({force}) => fetchLines(abbrev, {force}), [abbrev], {
+        enabled: known && !!seen.roster,
+        keepPreviousData: false,
+    });
 
     /* ------------------------------------------------------- actions */
 
@@ -124,6 +134,10 @@ export default function HomeScreen({navigation, route}) {
 
     const onOpenPlayer = useCallback((p) => {
         if (p?.id) navigation.navigate(ROUTES.player, {playerId: p.id, name: playerName(p)});
+    }, [navigation]);
+
+    const onOpenPlayerId = useCallback((id) => {
+        if (id) navigation.navigate(ROUTES.player, {playerId: id});
     }, [navigation]);
 
     const onSelectTeam = useCallback((a) => {
@@ -171,9 +185,13 @@ export default function HomeScreen({navigation, route}) {
         return (
             <Screen>
                 <EmptyState title="Pick a team" message="Choose a team to see its schedule, stats and roster."/>
-                <Card onPress={openPicker} style={styles.pick} accessibilityLabel="Choose team">
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Choose team"
+                    onPress={openPicker}
+                    style={({pressed}) => [styles.pick, {backgroundColor: colors.card}, pressed && styles.pressed]}>
                     <T variant="label" style={styles.centerText}>Choose team</T>
-                </Card>
+                </Pressable>
                 <TeamPicker visible={pickerOpen} current={abbrev} onSelect={onSelectTeam} onClose={closePicker}/>
             </Screen>
         );
@@ -213,7 +231,9 @@ export default function HomeScreen({navigation, route}) {
                 error={league.error}
                 onRetry={league.refresh}
                 summary={summary.data}
+                milestones={milestones.data}
                 onOpenGame={onOpenGame}
+                onOpenPlayer={onOpenPlayerId}
             />
         );
     } else if (tab === 'stats') {
@@ -227,6 +247,8 @@ export default function HomeScreen({navigation, route}) {
                 error={roster.error}
                 onRetry={roster.refresh}
                 onOpenPlayer={onOpenPlayer}
+                lines={lines}
+                onOpenPlayerId={onOpenPlayerId}
             />
         );
     } else {
@@ -260,7 +282,7 @@ export default function HomeScreen({navigation, route}) {
                     />
                 </View>
                 <View style={[styles.tabs, {backgroundColor: colors.background}]}>
-                    <PillTabs tabs={TABS} value={tab} onChange={changeTab}/>
+                    <UnderlineTabs tabs={TABS} value={tab} onChange={changeTab}/>
                 </View>
                 <View key={`${abbrev}-${tab}`}>{content}</View>
             </ScrollView>
@@ -270,6 +292,7 @@ export default function HomeScreen({navigation, route}) {
                 onSelect={onSelectTeam}
                 onClose={closePicker}
                 title={isTeamRoute ? 'Switch team' : 'Your team'}
+                currentLabel={isTeamRoute ? 'Viewing' : 'Your team'}
             />
         </View>
     );
@@ -279,7 +302,9 @@ const styles = StyleSheet.create({
     root: {flex: 1},
     statusFill: {position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2},
     content: {paddingBottom: 48},
-    tabs: {paddingVertical: 12},
-    pick: {marginHorizontal: 16},
+    tabs: {paddingTop: 12, paddingBottom: 16},
+    // A pill button (like Players' "Load more"), not a card.
+    pick: {marginHorizontal: GUTTER, paddingHorizontal: 20, paddingVertical: 15, minHeight: 44, justifyContent: 'center', borderRadius: 100},
+    pressed: {opacity: 0.6},
     centerText: {textAlign: 'center'},
 });

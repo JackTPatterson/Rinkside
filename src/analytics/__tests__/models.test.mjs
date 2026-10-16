@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {
+    alignPrediction,
     buildRatings,
     calibrateTiedLate,
     excitementIndex,
@@ -9,10 +10,11 @@ import {
     predictGame,
     winProbability,
 } from '../gameModel.js';
+import {gameScores, goalieGameScore, onIceCounts, parseShifts, skaterGameScore} from '../gameScore.js';
 import {betaInc, betaQuantile, lgamma, negBinPmf, poissonBinomial, poissonPmf, poissonVector} from '../math.js';
 import {detectStreak, formLine, goalieTalent, projectCount, shootingTalent, shrinkRate} from '../playerModel.js';
 import {pdo, playoffLine, pythagorean, teamProfile} from '../teamMetrics.js';
-import {deserveToWin, gameXG, shotGeometry, shotXG} from '../xg.js';
+import {applyExternalXG, deserveToWin, gameXG, shotGeometry, shotXG} from '../xg.js';
 
 const close = (a, b, eps = 1e-6, msg) => assert.ok(Math.abs(a - b) <= eps, msg ?? `${a} ≉ ${b} (±${eps})`);
 
@@ -69,6 +71,19 @@ test('equal teams on neutral ice are a coin flip', () => {
     close(wp.home, 0.5, 1e-9);
     close(wp.home + wp.away, 1, 1e-9);
     assert.ok(wp.ot > 0.15 && wp.ot < 0.35, `ot ${wp.ot}`);
+});
+
+test('alignPrediction re-centres on another home win probability', () => {
+    const r = buildRatings([], {});
+    const p = predictGame(r, 'AAA', 'CCC');
+    const q = alignPrediction(p, 0.62);
+    close(q.homeWin, 0.62);
+    close(q.homeWin + q.awayWin, 1);
+    close(q.overtime, p.overtime);
+    close(q.homeRegWin + q.awayRegWin + q.overtime, 1, 1e-9);
+    const otHome = (p.homeWin - p.homeRegWin) / p.overtime;
+    close(q.homeRegWin, 0.62 - p.overtime * otHome, 1e-9);
+    assert.equal(alignPrediction(p, NaN), p);
 });
 
 test('pregame prediction is coherent', () => {
@@ -207,12 +222,14 @@ test('xg geometry and monotonicity', () => {
     assert.ok(reb > slot);
 });
 
-test('league-average shot mix is ~6-7% xG', () => {
-    // A crude mix of locations roughly matching NHL unblocked attempts.
+test('a uniform grid of wrist-shot locations averages a few percent xG', () => {
+    // Sanity range only. This grid over-weights long-range shots, so it sits below the real-shot mean;
+    // the actual calibration (mean xG ≈ goals on real 2025-26 attempts) is checked by
+    // scripts/backtest-models.mjs.
     const shots = [];
     for (let x = 30; x <= 87; x += 3) for (let y = -30; y <= 30; y += 6) shots.push(shotXG({x, y, shotType: 'wrist'}));
     const mean = shots.reduce((a, b) => a + b, 0) / shots.length;
-    assert.ok(mean > 0.04 && mean < 0.1, `mean ${mean}`);
+    assert.ok(mean > 0.025 && mean < 0.1, `mean ${mean}`);
 });
 
 test('gameXG parses play-by-play and deserveToWin is a distribution', () => {
@@ -237,4 +254,148 @@ test('gameXG parses play-by-play and deserveToWin is a distribution', () => {
     const d = deserveToWin(g.home.shots, g.away.shots);
     close(d.home + d.away, 1, 1e-9);
     assert.ok(d.home > d.away);
+});
+
+test('applyExternalXG swaps in matched per-shot values, or keeps ours for the whole game', () => {
+    const shot = (t, type, xg) => ({t, type, xg, goal: type === 'goal', emptyNet: false});
+    const xg = {
+        home: {xg: 0.3, goals: 1, shots: [shot(10, 'goal', 0.2), shot(50, 'shot-on-goal', 0.1)]},
+        away: {xg: 0.05, goals: 0, shots: [shot(30, 'missed-shot', 0.05)]},
+        timeline: [],
+    };
+    const rows = [
+        {time: '10', team: 'HOME', event: 'GOAL', shotGoalProbability: '0.4'},
+        {time: '30', team: 'AWAY', event: 'MISS', shotGoalProbability: '0.02'},
+        {time: '50', team: 'HOME', event: 'SHOT', shotGoalProbability: '0.06'},
+        {time: '55', team: 'HOME', event: 'FAC', shotGoalProbability: ''},
+    ];
+    const out = applyExternalXG(xg, rows);
+    assert.equal(out.source, 'moneypuck');
+    close(out.home.xg, 0.46);
+    close(out.away.xg, 0.02);
+    assert.equal(out.timeline.length, 3);
+    close(out.timeline[2].home, 0.46);
+    // Too few matches → our numbers for the whole game.
+    const partial = applyExternalXG(xg, rows.slice(0, 1));
+    assert.equal(partial.source, 'rinkside');
+    close(partial.home.xg, 0.3);
+    assert.equal(applyExternalXG(xg, null).source, 'rinkside');
+});
+
+/* ---------------------------------------------------------- game score */
+
+test('game score from a tiny synthetic box score + play-by-play', () => {
+    const sk = (playerId, sweaterNumber, name, extra) => ({playerId, sweaterNumber, name: {default: name}, goals: 0, sog: 0, blockedShots: 0, plusMinus: 0, toi: '15:00', ...extra});
+    const box = {
+        playerByGameStats: {
+            homeTeam: {
+                forwards: [
+                    sk(10, 9, 'A. Scorer', {goals: 1, sog: 2, plusMinus: 1}),
+                    sk(11, 19, 'B. Setup', {plusMinus: 1}),
+                ],
+                defense: [sk(13, 4, 'C. Dman', {blockedShots: 2, plusMinus: 1})],
+                goalies: [
+                    {playerId: 30, sweaterNumber: 30, name: {default: 'H. Goalie'}, goalsAgainst: 0, saves: 10, toi: '60:00'},
+                    {playerId: 31, sweaterNumber: 31, name: {default: 'H. Backup'}, goalsAgainst: 0, saves: 0, toi: '00:00'},
+                ],
+            },
+            awayTeam: {
+                forwards: [sk(20, 91, 'X. Center', {sog: 2, plusMinus: -1})],
+                defense: [],
+                goalies: [{playerId: 40, sweaterNumber: 1, name: {default: 'A. Goalie'}, goalsAgainst: 1, saves: 20, toi: '60:00'}],
+            },
+        },
+    };
+    const REG = {periodType: 'REG'};
+    const pbp = {
+        plays: [
+            {typeDescKey: 'goal', periodDescriptor: REG, details: {scoringPlayerId: 10, assist1PlayerId: 11, assist2PlayerId: 13, goalieInNetId: 40}},
+            {typeDescKey: 'faceoff', periodDescriptor: REG, details: {winningPlayerId: 11, losingPlayerId: 20}},
+            {typeDescKey: 'faceoff', periodDescriptor: REG, details: {winningPlayerId: 11, losingPlayerId: 20}},
+            {typeDescKey: 'faceoff', periodDescriptor: REG, details: {winningPlayerId: 20, losingPlayerId: 11}},
+            {typeDescKey: 'penalty', periodDescriptor: REG, details: {typeCode: 'MIN', committedByPlayerId: 20, drawnByPlayerId: 10}},
+            // Misconducts and shootout goals don't count.
+            {typeDescKey: 'penalty', periodDescriptor: REG, details: {typeCode: 'MIS', committedByPlayerId: 20, drawnByPlayerId: 10}},
+            {typeDescKey: 'goal', periodDescriptor: {periodType: 'SO'}, details: {scoringPlayerId: 20, goalieInNetId: 30}},
+        ],
+    };
+    const {home, away} = gameScores(box, pbp);
+    const by = (rows) => Object.fromEntries(rows.map((r) => [r.playerId, r]));
+    const h = by(home);
+    const a = by(away);
+    // A: 0.75·1 G + 0.075·2 SOG + 0.15·1 PD + 0.15·(+1) = 1.20
+    close(h[10].gs, 1.2, 1e-9);
+    close(h[10].parts.production, 0.75, 1e-9);
+    // B: 0.7·1 A1 + 0.01·2 FOW − 0.01·1 FOL + 0.15·(+1) = 0.86
+    close(h[11].gs, 0.86, 1e-9);
+    // C (D): 0.55·1 A2 + 0.05·2 BLK + 0.15·(+1) = 0.80
+    close(h[13].gs, 0.8, 1e-9);
+    assert.equal(h[13].position, 'D');
+    // Home goalie: −0.75·0 + 0.1·10 = 1.00; backup who didn't play is left out.
+    close(h[30].gs, 1.0, 1e-9);
+    assert.equal(h[31], undefined);
+    // X: −0.15·1 PT + 0.01·1 FOW − 0.01·2 FOL + 0.075·2 SOG + 0.15·(−1) = −0.16
+    close(a[20].gs, -0.16, 1e-9);
+    assert.equal(a[20].stats.pt, 1);
+    // Away goalie: −0.75·1 + 0.1·20 = 1.25
+    close(a[40].gs, 1.25, 1e-9);
+    assert.equal(a[40].position, 'G');
+    // Sorted high to low.
+    assert.deepEqual(home.map((r) => r.playerId), [10, 30, 11, 13]);
+    // No shifts → plus/minus fallback.
+    assert.equal(gameScores(box, pbp).onIceSource, 'plusMinus');
+    assert.equal(h[10].onIceSource, 'plusMinus');
+});
+
+test('game score component helpers', () => {
+    close(skaterGameScore({}).gs, 0, 1e-12);
+    close(skaterGameScore({g: 2, a1: 1, pt: 2}).gs, 1.5 + 0.7 - 0.3, 1e-12);
+    close(goalieGameScore({ga: 4, sv: 22}).gs, -3 + 2.2, 1e-12);
+});
+
+test('game score on-ice terms from shift charts (5v5 Corsi and goals)', () => {
+    const sk = (playerId, extra) => ({playerId, sweaterNumber: playerId, name: {default: `P${playerId}`}, goals: 0, sog: 0, blockedShots: 0, plusMinus: 0, toi: '10:00', ...extra});
+    const box = {
+        homeTeam: {id: 1},
+        awayTeam: {id: 2},
+        playerByGameStats: {
+            homeTeam: {forwards: [sk(10, {goals: 1, sog: 2, plusMinus: 1}), sk(11)], defense: [], goalies: []},
+            awayTeam: {forwards: [sk(20, {plusMinus: -1})], defense: [], goalies: []},
+        },
+    };
+    const P1 = {number: 1, periodType: 'REG'};
+    const ev = (typeDescKey, timeInPeriod, owner, situationCode = '1551', periodDescriptor = P1) =>
+        ({typeDescKey, timeInPeriod, situationCode, periodDescriptor, details: {eventOwnerTeamId: owner}});
+    const pbp = {
+        plays: [
+            ev('shot-on-goal', '00:20', 1), // A on, X not yet
+            ev('missed-shot', '00:30', 2), // X's shift starts at 0:30 → not on (start < t)
+            ev('goal', '01:00', 1), // A's shift ends at 1:00 → on (t ≤ end); X on
+            ev('blocked-shot', '01:30', 2, '1451'), // power play → not 5v5
+            ev('faceoff', '01:40', 2), // not a shot attempt
+            ev('goal', '00:00', 2, '1010', {number: 5, periodType: 'SO'}), // shootout ignored
+        ],
+    };
+    const shifts = {data: [
+        {playerId: 10, period: 1, startTime: '00:00', endTime: '01:00', typeCode: 517},
+        {playerId: 20, period: 1, startTime: '00:30', endTime: '02:00', typeCode: 517},
+        {playerId: 20, period: 1, startTime: '00:00', endTime: '00:00', typeCode: 505}, // goal marker row
+    ]};
+    const map = parseShifts(shifts);
+    assert.equal(map.get(20).length, 1);
+    const oi = onIceCounts(pbp, map, new Map([[10, 1], [11, 1], [20, 2]]));
+    assert.deepEqual(oi.get(10), {cf: 2, ca: 1, gf: 1, ga: 0, cf5: 2, ca5: 1, gf5: 1, ga5: 0});
+    assert.deepEqual(oi.get(20), {cf: 1, ca: 1, gf: 0, ga: 1, cf5: 0, ca5: 1, gf5: 0, ga5: 1});
+
+    const r = gameScores(box, pbp, shifts);
+    assert.equal(r.onIceSource, 'shifts');
+    const a = r.home.find((x) => x.playerId === 10);
+    // 0.75 G + 0.075·2 SOG + 0.05·2 CF − 0.05·1 CA + 0.15·1 GF − 0.15·0 GA = 1.10
+    close(a.gs, 1.1, 1e-9);
+    close(a.parts.corsi, 0.05, 1e-9);
+    assert.equal(a.onIceSource, 'shifts');
+    // X: −0.05·1 CA − 0.15·1 GA = −0.20 (plus/minus not used once shifts exist)
+    close(r.away[0].gs, -0.2, 1e-9);
+    // A skater missing from the shift feed falls back to plus/minus.
+    assert.equal(r.home.find((x) => x.playerId === 11).onIceSource, 'plusMinus');
 });

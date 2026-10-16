@@ -1,22 +1,21 @@
 import {useScrollToTop} from '@react-navigation/native';
 import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View} from 'react-native';
+import {ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View} from 'react-native';
 import {nhl} from '../api/nhl';
-import {CloseCircle, People, RowVertical, SearchNormal1, Shield} from '../components/icons';
-import {EmptyState, ErrorState, Header, InfoTip, PillTabs, Screen, Segmented, T, tap} from '../components/ui';
+import {Close, People, SearchNormal1, Shield} from '../components/icons';
+import {EmptyState, ErrorState, Header, InfoTip, PillTabs, Screen, T, UnderlineTabs, tap} from '../components/ui';
 import {useLeague} from '../hooks/useLeague';
 import {useQuery} from '../hooks/useQuery';
 import {ROUTES} from '../navigation/routes';
-import {useAppTheme} from '../theme';
+import SeasonPicker from './players/SeasonPicker';
+import {GUTTER, useAppTheme} from '../theme';
 import {currentSeasonId, previousSeasonId, REGULAR_SEASON_GAMES, seasonLabel} from '../utils/season';
 import {
     compactColumns,
     dedupeRows,
-    GOALIE_COLUMNS,
     leagueGamesPlayed,
     rankRows,
     searchItems,
-    SKATER_COLUMNS,
     SORTS,
 } from './players/helpers';
 import {
@@ -24,10 +23,6 @@ import {
     LeaderboardRow,
     LeaderboardSkeleton,
     ROW_HEIGHT,
-    TABLE_NAME_WIDTH,
-    TABLE_ROW_HEIGHT,
-    TableHeader,
-    TableRow,
 } from './players/LeaderboardRow';
 import {searchPlayers} from './players/search';
 
@@ -51,14 +46,14 @@ const SORT_INFO = {
 };
 
 const keyExtractor = (item) => String(item.row.playerId);
+const SEASON_COUNT = 10;
 const compactLayout = (_, index) => ({length: ROW_HEIGHT, offset: ROW_HEIGHT * index, index});
-const tableLayout = (_, index) => ({length: TABLE_ROW_HEIGHT, offset: TABLE_ROW_HEIGHT * index, index});
 
 const SearchBox = memo(function SearchBox({value, onChange, placeholder, busy}) {
     const {colors, fonts} = useAppTheme();
     return (
         <View style={[styles.search, {backgroundColor: colors.card}]}>
-            <SearchNormal1 size={18} color={colors.textSecondary}/>
+            <SearchNormal1 size={20} color={colors.textSecondary}/>
             <TextInput
                 value={value}
                 onChangeText={onChange}
@@ -75,7 +70,7 @@ const SearchBox = memo(function SearchBox({value, onChange, placeholder, busy}) 
             {busy ? <ActivityIndicator size="small" color={colors.textSecondary}/> : null}
             {value ? (
                 <Pressable accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={13} onPress={() => onChange('')}>
-                    <CloseCircle size={18} color={colors.textSecondary}/>
+                    <Close size={20} color={colors.textSecondary}/>
                 </Pressable>
             ) : null}
         </View>
@@ -97,7 +92,7 @@ const ListFooter = memo(function ListFooter({loadingMore, canLoadMore, onLoadMor
                     onLoadMore();
                 }}
                 style={({pressed}) => [styles.more, {backgroundColor: colors.card}, pressed && {opacity: 0.6}]}>
-                <T variant="label">{error ? 'Try again' : `Load ${PAGE} more`}</T>
+                <T variant="body" style={styles.semibold}>{error ? 'Try again' : `Load ${PAGE} more`}</T>
             </Pressable>
         </View>
     );
@@ -109,25 +104,22 @@ export default function PlayersScreen({navigation}) {
     useScrollToTop(listRef);
 
     const current = currentSeasonId();
-    const seasons = useMemo(() => [
-        {key: current, label: seasonLabel(current)},
-        {key: previousSeasonId(current), label: seasonLabel(previousSeasonId(current))},
-    ], [current]);
+    // Newest first: this season and the nine before it.
+    const seasons = useMemo(() => {
+        const out = [current];
+        while (out.length < SEASON_COUNT) out.push(previousSeasonId(out[out.length - 1]));
+        return out;
+    }, [current]);
 
     const [kind, setKindRaw] = useState('skaters');
     const [seasonId, setSeasonId] = useState(current);
     const [sortKey, setSortKey] = useState('points');
     const [query, setQuery] = useState('');
     const [debounced, setDebounced] = useState('');
-    const [table, setTable] = useState(false);
 
     const setKind = useCallback((k) => {
         setKindRaw(k);
         setSortKey(SORTS[k][0].key);
-    }, []);
-    const toggleTable = useCallback(() => {
-        tap();
-        setTable((t) => !t);
     }, []);
 
     useEffect(() => {
@@ -219,11 +211,6 @@ export default function PlayersScreen({navigation}) {
         [searching, ranked, serverRows, kind, sort.key, query],
     );
     const compactCols = useMemo(() => compactColumns(kind, sort.key), [kind, sort.key]);
-    const allCols = kind === 'skaters' ? SKATER_COLUMNS : GOALIE_COLUMNS;
-    const tableWidth = useMemo(
-        () => 32 + TABLE_NAME_WIDTH + allCols.reduce((a, c) => a + c.width + 8, 0),
-        [allCols],
-    );
 
     const openPlayer = useCallback((row, name) => {
         navigation.navigate(ROUTES.player, {playerId: row.playerId, name});
@@ -232,9 +219,6 @@ export default function PlayersScreen({navigation}) {
     const renderCompact = useCallback(({item}) => (
         <LeaderboardRow item={item} columns={compactCols} sortKey={sort.key} seasonId={seasonId} onPress={openPlayer}/>
     ), [compactCols, sort.key, seasonId, openPlayer]);
-    const renderTable = useCallback(({item}) => (
-        <TableRow item={item} columns={allCols} sortKey={sort.key} onPress={openPlayer}/>
-    ), [allCols, sort.key, openPlayer]);
 
     // With server search results the list is complete, so paging only matters for plain browsing
     // or the client-side fallback.
@@ -281,15 +265,6 @@ export default function PlayersScreen({navigation}) {
         body = <ErrorState message="Couldn’t load the leaderboard." onRetry={refresh}/>;
     } else if (!data) {
         body = <LeaderboardSkeleton/>;
-    } else if (table) {
-        body = (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.flex}>
-                <View style={[styles.flex, {width: tableWidth}]}>
-                    <TableHeader columns={allCols} sortKey={sort.key}/>
-                    <FlatList {...listProps} renderItem={renderTable} getItemLayout={tableLayout}/>
-                </View>
-            </ScrollView>
-        );
     } else {
         body = (
             <View style={styles.flex}>
@@ -307,20 +282,10 @@ export default function PlayersScreen({navigation}) {
             <Header
                 title="Players"
                 subtitle={`Regular season ${seasonLabel(seasonId)}`}
-                right={(
-                    <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={table ? 'Show compact list' : 'Show all stat columns'}
-                        accessibilityState={{selected: table}}
-                        onPress={toggleTable}
-                        style={[styles.iconBtn, {backgroundColor: table ? colors.text : colors.card}]}>
-                        <RowVertical size={20} color={table ? colors.background : colors.text}/>
-                    </Pressable>
-                )}
+                right={<SeasonPicker seasons={seasons} value={seasonId} onChange={setSeasonId}/>}
             />
-            <PillTabs tabs={KIND_TABS} value={kind} onChange={setKind}/>
+            <UnderlineTabs tabs={KIND_TABS} value={kind} onChange={setKind}/>
             <View style={styles.controls}>
-                <Segmented options={seasons} value={seasonId} onChange={setSeasonId}/>
                 <SearchBox value={query} onChange={setQuery} placeholder={`Search all ${kind}`} busy={searchPending}/>
             </View>
             <PillTabs tabs={sortTabs} value={sort.key} onChange={setSortKey} style={styles.sortTabs}/>
@@ -340,13 +305,13 @@ const styles = StyleSheet.create({
     flex: {flex: 1},
     flexShrink: {flexShrink: 1},
     center: {textAlign: 'center'},
-    controls: {paddingHorizontal: 16, paddingTop: 12, gap: 10},
-    search: {flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 12, height: 44},
-    searchInput: {flex: 1, fontSize: 15, paddingVertical: 0, height: 44},
-    sortTabs: {marginTop: 12},
-    note: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4, minHeight: 34},
-    footer: {paddingVertical: 20, alignItems: 'center', gap: 10, paddingHorizontal: 16},
+    semibold: {fontFamily: 'Sora_600SemiBold'},
+    controls: {paddingHorizontal: GUTTER, paddingTop: 10, gap: 10},
+    search: {flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 15, paddingHorizontal: 20, height: 52},
+    searchInput: {flex: 1, fontSize: 16, paddingVertical: 0, height: 52},
+    sortTabs: {marginTop: 10},
+    note: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: GUTTER, paddingTop: 10, paddingBottom: 6, minHeight: 34},
+    footer: {paddingVertical: 20, alignItems: 'center', gap: 10, paddingHorizontal: GUTTER},
     footerSpace: {height: 32},
-    more: {paddingHorizontal: 20, minHeight: 44, justifyContent: 'center', borderRadius: 999},
-    iconBtn: {width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center'},
+    more: {paddingHorizontal: 20, paddingVertical: 15, minHeight: 44, justifyContent: 'center', borderRadius: 100},
 });

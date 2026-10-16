@@ -1,30 +1,25 @@
-import React, {memo, useEffect, useMemo, useState} from 'react';
-import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native';
+import React, {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {RefreshControl, ScrollView, StyleSheet, View, useWindowDimensions} from 'react-native';
 import Animated, {Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming} from 'react-native-reanimated';
-import {deserveToWin, excitementIndex, gameXG, predictGame} from '../analytics';
+import {alignPrediction, applyExternalXG, deserveToWin, excitementIndex, gameXG, predictGame} from '../analytics';
 import {moneypuck, preGameHomeWinProb} from '../api/moneypuck';
 import {nhl} from '../api/nhl';
 import {
     BackButton,
-    Card,
     ErrorState,
     FadeInView,
     Header,
-    InfoTip,
-    Row,
     Screen,
     Section,
     Skeleton,
-    SplitBar,
-    StatTile,
     T,
     TeamLogo,
 } from '../components/ui';
-import {useLeague} from '../hooks/useLeague';
+import {useRatingsBefore} from '../hooks/useLeague';
 import {useQuery} from '../hooks/useQuery';
 import {ROUTES} from '../navigation/routes';
-import {readableOn, useAppTheme} from '../theme';
-import {num, pct} from '../utils/format';
+import {GUTTER, readableOn, useAppTheme} from '../theme';
+import {DeserveBlocks, ExcitementGauge, FinalSplit, GoalTimeline, ThreeStars} from './recap/RecapParts';
 import {buildHeader, buildRinksideSeries, currentElapsed, extractGoals, moneyPuckChart, parseMoneyPuckGame} from './game/model';
 
 const none = () => null;
@@ -56,7 +51,7 @@ function useCountUp(target, delay = 500, duration = 1000) {
 }
 
 /** The original recap: the screen split between the two teams by pregame win probability. */
-const PregameSplit = memo(function PregameSplit({home, away, homeProb, source}) {
+const PregameSplit = memo(function PregameSplit({home, away, homeProb}) {
     const {teamColor} = useAppTheme();
     const hc = teamColor(home);
     const ac = teamColor(away);
@@ -71,18 +66,18 @@ const PregameSplit = memo(function PregameSplit({home, away, homeProb, source}) 
     const shownHome = useCountUp(homeProb);
     return (
         <View style={styles.split}>
-            <Animated.View style={[styles.half, {backgroundColor: hc}, topStyle]}>
+            <Animated.View style={[styles.half, styles.top, {backgroundColor: hc}, topStyle]}>
                 <TeamLogo abbrev={home} size={40}/>
                 <View>
                     <T variant="display" color={readableOn(hc)} style={styles.big}>{Math.round(shownHome * 100)}%</T>
                     <T variant="label" color={readableOn(hc)}>{home} pregame win chance</T>
                 </View>
             </Animated.View>
-            <Animated.View style={[styles.half, {backgroundColor: ac}, bottomStyle]}>
+            <Animated.View style={[styles.half, styles.bottom, {backgroundColor: ac}, bottomStyle]}>
                 <TeamLogo abbrev={away} size={40}/>
                 <View>
                     <T variant="display" color={readableOn(ac)} style={styles.big}>{Math.round((1 - shownHome) * 100)}%</T>
-                    <T variant="label" color={readableOn(ac)}>{away} · {source}</T>
+                    <T variant="label" color={readableOn(ac)}>{away} pregame win chance</T>
                 </View>
             </Animated.View>
         </View>
@@ -90,9 +85,8 @@ const PregameSplit = memo(function PregameSplit({home, away, homeProb, source}) 
 });
 
 export default function RecapScreen({route, navigation}) {
-    const {colors, teamColor} = useAppTheme();
+    const {colors} = useAppTheme();
     const {gameId, home: homeParam, away: awayParam} = route.params ?? {};
-    const {ratings} = useLeague();
 
     const landingQ = useQuery(({force}) => nhl.landing(gameId, {force}), [gameId]);
     const pbpQ = useQuery(({force}) => nhl.playByPlay(gameId, {force}).catch(none), [gameId]);
@@ -107,18 +101,19 @@ export default function RecapScreen({route, navigation}) {
     const header = useMemo(() => buildHeader(null, landingQ.data, undefined), [landingQ.data]);
     const home = header.home.abbrev || homeParam;
     const away = header.away.abbrev || awayParam;
+    // Ratings as of the day before the game, so the pregame number never uses later results.
+    const {ratings} = useRatingsBefore(header.gameDate);
 
+    // One pregame number: MoneyPuck's when it has one (backtested better), otherwise our model's.
     const prediction = useMemo(() => {
-        if (!home || !away) return null;
+        if (!home || !away || !ratings) return null;
         try {
-            return predictGame(ratings, home, away, {playoff: header.playoff});
+            return alignPrediction(predictGame(ratings, home, away, {playoff: header.playoff}), mpPreQ.data);
         } catch {
             return null;
         }
-    }, [ratings, home, away, header.playoff]);
-    const mpPre = mpPreQ.data;
-    const homeProb = Number.isFinite(mpPre) ? mpPre : prediction?.homeWin;
-    const source = Number.isFinite(mpPre) ? 'MoneyPuck' : 'Rinkside model';
+    }, [ratings, home, away, header.playoff, mpPreQ.data]);
+    const homeProb = prediction?.homeWin;
 
     // Excitement from MoneyPuck's series when it exists, else from Rinkside's replay of the goals.
     const excitement = useMemo(() => {
@@ -133,10 +128,10 @@ export default function RecapScreen({route, navigation}) {
     const dtw = useMemo(() => {
         const pbp = pbpQ.data;
         if (!pbp?.plays?.length) return null;
-        const xg = gameXG(pbp);
+        const xg = applyExternalXG(gameXG(pbp), mpGameQ.data);
         if (!xg.home.shots.length && !xg.away.shots.length) return null;
         return {...deserveToWin(xg.home.shots, xg.away.shots), xg};
-    }, [pbpQ.data]);
+    }, [pbpQ.data, mpGameQ.data]);
 
     const refresh = () => {
         landingQ.refresh();
@@ -145,8 +140,29 @@ export default function RecapScreen({route, navigation}) {
         if (season) mpGameQ.refresh();
     };
 
-    const hc = teamColor(home);
-    const ac = teamColor(away);
+    const goals = useMemo(() => extractGoals(landingQ.data, header.home.abbrev), [landingQ.data, header.home.abbrev]);
+    const stars = landingQ.data?.summary?.threeStars ?? [];
+    const {width} = useWindowDimensions();
+    // The Excitement dial sweeps once it has scrolled into view, not on page load.
+    const view = useRef({h: 0, y: null, scroll: 0});
+    const [exciteSeen, setExciteSeen] = useState(false);
+    const checkExcite = useCallback(() => {
+        const v = view.current;
+        if (v.y != null && v.h && v.scroll + v.h > v.y + 160) setExciteSeen(true);
+    }, []);
+    const onScroll = useCallback((e) => {
+        view.current.scroll = e.nativeEvent.contentOffset.y;
+        if (!exciteSeen) checkExcite();
+    }, [exciteSeen, checkExcite]);
+    const setViewportH = (h) => {
+        view.current.h = h;
+        checkExcite();
+    };
+    const setExciteY = (y) => {
+        view.current.y = y;
+        checkExcite();
+    };
+    const contentW = width - GUTTER * 2;
     const winner = header.home.score > header.away.score ? header.home : header.away;
     const winnerPre = Number.isFinite(homeProb) ? (winner === header.home ? homeProb : 1 - homeProb) : null;
 
@@ -161,90 +177,64 @@ export default function RecapScreen({route, navigation}) {
                 <ErrorState onRetry={refresh}/>
             ) : (
                 <ScrollView
+                    onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}
+                    onScroll={onScroll}
+                    scrollEventThrottle={32}
                     contentContainerStyle={styles.content}
                     refreshControl={<RefreshControl refreshing={landingQ.refreshing} onRefresh={refresh} tintColor={colors.textSecondary}/>}>
-                    {home && away && !mpPreQ.loading ? (
-                        <PregameSplit home={home} away={away} homeProb={homeProb} source={source}/>
-                    ) : (
-                        <Skeleton height={380} radius={24}/>
-                    )}
-
                     {header.final ? (
-                        <FadeInView delay={300}>
-                            <Card style={{marginTop: 16}} onPress={() => navigation.navigate(ROUTES.game, {gameId})} accessibilityLabel="Open game">
-                                <Row style={{justifyContent: 'space-between'}}>
-                                    <Row gap={10}>
-                                        <TeamLogo abbrev={home} size={32}/>
-                                        <T variant="display" style={{opacity: header.home.score < header.away.score ? 0.55 : 1}}>{header.home.score}</T>
-                                    </Row>
-                                    <View style={{alignItems: 'center'}}>
-                                        <T variant="label">Final{header.lastPeriodType && header.lastPeriodType !== 'REG' ? ` · ${header.lastPeriodType}` : ''}</T>
-                                        <T variant="caption" muted>Tap for the full game</T>
-                                    </View>
-                                    <Row gap={10}>
-                                        <T variant="display" style={{opacity: header.away.score < header.home.score ? 0.55 : 1}}>{header.away.score}</T>
-                                        <TeamLogo abbrev={away} size={32}/>
-                                    </Row>
-                                </Row>
-                                {Number.isFinite(winnerPre) && header.home.score !== header.away.score ? (
-                                    <T variant="body" muted style={{marginTop: 10, textAlign: 'center'}}>
-                                        {winner.shortName} {winnerPre < 0.45
-                                            ? `pulled off the upset as a ${pct(winnerPre)} underdog`
-                                            : winnerPre < 0.55
-                                                ? `won a near coin-flip (${pct(winnerPre)} pre-game)`
-                                                : `won as the ${pct(winnerPre)} favourite`} per {source}.
-                                    </T>
-                                ) : null}
-                            </Card>
+                        <FadeInView delay={0}>
+                            <FinalSplit
+                                header={header}
+                                onPress={() => navigation.navigate(ROUTES.game, {gameId})}
+                                note={Number.isFinite(winnerPre) && header.home.score !== header.away.score
+                                    ? `${winner.shortName} ${winnerPre < 0.45 ? 'pulled off the upset.' : winnerPre > 0.55 ? 'won as the favourite.' : 'won a near coin flip.'}`
+                                    : null}
+                            />
                         </FadeInView>
                     ) : null}
 
-                    {excitement ? (
-                        <Section
-                            title="Excitement Index"
-                            info={`How much the win-probability line moved during the game: every swing counts, so tight games with late lead changes score highest. Uses ${excitement.source}’s win probability, a model estimate.`}>
-                            <FadeInView delay={400}>
-                                <Card style={{marginBottom: 10}}>
-                                    <Row style={{justifyContent: 'space-between'}}>
-                                        <T variant="title">{excitement.label}</T>
-                                        <T variant="display">{num(excitement.index, 1)}</T>
-                                    </Row>
-                                </Card>
-                                <View style={styles.tiles}>
-                                    <StatTile label="Lead swings" value={String(excitement.swings)} info="Times the model’s favourite changed (win probability crossed 50%)."/>
-                                    <StatTile
-                                        label="Comeback"
-                                        value={pct(excitement.comeback)}
-                                        sub="Winner’s lowest win chance"
-                                        info="The winning team’s lowest win probability during the game — a model estimate. Low numbers mean a real comeback."
-                                    />
-                                </View>
+                    {home && away && !mpPreQ.loading ? (
+                        <PregameSplit home={home} away={away} homeProb={homeProb}/>
+                    ) : (
+                        <Skeleton height={420} radius={15}/>
+                    )}
+
+
+                    {goals.length ? (
+                        <Section title="How it unfolded">
+                            <FadeInView delay={350}>
+                                <GoalTimeline goals={goals} home={home} away={away} width={contentW}/>
                             </FadeInView>
                         </Section>
+                    ) : null}
+
+                    {excitement ? (
+                        <View onLayout={(e) => setExciteY(e.nativeEvent.layout.y)}>
+                        <Section
+                            title="Excitement Index"
+                            info="How much the win-probability line moved during the game: every swing counts, so tight games with late lead changes score highest. The winner’s low point is their lowest chance to win at any moment — low numbers mean a real comeback.">
+                            <FadeInView delay={400}>
+                                <ExcitementGauge excitement={excitement} width={contentW} active={exciteSeen}/>
+                            </FadeInView>
+                        </Section>
+                        </View>
                     ) : null}
 
                     {dtw ? (
                         <Section
                             title="Deserve to Win"
-                            info="If every scoring chance in this game were replayed thousands of times, how often each team would come out ahead — calculated from Rinkside’s expected-goals model (empty-net shots excluded). A model estimate of who played better.">
+                            info="If every scoring chance in this game were replayed thousands of times, how often each team would come out ahead — calculated from each shot’s expected goals (xG, empty-net shots excluded). An estimate of who played better.">
                             <FadeInView delay={500}>
-                                <Card>
-                                    <Row style={{justifyContent: 'space-between', marginBottom: 8}}>
-                                        <T variant="stat" color={hc}>{pct(dtw.home)}</T>
-                                        <T variant="stat" color={ac}>{pct(dtw.away)}</T>
-                                    </Row>
-                                    <SplitBar left={dtw.home} leftColor={hc} rightColor={ac} height={12}/>
-                                    <Row gap={4} style={{marginTop: 10}}>
-                                        <T variant="caption" muted style={{flex: 1}}>
-                                            Expected goals {home} {num(dtw.xg.home.xg, 2)} · {away} {num(dtw.xg.away.xg, 2)}
-                                        </T>
-                                        <InfoTip
-                                            size={13}
-                                            title="Expected goals (xG)"
-                                            body="Rinkside’s model estimate of how many goals each team’s chances were worth, from shot distance, angle, type, rebounds, rushes and manpower."
-                                        />
-                                    </Row>
-                                </Card>
+                                <DeserveBlocks dtw={dtw} home={home} away={away}/>
+                            </FadeInView>
+                        </Section>
+                    ) : null}
+
+                    {stars.length ? (
+                        <Section title="Three stars">
+                            <FadeInView delay={600}>
+                                <ThreeStars stars={stars} onPlayer={(id) => id && navigation.navigate(ROUTES.player, {playerId: id})}/>
                             </FadeInView>
                         </Section>
                     ) : null}
@@ -255,9 +245,11 @@ export default function RecapScreen({route, navigation}) {
 }
 
 const styles = StyleSheet.create({
-    content: {paddingHorizontal: 16, paddingBottom: 48},
-    split: {height: 420, borderRadius: 24, overflow: 'hidden'},
-    half: {paddingHorizontal: 18, paddingVertical: 14, justifyContent: 'space-between', overflow: 'hidden'},
-    big: {fontSize: 64, lineHeight: 72},
-    tiles: {flexDirection: 'row', gap: 10},
+    content: {paddingHorizontal: GUTTER, paddingBottom: 48, paddingTop: 10},
+    // Two-team split block: outer corners rounded at 15, flat where the halves meet, 3pt gap between.
+    split: {height: 420, borderRadius: 15, overflow: 'hidden', gap: 3},
+    half: {paddingHorizontal: 15, paddingVertical: 15, justifyContent: 'space-between', overflow: 'hidden'},
+    top: {borderTopLeftRadius: 15, borderTopRightRadius: 15, borderBottomLeftRadius: 0, borderBottomRightRadius: 0},
+    bottom: {borderBottomLeftRadius: 15, borderBottomRightRadius: 15, borderTopLeftRadius: 0, borderTopRightRadius: 0},
+    big: {fontFamily: 'Sora_600SemiBold', fontSize: 82, lineHeight: 96},
 });

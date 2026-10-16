@@ -1,40 +1,37 @@
 import React from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
-import {ArrowRight2} from '../../components/icons';
+import {ArrowRight} from '../../components/icons';
 import {T, tap} from '../../components/ui';
-import {useAppTheme, withAlpha} from '../../theme';
+import {useAppTheme} from '../../theme';
 
 /**
- * One row in a grouped settings list. Pass `first`/`last` to round the group's outer corners,
- * `right` for a trailing value, and `chevron={false}` for action rows.
+ * One settings row in the original Rinkside look: no card, a plain text-coloured icon, a 20pt SemiBold
+ * title and, for navigation rows, the round arrow button on colors.card. Rows sit 20px apart.
+ * `first`/`last`/`iconColor` are accepted for API compatibility and ignored.
+ * `right` is a trailing value, and `chevron={false}` hides the arrow for action rows.
  */
-export function SettingsRow({icon: Icon, iconColor, title, subtitle, right, onPress, first, last, chevron = true, accessibilityHint, destructive}) {
+export function SettingsRow({icon: Icon, title, subtitle, right, onPress, chevron = true, accessibilityHint, destructive}) {
     const {colors} = useAppTheme();
-    const tint = destructive ? colors.negative : iconColor ?? colors.text;
+    const tint = destructive ? colors.negative : colors.text;
     const content = (
         <>
-            {Icon ? (
-                <View style={[styles.icon, {backgroundColor: withAlpha(tint, 0.12)}]}>
-                    <Icon size={18} color={tint}/>
+            <View style={styles.left}>
+                {Icon ? <Icon size={24} color={tint}/> : null}
+                <View style={styles.text}>
+                    <T variant="body" color={tint} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={styles.title}>{title}</T>
+                    {subtitle ? <T variant="caption" muted numberOfLines={2}>{subtitle}</T> : null}
+                </View>
+            </View>
+            {typeof right === 'string' ? <T variant="body" muted numberOfLines={1} style={styles.right}>{right}</T> : right}
+            {onPress && chevron ? (
+                <View style={[styles.arrow, {backgroundColor: colors.card}]}>
+                    <ArrowRight size={24} color={colors.text}/>
                 </View>
             ) : null}
-            <View style={styles.text}>
-                <T variant="body" color={destructive ? colors.negative : undefined} numberOfLines={1}>{title}</T>
-                {subtitle ? <T variant="caption" muted numberOfLines={2}>{subtitle}</T> : null}
-            </View>
-            {typeof right === 'string' ? <T variant="label" muted numberOfLines={1}>{right}</T> : right}
-            {onPress && chevron ? <ArrowRight2 size={16} color={colors.textSecondary}/> : null}
         </>
     );
-    const base = [
-        styles.row,
-        {backgroundColor: colors.card},
-        first && styles.first,
-        last && styles.last,
-        !last && {borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth},
-    ];
     if (!onPress) {
-        return <View style={base} accessible accessibilityLabel={[title, typeof right === 'string' ? right : null].filter(Boolean).join(', ')}>{content}</View>;
+        return <View style={styles.row} accessible accessibilityLabel={[title, typeof right === 'string' ? right : null].filter(Boolean).join(', ')}>{content}</View>;
     }
     return (
         <Pressable
@@ -45,7 +42,7 @@ export function SettingsRow({icon: Icon, iconColor, title, subtitle, right, onPr
                 tap();
                 onPress();
             }}
-            style={({pressed}) => [base, pressed && {backgroundColor: colors.cardAlt}]}>
+            style={({pressed}) => [styles.row, pressed && styles.pressed]}>
             {content}
         </Pressable>
     );
@@ -56,10 +53,12 @@ export function SettingsGroup({children, style}) {
 }
 
 const styles = StyleSheet.create({
-    group: {borderRadius: 16, overflow: 'hidden'},
-    row: {flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, minHeight: 56, paddingVertical: 10},
-    first: {borderTopLeftRadius: 16, borderTopRightRadius: 16},
-    last: {borderBottomLeftRadius: 16, borderBottomRightRadius: 16},
-    icon: {width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center'},
-    text: {flex: 1, gap: 2},
+    group: {gap: 20},
+    row: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, minHeight: 44},
+    left: {flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10},
+    text: {flex: 1},
+    title: {fontFamily: 'Sora_600SemiBold', fontSize: 20, lineHeight: 26},
+    right: {fontSize: 14},
+    arrow: {width: 44, height: 44, borderRadius: 100, alignItems: 'center', justifyContent: 'center'},
+    pressed: {opacity: 0.6},
 });

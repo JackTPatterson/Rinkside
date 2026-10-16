@@ -1,8 +1,8 @@
 import React, {memo, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 import LineChart from '../../components/LineChart';
-import {Card, EmptyState, ErrorState, FadeInView, InfoTip, PillTabs, Row, Skeleton, StatTile, T} from '../../components/ui';
-import {useAppTheme} from '../../theme';
+import {EmptyState, ErrorState, FadeInView, InfoTip, PillTabs, Row, Skeleton, StatTile, T} from '../../components/ui';
+import {GUTTER, useAppTheme} from '../../theme';
 import {seasonLabel} from '../../utils/season';
 import {buildMetric, METRIC_BY_KEY, METRICS, mpDateLabel} from './data';
 
@@ -21,12 +21,13 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
     if (loading && !data) {
         return (
             <View style={styles.pad}>
-                <Skeleton height={38} radius={999}/>
-                <Skeleton height={310} radius={16} style={styles.mt12}/>
-                <Row style={styles.mt12}>
-                    <Skeleton height={72} radius={16} width="32%"/>
-                    <Skeleton height={72} radius={16} width="32%"/>
-                    <Skeleton height={72} radius={16} width="32%"/>
+                <Skeleton height={30} width={200} radius={15}/>
+                <Skeleton height={54} radius={100} style={styles.mt20}/>
+                <Skeleton height={260} radius={15} style={styles.mt12}/>
+                <Row gap={16} style={styles.mt20}>
+                    <Skeleton height={44} radius={10} width="30%"/>
+                    <Skeleton height={44} radius={10} width="30%"/>
+                    <Skeleton height={44} radius={10} width="30%"/>
                 </Row>
             </View>
         );
@@ -36,7 +37,7 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
         return (
             <EmptyState
                 title="No game data yet"
-                message="MoneyPuck hasn’t published game-by-game numbers for this team yet. Check back after a few games."
+                message="Game-by-game numbers for this team aren’t published yet. Check back after a few games."
             />
         );
     }
@@ -44,9 +45,12 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
     const color = teamColor(abbrev);
     const first = mpDateLabel(games[0]?.gameDate);
     const last = mpDateLabel(games[games.length - 1]?.gameDate);
+    const fmt = series.isPct ? fmtPct : fmtDiff;
+    const lastY = series.data[series.data.length - 1]?.y;
 
     return (
         <View>
+            <T variant="title" style={styles.title}>Season Wide Stats</T>
             <PillTabs tabs={TABS} value={metric} onChange={setMetric}/>
             <View style={styles.pad}>
                 {data.fallback ? (
@@ -55,10 +59,13 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
                     </T>
                 ) : null}
                 <FadeInView>
-                    <Card style={styles.mt12}>
+                    <View style={styles.mt12}>
                         <Row gap={6} style={styles.chartHeader}>
-                            <T variant="heading" style={styles.flex}>{m.label}</T>
-                            <InfoTip title={m.label} body={m.info}/>
+                            <Row gap={6} style={styles.flex}>
+                                <T variant="body" numberOfLines={1} style={styles.shrink}>{m.label}</T>
+                                <InfoTip title={m.label} body={m.info}/>
+                            </Row>
+                            <T variant="title" style={styles.tabular}>{fmt(lastY)}</T>
                         </Row>
                         <T variant="caption" muted>
                             {m.kind === 'xg' ? 'Form line (recent games weigh most)' : m.kind === 'fo' ? 'Season-to-date win %' : 'Running differential'}
@@ -69,7 +76,7 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
                             color={color}
                             colorBelow={series.isPct || m.kind === 'diff' ? colors.negative : undefined}
                             baseline={series.baseline}
-                            format={series.isPct ? fmtPct : fmtDiff}
+                            format={fmt}
                             height={200}
                             style={styles.mt12}
                         />
@@ -77,14 +84,14 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
                             <T variant="caption" muted>{first}</T>
                             <T variant="caption" muted>{last}</T>
                         </Row>
-                    </Card>
-                    <Row style={styles.tiles}>
+                    </View>
+                    <Row gap={16} style={styles.tiles}>
                         {series.tiles.map((t) => (
                             <StatTile key={t.label} label={t.label} value={t.value} style={styles.tile}/>
                         ))}
                     </Row>
                 </FadeInView>
-                <T variant="caption" muted style={styles.source}>Data: MoneyPuck.com, all situations. Drag across the chart to see any game.</T>
+                <T variant="caption" muted style={styles.source}>Drag across the chart to see any game.</T>
             </View>
         </View>
     );
@@ -93,13 +100,18 @@ function StatsTab({abbrev, data, loading, error, onRetry}) {
 export default memo(StatsTab);
 
 const styles = StyleSheet.create({
-    pad: {paddingHorizontal: 16},
+    pad: {paddingHorizontal: GUTTER},
     flex: {flex: 1},
+    shrink: {flexShrink: 1},
+    tabular: {fontVariant: ['tabular-nums']},
+    title: {paddingHorizontal: GUTTER, marginBottom: 20},
+    mt4: {marginTop: 4},
     mt12: {marginTop: 12},
+    mt20: {marginTop: 20},
     note: {marginTop: 12},
-    chartHeader: {marginBottom: 2},
+    chartHeader: {marginBottom: 4},
     axis: {justifyContent: 'space-between', marginTop: 6},
-    tiles: {marginTop: 8, alignItems: 'stretch'},
-    tile: {minWidth: 0},
-    source: {marginTop: 16},
+    tiles: {marginTop: 20, alignItems: 'stretch'},
+    tile: {minWidth: 0, backgroundColor: 'transparent', padding: 0, borderRadius: 0},
+    source: {marginTop: 15},
 });

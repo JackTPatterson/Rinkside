@@ -3,10 +3,16 @@ import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native';
 import {detectStreak, goalieTalent, projectCount, shootingTalent} from '../analytics';
 import {HttpError} from '../api/client';
 import {nhl} from '../api/nhl';
-import {BackButton, EmptyState, ErrorState, FadeInView, Header, Screen, Section, Segmented, Skeleton} from '../components/ui';
+import {BackButton, EmptyState, ErrorState, FadeInView, Header, Screen, Section, Skeleton} from '../components/ui';
+import SeasonPicker from './players/SeasonPicker';
+import BioSheet from './players/BioSheet';
 import {useLeague} from '../hooks/useLeague';
 import {useQuery} from '../hooks/useQuery';
-import {useAppTheme} from '../theme';
+import {viewerCountry} from '../utils/broadcasts';
+import EdgeRadial from './players/EdgeRadial';
+import ShotMap from './players/ShotMap';
+import {edgeTiles, goalieEdge, skaterEdge} from './players/edge';
+import {GUTTER, useAppTheme} from '../theme';
 import {loc} from '../utils/format';
 import {currentSeasonId, seasonLabel} from '../utils/season';
 import {
@@ -26,9 +32,7 @@ import {
     totalsFromLog,
 } from './players/helpers';
 import {
-    BioCard,
     CareerTable,
-    careerTiles,
     FormChart,
     GoalieTalentCard,
     goalieTiles,
@@ -57,17 +61,25 @@ async function fetchGameLog(playerId, seasonId, force) {
 function LoadingBody() {
     return (
         <View style={styles.content}>
-            <Skeleton height={124} radius={24}/>
+            <View style={styles.skHero}>
+                <Skeleton width={80} height={80} radius={40}/>
+                <View style={styles.skHeroText}>
+                    <Skeleton width="70%" height={24} radius={15}/>
+                    <Skeleton width="50%" height={16} radius={15}/>
+                </View>
+            </View>
             <View style={styles.firstSection}>
-                <Skeleton width={56} height={24} style={styles.skTitle}/>
-                <Skeleton height={250} radius={16}/>
+                <Skeleton width={56} height={24} radius={15} style={styles.skTitle}/>
+                <View style={styles.skLines}>
+                    {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} width={i % 2 ? '55%' : '70%'} height={20} radius={10}/>)}
+                </View>
             </View>
             <View style={styles.section}>
-                <Skeleton width={80} height={24} style={styles.skTitle}/>
-                <Skeleton height={38} radius={12} style={styles.segmented}/>
+                <Skeleton width={80} height={24} radius={15} style={styles.skTitle}/>
+                <Skeleton height={44} radius={100} style={styles.segmented}/>
                 <StatGridSkeleton count={12}/>
             </View>
-            <Skeleton height={220} radius={16} style={styles.section}/>
+            <Skeleton height={220} radius={15} style={styles.section}/>
         </View>
     );
 }
@@ -84,6 +96,7 @@ export default function PlayerScreen({navigation, route}) {
     const color = teamColor(p?.currentTeamAbbrev);
 
     const seasons = useMemo(() => (p ? seasonOptions(p) : []), [p]);
+    const seasonIds = useMemo(() => seasons.map((o) => o.key), [seasons]);
     const [pickedSeason, setPickedSeason] = useState(null);
     const seasonId = pickedSeason && seasons.some((s) => s.key === pickedSeason) ? pickedSeason : seasons[0]?.key;
     const isCurrent = seasonId === currentSeasonId();
@@ -94,6 +107,23 @@ export default function PlayerScreen({navigation, route}) {
         {enabled: playerId != null && !!seasonId, keepPreviousData: false},
     );
     const log = useMemo(() => sortedGameLog(logQ.data), [logQ.data]);
+    // NHL Edge tracking (2021-22 on). A season it doesn't cover just yields no chart.
+    const edgeQ = useQuery(
+        ({force}) => Promise.all(goalie
+            ? [nhl.edgeGoalie(playerId, seasonId, {force}), nhl.edgeGoalieMore(playerId, seasonId, {force})]
+            : [nhl.edgeSkater(playerId, seasonId, {force}), nhl.edgeSkaterMore(playerId, seasonId, {force})],
+        ).then(([detail, more]) => ({detail, more}), () => null),
+        [playerId, seasonId, goalie],
+        {enabled: playerId != null && !!seasonId && Number(String(seasonId).slice(0, 4)) >= 2021 && !!p, keepPreviousData: false},
+    );
+    const edge = useMemo(() => {
+        const metric = viewerCountry() === 'CA';
+        const d = edgeQ.data;
+        return {
+            radar: goalie ? goalieEdge(d?.detail) : skaterEdge(d?.detail, metric),
+            tiles: edgeTiles(d?.more, goalie, metric),
+        };
+    }, [edgeQ.data, goalie]);
 
     const {standings} = useLeague();
     const teamGp = useMemo(() => {
@@ -112,7 +142,6 @@ export default function PlayerScreen({navigation, route}) {
     const career = useMemo(() => careerRows(p), [p]);
     const tiles = useMemo(() => (goalie ? goalieTiles(totals) : skaterTiles(totals)), [goalie, totals]);
     const lifetime = p?.careerTotals?.regularSeason;
-    const lifetimeTiles = useMemo(() => careerTiles(lifetime, goalie), [lifetime, goalie]);
 
     const shooting = useMemo(() => {
         if (goalie || !totals) return null;
@@ -148,7 +177,8 @@ export default function PlayerScreen({navigation, route}) {
     const onRefresh = useCallback(() => {
         landing.refresh();
         logQ.refresh();
-    }, [landing.refresh, logQ.refresh]); // eslint-disable-line react-hooks/exhaustive-deps
+        edgeQ.refresh();
+    }, [landing.refresh, logQ.refresh, edgeQ.refresh]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ------------------------------------------------------------ render */
 
@@ -164,15 +194,13 @@ export default function PlayerScreen({navigation, route}) {
         body = (
             <FadeInView style={styles.content}>
                 <Hero p={p} name={name} color={color}/>
-                <Section title="Bio" style={styles.firstSection}>
-                    <BioCard rows={bio}/>
-                </Section>
-
                 {seasons.length ? (
-                    <Section title="Season">
-                        {seasons.length > 1 ? (
-                            <Segmented options={seasons} value={seasonId} onChange={setPickedSeason} style={styles.segmented}/>
-                        ) : null}
+                    <Section
+                        title="Season"
+                        style={styles.firstSection}
+                        right={seasons.length > 1 ? (
+                            <SeasonPicker seasons={seasonIds} value={seasonId} onChange={setPickedSeason}/>
+                        ) : null}>
                         {tiles.length && toNum(totals?.gamesPlayed) ? (
                             <StatGrid tiles={tiles} color={color}/>
                         ) : logQ.loading ? (
@@ -183,6 +211,15 @@ export default function PlayerScreen({navigation, route}) {
                                 message={`No regular-season NHL games in ${seasonLabel(seasonId)}.`}
                             />
                         )}
+                    </Section>
+                ) : null}
+
+                {edge.radar.length >= 3 ? (
+                    <EdgeRadial metrics={edge.radar} color={color} subtitle={`${seasonLabel(seasonId)} · league percentile, 100 = best`}/>
+                ) : null}
+                {edge.tiles.length ? (
+                    <Section title="Tracking">
+                        <StatGrid tiles={edge.tiles} color={color}/>
                     </Section>
                 ) : null}
 
@@ -202,7 +239,7 @@ export default function PlayerScreen({navigation, route}) {
 
                 {streak ? <StreakCard streak={streak} goalie={goalie}/> : null}
 
-                {logQ.loading && !log.length ? <Skeleton height={220} radius={16} style={styles.section}/> : null}
+                {logQ.loading && !log.length ? <Skeleton height={220} radius={15} style={styles.section}/> : null}
 
                 {!noGames && log.length ? (
                     <>
@@ -220,16 +257,12 @@ export default function PlayerScreen({navigation, route}) {
                         shots={totals?.shots}
                         position={p.position}
                         color={color}
+                        right={<ShotMap data={edgeQ.data?.more} color={color} seasonLabel={seasonLabel(seasonId)}/>}
                     />
                 ) : null}
 
                 <RecentGames log={log} goalie={goalie}/>
 
-                {lifetimeTiles.length ? (
-                    <Section title="Career totals">
-                        <StatGrid tiles={lifetimeTiles} color={color}/>
-                    </Section>
-                ) : null}
 
                 <CareerTable rows={career} career={lifetime} goalie={goalie} highlightSeason={seasonId}/>
             </FadeInView>
@@ -242,6 +275,7 @@ export default function PlayerScreen({navigation, route}) {
                 title={name}
                 subtitle={p ? [p.currentTeamAbbrev, p.position].filter(Boolean).join(' · ') : undefined}
                 left={<BackButton onPress={() => navigation.goBack()}/>}
+                right={p ? <BioSheet rows={bio} name={name}/> : null}
             />
             <ScrollView
                 contentContainerStyle={styles.scroll}
@@ -254,9 +288,12 @@ export default function PlayerScreen({navigation, route}) {
 
 const styles = StyleSheet.create({
     scroll: {paddingBottom: 48},
-    content: {paddingHorizontal: 16},
-    firstSection: {marginTop: 20},
-    section: {marginTop: 24},
+    content: {paddingHorizontal: GUTTER},
+    firstSection: {marginTop: 10},
+    section: {marginTop: 20},
     skTitle: {marginBottom: 12},
-    segmented: {marginBottom: 12},
+    skLines: {gap: 18, paddingVertical: 6},
+    segmented: {marginBottom: 10},
+    skHero: {flexDirection: 'row', alignItems: 'center', gap: 20, paddingVertical: 10},
+    skHeroText: {flex: 1, gap: 8},
 });

@@ -1,23 +1,21 @@
-import React, {memo, useCallback, useMemo} from 'react';
-import {StyleSheet, View} from 'react-native';
-import {leaguePointPct, pdo, playoffLine, teamProfile} from '../../analytics';
+import React, {memo, useCallback, useMemo, useState} from 'react';
+import {Pressable, StyleSheet, View} from 'react-native';
+import {alignPrediction, leaguePointPct, pdo, playoffLine, teamProfile} from '../../analytics';
 import {isLive} from '../../api/nhl';
-import {Card, ErrorState, FadeInView, InfoTip, ProgressBar, Row, Section, Skeleton, SplitBar, StatTile, T, TeamLogo} from '../../components/ui';
-import {useAppTheme, withAlpha} from '../../theme';
+import Milestones from '../fan/Milestones';
+import {ErrorState, FadeInView, InfoTip, ProgressBar, Row, Section, Skeleton, SplitBar, StatTile, T, TeamLogo} from '../../components/ui';
+import {GUTTER, useAppTheme, withAlpha} from '../../theme';
 import {formatTime, num, ordinal, pct, relativeDayLabel, signed} from '../../utils/format';
 import {REGULAR_SEASON_GAMES} from '../../utils/season';
 import {findStandingsRow, findTeamSummary, gamePrediction, gameTime, sides} from './data';
+import {useMoneyPuckProb} from '../scores/GameCard';
 
 const INFO = {
-    prediction: 'A model estimate, not a guarantee. Rinkside rates each team’s scoring and goal prevention from this season’s results (pulled toward league average early on), adds home ice, then plays out regulation minute by minute, including power plays and pulled goalies, to get every possible outcome.',
-    scorelines: 'The single most likely final scores after 60 minutes, from the same model estimate. Even the likeliest score usually happens less than 1 time in 10, which is why hockey is hard to predict.',
-    xg: 'How many goals the model expects each team to score in regulation, given both teams’ strength and home ice. A model estimate.',
-    pace: 'Points the team would finish with if it kept earning points at exactly its current rate for all 82 games.',
-    projected: 'Final points total from a model estimate that blends the team’s current points rate with a league-average prior (stronger early in the season). The range covers 80% of likely outcomes.',
+    xg: 'How many goals each team is expected to score in regulation, given both teams’ strength and home ice.',
+    projected: 'Projected final points, blending the team’s current points rate with a league-average prior (stronger early in the season). The range covers 80% of likely outcomes.',
     pyth: 'Points a team “should” have given its goals for and against (Pythagorean expectation). Luck is actual minus expected points: a big positive number often means close-game wins that tend not to last.',
-    gd: 'Goals scored minus goals allowed, per game played. It’s one of the most reliable signs of how good a team really is.',
-    race: 'Each conference team’s final points are projected (a model estimate) and the 8th-best projection is used as the cut line. The real format is top 3 per division plus two wild cards, so the true line can differ by a point or two.',
-    strength: 'Model ratings from goals scored and allowed per game, pulled toward league average so a hot start doesn’t look like a dynasty. 100% is a league-average team.',
+    race: 'Each conference team’s final points are projected and the 8th-best projection is used as the cut line. The real format is top 3 per division plus two wild cards, so the true line can differ by a point or two.',
+    strength: 'Ratings from goals scored and allowed per game, pulled toward league average so a hot start doesn’t look like a dynasty. 100% is a league-average team.',
     pdo: 'PDO adds a team’s shooting % and save %. League average is about 1000. Values far from 1000 are mostly luck and tend to drift back toward average over the season.',
 };
 
@@ -26,7 +24,10 @@ const INFO = {
 const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onOpenGame}) {
     const {teamColor, colors} = useAppTheme();
     const {isHome, opp} = sides(game, abbrev);
-    const pred = gamePrediction(ratings, game); // cached per ratings + matchup
+    // Our model's breakdown re-centred on MoneyPuck's pregame number when it has one, so the app
+    // shows a single win probability for this game everywhere.
+    const mp = useMoneyPuckProb(game);
+    const pred = alignPrediction(gamePrediction(ratings, game), mp); // gamePrediction is cached per ratings + matchup
     const onPress = useCallback(() => onOpenGame(game), [onOpenGame, game]);
     if (!pred) return null;
     const win = isHome ? pred.homeWin : pred.awayWin;
@@ -44,7 +45,10 @@ const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onOp
     }));
 
     return (
-        <Card onPress={onPress} style={styles.predCard}>
+        <Pressable
+            accessibilityRole="button"
+            onPress={onPress}
+            style={({pressed}) => [styles.predCard, pressed && styles.pressed]}>
             <Row style={styles.between}>
                 <Row gap={8} style={styles.flex}>
                     <T variant="caption" muted>{isHome ? 'vs' : '@'}</T>
@@ -56,7 +60,6 @@ const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onOp
                         </T>
                     </View>
                 </Row>
-                <InfoTip title="Game prediction" body={INFO.prediction}/>
             </Row>
 
             <View style={styles.bigRow}>
@@ -80,7 +83,7 @@ const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onOp
                 </View>
             </Row>
 
-            <View style={[styles.divider, {backgroundColor: colors.border}]}/>
+            <View style={[styles.divider, {backgroundColor: colors.text}]}/>
 
             <Row style={styles.between}>
                 <Row gap={4}>
@@ -96,42 +99,67 @@ const PredictionCard = memo(function PredictionCard({abbrev, game, ratings, onOp
 
             <Row gap={4} style={styles.scoreHead}>
                 <T variant="caption" muted>Likeliest scores after 60 min</T>
-                <InfoTip title="Likeliest scores" body={INFO.scorelines} size={14}/>
             </Row>
-            <Row gap={6} style={styles.wrap}>
+            <Row gap={6}>
                 {scores.map((s) => {
                     const tone = s.us > s.them ? us : s.us < s.them ? them : colors.textSecondary;
                     return (
-                        <View key={`${s.us}-${s.them}`} style={[styles.scoreChip, {backgroundColor: withAlpha(tone, 0.14)}]}>
-                            <T variant="label">{s.us}–{s.them}</T>
+                        <View key={`${s.us}-${s.them}`} style={[styles.scoreChip, {backgroundColor: colors.card}]}>
+                            <T variant="label" color={tone}>{s.us}–{s.them}</T>
                             <T variant="caption" muted>{pct(s.p, 1)}</T>
                         </View>
                     );
                 })}
             </Row>
-        </Card>
+        </Pressable>
     );
 });
 
 /* ------------------------------------------------------- playoff race */
 
-function RaceBar({lo, hi, projected, line, color}) {
-    const {colors} = useAppTheme();
-    const min = Math.floor(Math.min(lo, line) - 4);
-    const max = Math.ceil(Math.max(hi, line) + 4);
-    const x = (v) => `${((v - min) / Math.max(1, max - min)) * 100}%`;
+const RACE_LABEL_W = 120;
+
+/** Label centred on x (px) but kept inside the track; text hugs the edge it's clamped to. */
+function PinnedLabel({x, width, children, color, muted, style}) {
+    const left = Math.min(Math.max(0, x - RACE_LABEL_W / 2), Math.max(0, width - RACE_LABEL_W));
+    const align = x < RACE_LABEL_W / 2 ? 'left' : x > width - RACE_LABEL_W / 2 ? 'right' : 'center';
     return (
-        <View style={styles.raceWrap}>
-            <View style={[styles.raceTrack, {backgroundColor: colors.cardAlt}]}>
-                <View style={[styles.raceBand, {left: x(lo), width: `${((hi - lo) / Math.max(1, max - min)) * 100}%`, backgroundColor: withAlpha(color, 0.3)}]}/>
-                <View style={[styles.raceDot, {left: x(projected), backgroundColor: color, borderColor: colors.card}]}/>
-                <View style={[styles.raceLine, {left: x(line), backgroundColor: colors.text}]}/>
-            </View>
-            <Row style={styles.between}>
-                <T variant="caption" muted style={styles.tabular}>{min} pts</T>
-                <T variant="caption" muted style={styles.tabular}>Cut line ≈ {Math.round(line)}</T>
-                <T variant="caption" muted style={styles.tabular}>{max} pts</T>
-            </Row>
+        <View style={[styles.racePin, {left}, style]}>
+            <T variant="caption" color={color} muted={muted} numberOfLines={1} style={[styles.tabular, styles.semi, {textAlign: align}]}>{children}</T>
+        </View>
+    );
+}
+
+/**
+ * Projected points as a bar: solid fill up to the projection, lighter upside to the top of the 80%
+ * range, and the cut line as a gap in the bar (like the split bars). Projection is labelled above,
+ * the cut line below, so the two never collide.
+ */
+function RaceBar({hi, projected, line, color}) {
+    const {colors} = useAppTheme();
+    const [width, setWidth] = useState(0);
+    const min = Math.floor(Math.min(projected, line) - 12);
+    const max = Math.ceil(Math.max(hi, line) + 4);
+    const px = (v) => (Math.min(max, Math.max(min, v)) - min) / Math.max(1, max - min) * width;
+    const xp = px(projected);
+    const xh = px(hi);
+    const xl = px(line);
+    return (
+        <View style={styles.raceWrap} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
+            {width ? (
+                <>
+                    <View style={styles.raceLabels}>
+                    </View>
+                    <View style={[styles.raceTrack, {backgroundColor: colors.cardAlt}]}>
+                        <View style={[styles.raceSeg, {left: 0, width: xp, backgroundColor: color}]}/>
+                        <View style={[styles.raceSeg, {left: xp, width: Math.max(0, xh - xp), backgroundColor: withAlpha(color, 0.3)}]}/>
+                        <View style={[styles.raceCut, {left: xl - 1.5, backgroundColor: colors.background}]}/>
+                    </View>
+                    <View style={styles.raceLabels}>
+                        <PinnedLabel x={xl} width={width} muted>Cut line ≈ {Math.round(line)}</PinnedLabel>
+                    </View>
+                </>
+            ) : <View style={styles.raceTrack}/>}
         </View>
     );
 }
@@ -147,7 +175,7 @@ function raceSentence(me) {
 
 /* ---------------------------------------------------------------- tab */
 
-function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry, summary, onOpenGame}) {
+function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry, summary, milestones, onOpenGame, onOpenPlayer}) {
     const {teamColor, colors} = useAppTheme();
     const color = teamColor(abbrev);
 
@@ -184,11 +212,14 @@ function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry,
     if (loading && !standings) {
         return (
             <View style={styles.pad}>
-                <Skeleton height={260} radius={16}/>
-                <Skeleton height={24} width={180} style={styles.mt24}/>
-                <Row style={styles.mt12}>
-                    <Skeleton height={84} radius={16} width="49%"/>
-                    <Skeleton height={84} radius={16} width="49%"/>
+                <Skeleton height={28} width={160} radius={10}/>
+                <Skeleton height={50} width={140} radius={10} style={styles.mt12}/>
+                <Skeleton height={10} radius={100} style={styles.mt12}/>
+                <Skeleton height={60} radius={10} style={styles.mt12}/>
+                <Skeleton height={30} width={180} radius={15} style={styles.mt24}/>
+                <Row gap={16} style={styles.mt12}>
+                    <Skeleton height={60} radius={10} width="47%"/>
+                    <Skeleton height={60} radius={10} width="47%"/>
                 </Row>
             </View>
         );
@@ -206,7 +237,7 @@ function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry,
             {hero ? (
                 <PredictionCard abbrev={abbrev} game={hero} ratings={ratings} onOpenGame={onOpenGame}/>
             ) : (
-                <Card><T variant="body" muted>No upcoming game to predict.</T></Card>
+                <T variant="body" muted>No upcoming game to predict.</T>
             )}
 
             {early ? (
@@ -215,10 +246,13 @@ function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry,
                 </T>
             ) : null}
 
+            {milestones ? <Milestones data={milestones} onPlayer={onOpenPlayer}/> : null}
+
             <Section title="Season outlook">
                 <View style={styles.grid}>
-                    <StatTile label="Points pace" value={noGames ? '–' : num(profile.pace)} sub="82-game pace at current rate" info={INFO.pace}/>
+                    <StatTile style={styles.tile} label="Points pace" value={noGames ? '–' : num(profile.pace)} sub="82-game pace at current rate"/>
                     <StatTile
+                        style={styles.tile}
                         label="Projected points"
                         value={num(profile.projected)}
                         sub={`80% range ${num(profile.projectedLo)}–${num(profile.projectedHi)}`}
@@ -226,24 +260,25 @@ function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry,
                         info={INFO.projected}
                     />
                     <StatTile
+                        style={styles.tile}
                         label="Expected points"
                         value={noGames ? '–' : num(profile.expectedPoints)}
                         sub={noGames ? 'From goal differential' : `Luck ${signed(profile.luck, 1)} pts`}
                         info={INFO.pyth}
                     />
                     <StatTile
+                        style={styles.tile}
                         label="Goal diff / game"
                         value={noGames ? '–' : signed(profile.goalDiffPerGame, 2)}
                         color={profile.goalDiffPerGame > 0 ? colors.positive : profile.goalDiffPerGame < 0 ? colors.negative : undefined}
                         sub={`${model.row.goalFor ?? 0} GF · ${model.row.goalAgainst ?? 0} GA`}
-                        info={INFO.gd}
                     />
                 </View>
             </Section>
 
             {me && line != null ? (
                 <Section title="Playoff race" info={INFO.race}>
-                    <Card>
+                    <View>
                         <T variant="heading" color={me.cushion >= 0 ? colors.positive : colors.negative}>
                             {Math.abs(me.cushion) < 0.5
                                 ? 'Right on the projected cut line'
@@ -252,15 +287,15 @@ function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry,
                         <T variant="caption" muted>
                             Projected {ordinal(model.projRank)} of {model.confSize} in the {model.confName}
                         </T>
-                        <RaceBar lo={profile.projectedLo} hi={profile.projectedHi} projected={profile.projected} line={line} color={color}/>
+                        <RaceBar hi={profile.projectedHi} projected={profile.projected} line={line} color={color}/>
                         {race ? <T variant="body" style={styles.mt12}>{race}</T> : null}
-                    </Card>
+                    </View>
                 </Section>
             ) : null}
 
             {strength ? (
                 <Section title="Team strength" info={INFO.strength}>
-                    <Card style={styles.gap16}>
+                    <View style={styles.gap16}>
                         <StrengthRow
                             label="Attack"
                             text={strengthText(strength.attack, true)}
@@ -275,27 +310,28 @@ function InsightsTab({abbrev, hero, standings, ratings, loading, error, onRetry,
                             count={strength.count}
                             color={color}
                         />
-                    </Card>
+                    </View>
                 </Section>
             ) : null}
 
             {luck ? (
                 <Section title="Luck check (PDO)" info={INFO.pdo}>
                     <View style={styles.grid}>
-                        <StatTile label="Shooting %" value={pct(luck.shootingPct, 1)} sub="League avg ≈ 10%"/>
-                        <StatTile label="Save %" value={pct(luck.savePct, 1)} sub="League avg ≈ 90%"/>
+                        <StatTile style={styles.tile} label="Shooting %" value={pct(luck.shootingPct, 1)} sub="League avg ≈ 10%"/>
+                        <StatTile style={styles.tile} label="Save %" value={pct(luck.savePct, 1)} sub="League avg ≈ 90%"/>
                     </View>
-                    <Card style={styles.mt8}>
+                    <View style={[styles.divider, {backgroundColor: colors.text}]}/>
+                    <View>
                         <Row style={styles.between}>
                             <T variant="label">PDO</T>
                             <T variant="stat" color={pdoTone(luck.pdo, colors)}>{num(luck.pdo)}</T>
                         </Row>
                         <T variant="body" muted style={styles.mt8}>{pdoNote(luck.pdo, early)}</T>
-                    </Card>
+                    </View>
                 </Section>
             ) : null}
 
-            <T variant="caption" muted style={styles.footer}>All projections are model estimates from this season’s standings.</T>
+            <T variant="caption" muted style={styles.footer}>All projections are estimates from this season’s standings.</T>
         </FadeInView>
     );
 }
@@ -338,7 +374,7 @@ function pdoNote(v, early) {
 export default memo(InsightsTab);
 
 const styles = StyleSheet.create({
-    pad: {paddingHorizontal: 16},
+    pad: {paddingHorizontal: GUTTER},
     flex: {flex: 1},
     between: {justifyContent: 'space-between'},
     mt4: {marginTop: 4},
@@ -346,22 +382,25 @@ const styles = StyleSheet.create({
     mt12: {marginTop: 12},
     mt24: {marginTop: 24},
     gap16: {gap: 16},
-    predCard: {padding: 16},
+    predCard: {},
+    pressed: {opacity: 0.6},
+    tile: {backgroundColor: 'transparent', padding: 0, borderRadius: 0},
     bigRow: {flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginTop: 14, marginBottom: 12},
-    bigNum: {fontSize: 44, lineHeight: 50, fontVariant: ['tabular-nums']},
+    bigNum: {fontFamily: 'Sora_600SemiBold', fontSize: 44, lineHeight: 50, fontVariant: ['tabular-nums']},
     tabular: {fontVariant: ['tabular-nums']},
+    semi: {fontFamily: 'Sora_600SemiBold'},
     splitLabels: {justifyContent: 'space-between', marginTop: 8},
     centerText: {alignItems: 'center'},
     rightText: {alignItems: 'flex-end'},
-    divider: {height: StyleSheet.hairlineWidth, marginVertical: 14},
+    divider: {height: 2, opacity: 0.2, marginVertical: 10},
     scoreHead: {marginTop: 14, marginBottom: 8},
-    wrap: {flexWrap: 'wrap'},
-    scoreChip: {paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, alignItems: 'center'},
-    grid: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
-    raceWrap: {marginTop: 16, gap: 6},
-    raceTrack: {height: 12, borderRadius: 6, justifyContent: 'center'},
-    raceBand: {position: 'absolute', top: 0, bottom: 0, borderRadius: 6},
-    raceDot: {position: 'absolute', width: 16, height: 16, marginLeft: -8, borderRadius: 8, borderWidth: 2},
-    raceLine: {position: 'absolute', width: 2, height: 22, marginLeft: -1, borderRadius: 1},
+    scoreChip: {flex: 1, paddingHorizontal: 6, paddingVertical: 5, borderRadius: 15, alignItems: 'center'},
+    grid: {flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 20},
+    raceWrap: {marginTop: 16},
+    raceTrack: {height: 10, borderRadius: 5, overflow: 'hidden'},
+    raceSeg: {position: 'absolute', top: 0, bottom: 0},
+    raceCut: {position: 'absolute', top: 0, bottom: 0, width: 3},
+    raceLabels: {height: 22, justifyContent: 'center'},
+    racePin: {position: 'absolute', width: RACE_LABEL_W},
     footer: {marginTop: 20},
 });

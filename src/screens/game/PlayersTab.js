@@ -1,8 +1,10 @@
 import React, {memo, useMemo, useState} from 'react';
-import {View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import {playerXG} from '../../analytics';
-import {Card, DataTable, EmptyState, FadeInView, InfoTip, Row, Section, Segmented, T, TeamLogo} from '../../components/ui';
+import {EmptyState, FadeInView, InfoTip, Row, Segmented, T} from '../../components/ui';
+import {useAppTheme} from '../../theme';
 import {num, savePct, signed} from '../../utils/format';
+import {Divider, PlainTable, type} from './common';
 import {boxPlayers} from './model';
 
 const SORTS = [
@@ -42,6 +44,7 @@ const keyOf = (r, i) => String(r.id ?? i);
 
 /** Box-score tables per team, with Rinkside xG per skater and goals saved above expected per goalie. */
 function PlayersTab({header, box, xg, onPlayer}) {
+    const {teamColor} = useAppTheme();
     const [sideKey, setSideKey] = useState('homeTeam');
     const [sort, setSort] = useState('pts');
     const isHome = sideKey === 'homeTeam';
@@ -70,40 +73,36 @@ function PlayersTab({header, box, xg, onPlayer}) {
     return (
         <View>
             <Segmented
-                options={[{key: 'homeTeam', label: header.home.abbrev}, {key: 'awayTeam', label: header.away.abbrev}]}
+                options={[{key: 'homeTeam', label: header.home.abbrev, color: teamColor(header.home.abbrev)}, {key: 'awayTeam', label: header.away.abbrev, color: teamColor(header.away.abbrev)}]}
                 value={sideKey}
                 onChange={setSideKey}
             />
+            <Segmented options={SORTS} value={sort} onChange={setSort} style={{marginTop: 10}}/>
             <FadeInView key={sideKey}>
-                <Section
-                    title="Skaters"
-                    right={<TeamLogo abbrev={team.abbrev} size={26}/>}
-                    info="Box score from the NHL. xG is Rinkside’s model estimate of the goals a player ‘should’ have scored from the quality of his unblocked shots. Tap a player for his page.">
-                    <Segmented options={SORTS} value={sort} onChange={setSort} style={{marginBottom: 10}}/>
-                    <Card style={{paddingVertical: 4}}>
-                        {sorted.length ? (
-                            <DataTable columns={SKATER_COLUMNS} rows={sorted} keyExtractor={keyOf} onRowPress={(r) => onPlayer(r.id)}/>
-                        ) : <EmptyState message="No skater stats yet."/>}
-                    </Card>
-                </Section>
-                <Section title="Goalies">
-                    <Card style={{paddingVertical: 4}}>
-                        {goalies.length ? (
-                            <DataTable columns={GOALIE_COLUMNS} rows={goalies} keyExtractor={keyOf} onRowPress={(r) => onPlayer(r.id)}/>
-                        ) : <EmptyState message="No goalie stats yet."/>}
-                    </Card>
-                    <Row gap={4} style={{marginTop: 8}}>
-                        <T variant="caption" muted style={{flex: 1}}>GSAx = goals saved above expected</T>
-                        <InfoTip
-                            size={13}
-                            title="Goals saved above expected"
-                            body="The xG of every non-empty-net shot this goalie faced minus the goals he allowed. Positive means he stopped more than an average goalie would have. Model estimate; shown only when one goalie played the whole game."
-                        />
-                    </Row>
-                </Section>
+                <Row gap={4} style={styles.heading}>
+                    <T variant="body" style={type.name}>{team.abbrev} Skaters</T>
+                </Row>
+                {sorted.length ? (
+                    <PlainTable columns={SKATER_COLUMNS} rows={sorted} keyExtractor={keyOf} onRowPress={(r) => onPlayer(r.id)}/>
+                ) : <T variant="body" style={type.sub}>No skater stats yet.</T>}
+                <Divider style={{marginVertical: 20}}/>
+                <Row gap={4} style={[styles.heading, {marginTop: 0}]}>
+                    <T variant="body" style={type.name}>{team.abbrev} Goalies</T>
+                    <InfoTip
+                        title="Goals saved above expected"
+                        body="GSAx = goals saved above expected: the xG of every non-empty-net shot this goalie faced minus the goals he allowed. Positive means he stopped more than an average goalie would have. Shown only when one goalie played the whole game."
+                    />
+                </Row>
+                {goalies.length ? (
+                    <PlainTable columns={GOALIE_COLUMNS} rows={goalies} keyExtractor={keyOf} onRowPress={(r) => onPlayer(r.id)}/>
+                ) : <T variant="body" style={type.sub}>No goalie stats yet.</T>}
             </FadeInView>
         </View>
     );
 }
 
 export default memo(PlayersTab);
+
+const styles = StyleSheet.create({
+    heading: {marginTop: 20, marginBottom: 10},
+});

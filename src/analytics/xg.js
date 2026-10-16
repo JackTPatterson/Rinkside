@@ -14,7 +14,7 @@ import {clamp, logistic, poissonBinomial} from './math.js';
 
 const NET_X = 89;
 const COEF = {
-    intercept: -0.85,
+    intercept: -1.08, // recalibrated on 2025-26 (scripts/backtest-models.mjs): mean ≈ actual goal rate
     distance: -0.058, // per foot
     angle: -0.011, // per degree off the centre line
     rebound: 0.95,
@@ -112,9 +112,10 @@ export function gameXG(pbp) {
             // Rush: within 4s of an event that happened outside the shooting team's offensive zone.
             const rush = !rebound && !!lastEvent && lastEvent.period === period && t - lastEvent.t <= 4 &&
                 outsideOffensiveZone(lastEvent, d.eventOwnerTeamId);
-            const xg = shotXG({x: d.xCoord, y: d.yCoord, shotType: d.shotType, rebound, rush, emptyNet, manpower: Math.sign(ownSk - oppSk)});
+            const manpower = Math.sign(ownSk - oppSk); // +1 power play, 0 even, −1 shorthanded
+            const xg = shotXG({x: d.xCoord, y: d.yCoord, shotType: d.shotType, rebound, rush, emptyNet, manpower});
             const side = isHome ? out.home : out.away;
-            const shot = {t, period, x: d.xCoord, y: d.yCoord, xg, goal: type === 'goal', type, shotType: d.shotType, rebound, rush, emptyNet,
+            const shot = {t, period, x: d.xCoord, y: d.yCoord, xg, goal: type === 'goal', type, shotType: d.shotType, rebound, rush, emptyNet, manpower,
                 playerId: d.shootingPlayerId ?? d.scoringPlayerId, eventId: p.eventId};
             side.shots.push(shot);
             side.xg += xg;
@@ -127,6 +128,59 @@ export function gameXG(pbp) {
         }
     }
     return out;
+}
+
+const MP_TYPE = {SHOT: 'shot-on-goal', MISS: 'missed-shot', GOAL: 'goal'};
+
+/**
+ * Swap our per-shot xG for MoneyPuck's (backtested clearly better) on a gameXG result.
+ * Shots are matched by (game second, side, event type), which lines up ~99% of attempts; keys that
+ * appear more than once in either feed are left unmatched. If fewer than `minMatch` of our shots
+ * match, the game keeps our numbers entirely so a game is never shown from a mix of sources.
+ * Returns {…xg, source: 'moneypuck' | 'rinkside'} with totals and the timeline recomputed.
+ */
+export function applyExternalXG(xg, mpRows, {minMatch = 0.95} = {}) {
+    if (!xg) return xg;
+    const ours = {...xg, source: 'rinkside'};
+    if (!Array.isArray(mpRows) || !mpRows.length) return ours;
+    const theirs = new Map();
+    const dup = new Set();
+    for (const r of mpRows) {
+        const type = MP_TYPE[r?.event];
+        const p = Number(r?.shotGoalProbability);
+        if (!type || r?.shotGoalProbability === '' || r?.shotGoalProbability == null || !Number.isFinite(p)) continue;
+        const key = `${Number(r.time)}|${r.team === 'HOME' ? 'H' : 'A'}|${type}`;
+        if (theirs.has(key)) dup.add(key);
+        theirs.set(key, p);
+    }
+    const keyOf = (s, side) => `${s.t}|${side}|${s.type}`;
+    const all = [...xg.home.shots.map((s) => keyOf(s, 'H')), ...xg.away.shots.map((s) => keyOf(s, 'A'))];
+    const seen = new Map();
+    for (const k of all) seen.set(k, (seen.get(k) ?? 0) + 1);
+    const usable = (k) => theirs.has(k) && !dup.has(k) && seen.get(k) === 1;
+    const matched = all.filter(usable).length;
+    if (!all.length || matched / all.length < minMatch) return ours;
+
+    const remap = (team, side) => {
+        const shots = team.shots.map((s) => {
+            const k = keyOf(s, side);
+            return usable(k) ? {...s, xg: theirs.get(k)} : s;
+        });
+        return {...team, shots, xg: shots.reduce((sum, s) => sum + s.xg, 0)};
+    };
+    const home = remap(xg.home, 'H');
+    const away = remap(xg.away, 'A');
+    // Rebuild the running-total timeline in game order.
+    const events = [...home.shots.map((s) => ({t: s.t, h: s.xg, a: 0})), ...away.shots.map((s) => ({t: s.t, h: 0, a: s.xg}))]
+        .sort((x, y) => x.t - y.t);
+    let h = 0;
+    let a = 0;
+    const timeline = events.map((e) => {
+        h += e.h;
+        a += e.a;
+        return {t: e.t, home: h, away: a};
+    });
+    return {...xg, home, away, timeline, source: 'moneypuck'};
 }
 
 /**

@@ -1,20 +1,13 @@
 import React, {memo, useMemo, useState} from 'react';
-import {Image, StyleSheet, View} from 'react-native';
+import {StyleSheet, View} from 'react-native';
 import Svg, {Circle, G, Line} from 'react-native-svg';
-import {Card, EmptyState, InfoTip, PillTabs, Row, T, TeamLogo} from '../../components/ui';
+import RinkSvg from '../../components/RinkSvg';
+import {ArrowLeft, ArrowRight} from '../../components/icons';
+import {EmptyState, Row, Segmented, T, TeamLogo, tap} from '../../components/ui';
 import {useAppTheme} from '../../theme';
-import {num} from '../../utils/format';
-import {MAP_EVENTS, mapEvents, mapXGShots} from './model';
-
-const HORIZ = require('../../../assets/horiz_rink.png');
-const HALF = require('../../../assets/half_rink.png');
-
-// horiz_rink.png (438×397) is one half rink, net on the left. Its playing surface spans
-// x 5…428 px (end boards → centre line, 100 ft) and y 17…376 px (85 ft).
-const H_IMG = {w: 438, h: 397, left: 5, right: 428, top: 17, bottom: 376};
-// half_rink.png (362×425) is a vertical half rink, net at the bottom: x 1…360 px (85 ft),
-// y 1…424 px (centre line → end boards, 100 ft).
-const V_IMG = {w: 362, h: 425, left: 1, right: 360, top: 1, bottom: 424};
+import {loc, num, periodLabel} from '../../utils/format';
+import {OptionSheet, SelectRow, type as typo} from './common';
+import {MAP_EVENTS, mapEvents, mapXGShots, shotTypeLabel} from './model';
 
 /** NHL rink coordinates (x −100…100, y −42.5…42.5) → pixels on a full horizontal rink. */
 export function mapToPixel(x, y, width, height, elementSize = 0) {
@@ -26,48 +19,30 @@ export function mapToPixel(x, y, width, height, elementSize = 0) {
 }
 
 /**
- * Attacking-zone coordinates → pixels on the vertical half rink shown with the net at the top.
- * (x, y) must already be normalised so the shooter attacks toward +x.
+ * Attacking-zone coordinates → pixels on the vertical half rink drawn with the net at the top
+ * (centre line at the bottom). (x, y) must already be normalised so the shooter attacks toward +x.
  */
 export function placeDotCoords(x, y, width, height, dotSize = 0) {
-    const ftX = (V_IMG.right - V_IMG.left) / 85;
-    const ftY = (V_IMG.bottom - V_IMG.top) / 100;
-    const k = width / V_IMG.w;
-    const col = V_IMG.left + (y + 42.5) * ftX; // unrotated image column
-    const row = V_IMG.top + Math.max(0, Math.min(100, x)) * ftY; // unrotated image row
-    // The image is shown rotated 180° (net at the top).
-    return {x: (V_IMG.w - col) * k - dotSize / 2, y: (V_IMG.h - row) * k - dotSize / 2};
+    return {
+        x: ((42.5 - y) / 85) * width - dotSize / 2,
+        y: ((100 - Math.max(0, Math.min(100, x))) / 100) * height - dotSize / 2,
+    };
 }
 
 /** Full rink (two mirrored halves) with SVG dots. points: [{x, y, isHome, r?, goal?}] */
-export const FullRink = memo(function FullRink({points, home, away, centerLogo = true}) {
-    const {teamColor, colors} = useAppTheme();
+export const FullRink = memo(function FullRink({points, home, away, centerLogo = true, selectedKey, onPointPress}) {
+    const {teamColor} = useAppTheme();
     const [width, setWidth] = useState(0);
     const height = Math.round(width * (85 / 200));
-    const s = width / 2 / (H_IMG.right - H_IMG.left);
     const hc = teamColor(home);
     const ac = teamColor(away);
     return (
         <View
             onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-            style={[styles.full, {height: height || 1, borderRadius: height * 0.33 || 16, borderColor: colors.border}]}>
+            style={[styles.full, {height: height || 1}]}>
             {width ? (
                 <>
-                    <Image
-                        source={HORIZ}
-                        style={{position: 'absolute', width: H_IMG.w * s, height: H_IMG.h * s, left: -H_IMG.left * s, top: -H_IMG.top * s}}
-                    />
-                    <Image
-                        source={HORIZ}
-                        style={{
-                            position: 'absolute',
-                            width: H_IMG.w * s,
-                            height: H_IMG.h * s,
-                            left: width / 2 - (H_IMG.w - H_IMG.right) * s,
-                            top: -H_IMG.top * s,
-                            transform: [{scaleX: -1}],
-                        }}
-                    />
+                    <RinkSvg view="full" width={width} height={height} style={StyleSheet.absoluteFill}/>
                     {centerLogo ? (
                         <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.centerLogo]}>
                             <TeamLogo abbrev={home} size={height * 0.2} style={{opacity: 0.85}}/>
@@ -78,13 +53,18 @@ export const FullRink = memo(function FullRink({points, home, away, centerLogo =
                             const {x, y} = mapToPixel(p.x, p.y, width, height);
                             const r = p.r ?? 4.5;
                             const c = p.isHome ? hc : ac;
-                            return p.goal ? (
-                                <G key={p.key ?? i}>
-                                    <Circle cx={x} cy={y} r={r + 3} fill="none" stroke={c} strokeWidth={2}/>
-                                    <Circle cx={x} cy={y} r={r} fill={c} stroke="#FFFFFF" strokeWidth={1.5}/>
+                            const key = p.key ?? i;
+                            const sel = selectedKey != null && key === selectedKey;
+                            const dimmed = selectedKey != null && !sel;
+                            const press = onPointPress ? () => onPointPress(key) : undefined;
+                            return (
+                                <G key={key} opacity={dimmed ? 0.35 : 1} onPress={press}>
+                                    {/* invisible hit area so small dots are still easy to tap */}
+                                    {press ? <Circle cx={x} cy={y} r={Math.max(r + 4, 12)} fill="#000" fillOpacity={0.001}/> : null}
+                                    {p.goal || sel ? <Circle cx={x} cy={y} r={r + 3.5} fill="none" stroke={c} strokeWidth={2}/> : null}
+                                    {/* white outline keeps overlapping dots distinct on the ice */}
+                                    <Circle cx={x} cy={y} r={r} fill={c} fillOpacity={p.goal ? 1 : p.r ? 0.6 : 0.9} stroke="#FFFFFF" strokeWidth={1.25}/>
                                 </G>
-                            ) : (
-                                <Circle key={p.key ?? i} cx={x} cy={y} r={r} fill={c} fillOpacity={p.r ? 0.55 : 0.85} stroke={c} strokeWidth={1}/>
                             );
                         })}
                     </Svg>
@@ -96,16 +76,15 @@ export const FullRink = memo(function FullRink({points, home, away, centerLogo =
 
 /** Vertical half rink (net at top) with a crosshair at the shot location. */
 export const HalfRink = memo(function HalfRink({x, y, color, width = 240}) {
-    const {colors} = useAppTheme();
-    const height = Math.round(width * (V_IMG.h / V_IMG.w));
+    const height = Math.round(width * (100 / 85));
     const ok = Number.isFinite(x) && Number.isFinite(y);
     // Normalise so the shooter attacks toward +x.
     const nx = ok && x < 0 ? -x : x;
     const ny = ok && x < 0 ? -y : y;
     const dot = ok ? placeDotCoords(nx, ny, width, height) : null;
     return (
-        <View style={[styles.half, {width, height, borderColor: colors.border}]}>
-            <Image source={HALF} style={{width, height, transform: [{rotate: '180deg'}]}}/>
+        <View style={[styles.half, {width, height}]}>
+            <RinkSvg view="half" width={width} height={height}/>
             {dot ? (
                 <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
                     <G x={dot.x} y={dot.y}>
@@ -124,71 +103,164 @@ export const HalfRink = memo(function HalfRink({x, y, color, width = 240}) {
 
 const xgRadius = (xg) => 3 + Math.sqrt(Math.max(0, xg)) * 14;
 
-/** "Rink Map" tab: any play-by-play event on the rink; the xG view sizes shots by quality. */
+const PERIODS = [
+    {key: 'all', label: 'All'},
+    {key: '1', label: 'P1'},
+    {key: '2', label: 'P2'},
+    {key: '3', label: 'P3'},
+    {key: 'ot', label: 'OT'},
+];
+
+const inPeriod = (p, key) => key === 'all' || (key === 'ot' ? p.period > 3 : String(p.period) === key);
+
+/** One team's side of the legend, laid out toward its own end: logo, attack direction, count (and xG). */
+function TeamLegend({abbrev, count, xg, align}) {
+    const {colors, teamColor} = useAppTheme();
+    const right = align === 'right';
+    return (
+        <View style={[styles.legend, right && styles.legendRight]}>
+            <Row gap={6} style={right ? styles.rowReverse : null}>
+                <TeamLogo abbrev={abbrev} size={22}/>
+                <T variant="body" style={typo.name}>{abbrev}</T>
+                <View style={[styles.legendDot, {backgroundColor: teamColor(abbrev)}]}/>
+            </Row>
+            <T variant="body" style={[styles.count, right && styles.textRight]}>{count}</T>
+            <Row gap={4} style={right ? styles.alignEnd : null}>
+                {right ? null : <ArrowLeft size={12} color={colors.textSecondary}/>}
+                <T variant="caption" muted>attacks{xg != null ? ` · ${num(xg, 2)} xG` : ''}</T>
+                {right ? <ArrowRight size={12} color={colors.textSecondary}/> : null}
+            </Row>
+        </View>
+    );
+}
+
+/**
+ * "Rink Map" tab: any play-by-play event on the rink; the xG view sizes shots by quality. The home
+ * team attacks left and the away team right, matching the scoreboard columns. Filter by team or
+ * period, and tap a dot for who / when / what.
+ */
 function RinkMapTab({pbp, xg, header}) {
     const {teamColor} = useAppTheme();
     const [type, setType] = useState('xg');
+    const [team, setTeam] = useState('all');
+    const [period, setPeriod] = useState('all');
+    const [selected, setSelected] = useState(null);
     const {home, away} = header;
 
-    const points = useMemo(() => {
+    const all = useMemo(() => {
         if (!pbp) return [];
         if (type === 'xg') {
-            return mapXGShots(pbp, xg).map((s, i) => ({key: s.eventId ?? i, x: s.x, y: s.y, isHome: s.isHome, goal: s.goal, r: xgRadius(s.xg)}));
+            return mapXGShots(pbp, xg).map((s, i) => ({...s, key: s.eventId ?? i, goal: s.goal, r: xgRadius(s.xg), xg: s.xg}));
         }
-        return mapEvents(pbp, header, type).map((p, i) => ({key: p.eventId ?? i, x: p.x, y: p.y, isHome: p.isHome, goal: type === 'goal'}));
+        return mapEvents(pbp, header, type).map((p, i) => ({...p, key: p.eventId ?? i, goal: type === 'goal'}));
     }, [pbp, xg, header, type]);
 
-    const counts = useMemo(() => {
-        let h = 0;
-        let a = 0;
-        for (const p of points) (p.isHome ? h++ : a++);
-        return {h, a};
+    const points = useMemo(
+        () => all.filter((p) => (team === 'all' || (team === 'home') === p.isHome) && inPeriod(p, period)),
+        [all, team, period],
+    );
+    const periods = useMemo(() => PERIODS.filter((o) => o.key === 'all' || all.some((p) => inPeriod(p, o.key))), [all]);
+
+    const stats = useMemo(() => {
+        const out = {h: 0, a: 0, hx: 0, ax: 0};
+        for (const p of points) {
+            if (p.isHome) {
+                out.h++;
+                out.hx += p.xg ?? 0;
+            } else {
+                out.a++;
+                out.ax += p.xg ?? 0;
+            }
+        }
+        return out;
     }, [points]);
 
-    const tabs = useMemo(() => MAP_EVENTS.map((e) => ({key: e.key, label: e.label})), []);
+    const names = useMemo(() => {
+        const m = new Map();
+        for (const r of pbp?.rosterSpots ?? []) m.set(r.playerId, `${String(loc(r.firstName)).charAt(0)}. ${loc(r.lastName)}`);
+        return m;
+    }, [pbp]);
+
+    const sel = selected != null ? points.find((p) => p.key === selected) : null;
+    const reset = () => setSelected(null);
+
+    const [picker, setPicker] = useState(false);
+    const options = useMemo(() => MAP_EVENTS.map((e) => ({key: e.key, label: e.label})), []);
+    const selectedLabel = options.find((o) => o.key === type)?.label;
 
     return (
         <View>
-            <PillTabs tabs={tabs} value={type} onChange={setType} contentStyle={{paddingHorizontal: 0}} style={{marginBottom: 14}}/>
-            <Card>
+            <SelectRow label="Select Stat" value={selectedLabel} onPress={() => setPicker(true)}/>
+            <OptionSheet visible={picker} options={options} onSelect={(k) => {
+                setType(k);
+                reset();
+            }} onClose={() => setPicker(false)}/>
+            <Segmented
+                style={styles.filter}
+                value={team}
+                onChange={(k) => {
+                    setTeam(k);
+                    reset();
+                }}
+                options={[
+                    {key: 'all', label: 'Both'},
+                    {key: 'home', label: home.abbrev, color: teamColor(home.abbrev)},
+                    {key: 'away', label: away.abbrev, color: teamColor(away.abbrev)},
+                ]}
+            />
+            {periods.length > 2 ? (
+                <Segmented style={styles.filterSmall} value={period} onChange={(k) => {
+                    setPeriod(k);
+                    reset();
+                }} options={periods}/>
+            ) : null}
+            <View style={{marginTop: 16}}>
                 {pbp ? (
-                    points.length ? (
-                        <FullRink points={points} home={home.abbrev} away={away.abbrev}/>
+                    all.length ? (
+                        <FullRink
+                            points={points}
+                            home={home.abbrev}
+                            away={away.abbrev}
+                            selectedKey={sel ? sel.key : null}
+                            onPointPress={(k) => {
+                                tap();
+                                setSelected((cur) => (cur === k ? null : k));
+                            }}
+                        />
                     ) : (
                         <EmptyState message="Nothing to plot yet."/>
                     )
                 ) : (
                     <EmptyState message="Play-by-play isn’t available for this game yet."/>
                 )}
-                <Row style={{justifyContent: 'space-between', marginTop: 12}}>
-                    <Row gap={6}>
-                        <View style={[styles.legendDot, {backgroundColor: teamColor(away.abbrev)}]}/>
-                        <T variant="caption" muted>← {away.abbrev} attacks</T>
-                        <T variant="label">{counts.a}</T>
-                    </Row>
-                    <Row gap={6}>
-                        <T variant="label">{counts.h}</T>
-                        <T variant="caption" muted>{home.abbrev} attacks →</T>
-                        <View style={[styles.legendDot, {backgroundColor: teamColor(home.abbrev)}]}/>
-                    </Row>
-                </Row>
-                {type === 'xg' ? (
-                    <Row gap={4} style={{marginTop: 10}}>
-                        <T variant="caption" muted style={{flex: 1}}>
-                            Bigger dot = better scoring chance. Ringed dots are goals. xG for {home.abbrev} {num(xg?.home?.xg, 2)} · {away.abbrev} {num(xg?.away?.xg, 2)}
+            </View>
+            {/* Tapped dot: who, when, what. Tap again (or change a filter) to clear. */}
+            <View style={styles.detail}>
+                {sel ? (
+                    <Row gap={8}>
+                        <View style={[styles.legendDot, {backgroundColor: teamColor(sel.isHome ? home.abbrev : away.abbrev)}]}/>
+                        <T variant="body" numberOfLines={1} style={[typo.name, styles.flex]}>
+                            {names.get(sel.playerId) ?? (sel.isHome ? home.abbrev : away.abbrev)}
                         </T>
-                        <InfoTip
-                            size={14}
-                            title="Expected goals (xG)"
-                            body="Rinkside’s model estimate of how likely each unblocked shot was to become a goal, based on distance, angle, shot type, rebounds, rushes and manpower. A 0.25 xG shot scores about one time in four."
-                        />
+                        <T variant="body" numberOfLines={1} style={typo.sub}>
+                            {[sel.goal && type !== 'goal' ? 'Goal' : null, sel.shotType ? shotTypeLabel(sel.shotType) : null, sel.period ? `${periodLabel(sel.period, sel.periodType)} ${sel.time ?? ''}`.trim() : null, sel.xg != null ? `${num(sel.xg, 2)} xG` : null]
+                                .filter(Boolean)
+                                .join(' • ')}
+                        </T>
                     </Row>
-                ) : (
-                    <T variant="caption" muted style={{marginTop: 10}}>
-                        Locations are flipped so each team always attacks the same end.
-                    </T>
-                )}
-            </Card>
+                ) : all.length ? (
+                    <T variant="caption" muted style={styles.center}>Tap a dot for details</T>
+                ) : null}
+            </View>
+            <Row style={styles.legends}>
+                <TeamLegend abbrev={home.abbrev} count={stats.h} xg={type === 'xg' ? stats.hx : null} align="left"/>
+                <TeamLegend abbrev={away.abbrev} count={stats.a} xg={type === 'xg' ? stats.ax : null} align="right"/>
+            </Row>
+            {type === 'xg' ? (
+                <Row gap={4} style={{justifyContent: 'center', marginTop: 16}}>
+                    <T variant="caption" muted>Bigger dots are better chances · ringed dots are goals</T>
+                </Row>
+            ) : null}
         </View>
     );
 }
@@ -196,8 +268,20 @@ function RinkMapTab({pbp, xg, header}) {
 export default memo(RinkMapTab);
 
 const styles = StyleSheet.create({
-    full: {width: '100%', overflow: 'hidden', backgroundColor: '#FFFFFF', borderWidth: StyleSheet.hairlineWidth},
-    half: {overflow: 'hidden', backgroundColor: '#FFFFFF', borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, alignSelf: 'center'},
+    full: {width: '100%'},
+    half: {alignSelf: 'center'},
+    count: {fontFamily: 'Sora_600SemiBold', fontSize: 22, lineHeight: 28, fontVariant: ['tabular-nums']},
+    flex: {flex: 1},
+    center: {textAlign: 'center'},
+    filter: {marginTop: 12},
+    filterSmall: {marginTop: 8},
+    detail: {minHeight: 32, justifyContent: 'center', marginTop: 8},
+    legends: {justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 8},
+    legend: {gap: 2},
+    legendRight: {alignItems: 'flex-end'},
+    rowReverse: {flexDirection: 'row-reverse'},
+    alignEnd: {justifyContent: 'flex-end'},
+    textRight: {textAlign: 'right'},
     centerLogo: {alignItems: 'center', justifyContent: 'center'},
     legendDot: {width: 10, height: 10, borderRadius: 5},
 });

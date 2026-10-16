@@ -280,6 +280,26 @@ export function predictGame(ratings, home, away, {playoff = false} = {}) {
 }
 
 /**
+ * Re-centre a predictGame result on another source's home win probability (MoneyPuck), so the app
+ * shows one number everywhere. Keeps the overtime share and how overtime wins split, and moves the
+ * regulation shares so homeRegWin + overtime·(home OT share) = homeWin. Scorelines/totals are left alone.
+ * Returns `pred` unchanged when `homeWin` isn't a probability.
+ */
+export function alignPrediction(pred, homeWin) {
+    if (!pred || !Number.isFinite(homeWin) || homeWin < 0 || homeWin > 1) return pred;
+    const ot = pred.overtime ?? 0;
+    const otHomeShare = ot > 0 ? Math.max(0, Math.min(1, (pred.homeWin - pred.homeRegWin) / ot)) : 0.5;
+    const homeRegWin = Math.max(0, Math.min(1 - ot, homeWin - ot * otHomeShare));
+    return {
+        ...pred,
+        homeWin,
+        awayWin: 1 - homeWin,
+        homeRegWin,
+        awayRegWin: Math.max(0, 1 - ot - homeRegWin),
+    };
+}
+
+/**
  * Live win probability for an in-progress game.
  * @param {object} ratings  from buildRatings (or null → league-average teams)
  * @param {object} g { home, away, homeScore, awayScore, period, secondsRemaining (in period),

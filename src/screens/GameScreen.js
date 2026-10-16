@@ -1,32 +1,18 @@
 import React, {useCallback, useMemo, useRef, useState} from 'react';
-import {RefreshControl, ScrollView, StyleSheet, View} from 'react-native';
-import ConfettiCannon from 'react-native-confetti-cannon';
-import {gameXG, predictGame} from '../analytics';
-import {
-    Chart2,
-    Cup,
-    Danger,
-    DocumentText,
-    Flash,
-    Graph,
-    Information,
-    Location,
-    Microphone2,
-    Radar,
-    Speedometer,
-    Star1,
-    User,
-    Video,
-} from '../components/icons';
-import {BackButton, ErrorState, FadeInView, Header, PillTabs, Screen, Skeleton, SkeletonList} from '../components/ui';
-import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
-import {useLeague} from '../hooks/useLeague';
+import {RefreshControl, StyleSheet, View} from 'react-native';
+import Animated, {useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring} from 'react-native-reanimated';
+import {alignPrediction, applyExternalXG, gameXG, predictGame} from '../analytics';
+import {DocumentText, Microphone2, Video} from '../components/icons';
+import {BackButton, ErrorState, FadeInView, Header, Screen, Segmented, Skeleton, SkeletonList, T, UnderlineTabs} from '../components/ui';
+import {useRatingsBefore} from '../hooks/useLeague';
 import {ROUTES} from '../navigation/routes';
-import {useAppTheme} from '../theme';
+import {GUTTER, useAppTheme} from '../theme';
 import {parseISODate, shortDate} from '../utils/format';
-import {LinkPill, openLink} from './game/common';
+import {useOpenVideo} from './game/common';
+import {videoIdOf} from '../api/brightcove';
+import GameScoreTab from './game/GameScoreTab';
 import GoalsTab from './game/GoalsTab';
-import {InfoTab, PenaltiesTab, StarsTab} from './game/MiscTabs';
+import {OfficialsTab, PenaltiesTab, ScratchesTab, StarsTab} from './game/MiscTabs';
 import {
     brightcoveUrl,
     extractGoals,
@@ -37,31 +23,40 @@ import {
     rosterIndex,
 } from './game/model';
 import PlayersTab from './game/PlayersTab';
-import {PreviewTab, SeriesTab} from './game/Pregame';
+import {LinesTab, PreviewTab, SeriesTab} from './game/Pregame';
 import RinkMapTab from './game/Rink';
+import {useRadio} from '../radio/RadioProvider';
+import LinksSheet from './game/LinksSheet';
+import WhereToWatch from './fan/WhereToWatch';
 import Scoreboard from './game/Scoreboard';
 import StatsTab from './game/StatsTab';
 import {useGameData} from './game/useGameData';
 import WinProbTab from './game/WinProbTab';
 import XGTab from './game/XGTab';
 
-const PREGAME_TABS = [
-    {key: 'preview', label: 'Preview', icon: Speedometer},
-    {key: 'series', label: 'Season Series', icon: Cup},
+// The game page is organised into a few main sections (underline tabs). A section with more than
+// one view shows a small switcher under the tabs; the view keys are what body() renders.
+const PREGAME_SECTIONS = [
+    {key: 'preview', label: 'Preview', views: [{key: 'preview', label: 'Preview'}]},
+    {key: 'lines', label: 'Lines', views: [{key: 'lines', label: 'Lines'}]},
+    {key: 'series', label: 'Season Series', views: [{key: 'series', label: 'Season Series'}]},
 ];
 
-function gameTabs(header, hasStars) {
+function gameSections(header, hasStars) {
     return [
-        {key: 'goals', label: 'Goals', icon: Flash},
-        {key: 'wp', label: 'Win Prob', icon: Graph},
-        {key: 'xg', label: 'xG', icon: Radar},
-        {key: 'stats', label: 'Game Stats', icon: Chart2},
-        {key: 'players', label: 'Players', icon: User},
-        {key: 'map', label: 'Rink Map', icon: Location},
-        ...(header.final && hasStars ? [{key: 'stars', label: 'Stars', icon: Star1}] : []),
-        {key: 'penalties', label: 'Penalties', icon: Danger},
-        {key: 'info', label: 'Info', icon: Information},
-        {key: 'series', label: 'Series', icon: Cup},
+        {
+            key: 'summary',
+            label: 'Summary',
+            views: [
+                {key: 'goals', label: 'Goals'},
+                {key: 'penalties', label: 'Penalties'},
+                ...(header.final && hasStars ? [{key: 'stars', label: 'Stars'}] : []),
+            ],
+        },
+        {key: 'team', label: 'Team Stats', views: [{key: 'stats', label: 'Game Stats'}]},
+        {key: 'analytics', label: 'Analytics', views: [{key: 'wp', label: 'Win Prob'}, {key: 'xg', label: 'xG'}, {key: 'map', label: 'Rink Map'}]},
+        {key: 'players', label: 'Players', views: [{key: 'players', label: 'Box Score'}, {key: 'gamescore', label: 'Impact'}]},
+        {key: 'info', label: 'Info', views: [{key: 'series', label: 'Season Series'}, {key: 'scratches', label: 'Scratches'}, {key: 'officials', label: 'Officials'}]},
     ];
 }
 
@@ -73,12 +68,46 @@ function videoUrl(v) {
     return s.startsWith('http') ? s : `https://www.nhl.com${s.startsWith('/') ? '' : '/'}${s}`;
 }
 
+const TITLE_SPRING = {damping: 20, stiffness: 180, mass: 0.8};
+
+/**
+ * Header title that swaps once the score section scrolls past (App Store build, Apple Sports
+ * style): "BUF @ TOR" slides up and fades out while the score slides in from below.
+ */
+function ScrollTitle({title, scoreTitle, subtitle, scrollY, threshold}) {
+    const show = useSharedValue(0);
+    useAnimatedReaction(
+        () => scrollY.value > threshold.value - 20,
+        (past, prev) => {
+            if (past !== prev) show.value = withSpring(past ? 1 : 0, TITLE_SPRING);
+        },
+        [],
+    );
+    const first = useAnimatedStyle(() => ({opacity: 1 - show.value * 1.5, transform: [{translateY: -show.value * 8}]}));
+    const second = useAnimatedStyle(() => ({opacity: Math.max(0, show.value * 1.5 - 0.5), transform: [{translateY: (1 - show.value) * 8}]}));
+    const sub = subtitle ? <T variant="caption" muted numberOfLines={1}>{subtitle}</T> : null;
+    return (
+        <View>
+            <Animated.View style={first}>
+                <T variant="title" numberOfLines={1}>{title}</T>
+                {sub}
+            </Animated.View>
+            {scoreTitle ? (
+                <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, second]}>
+                    <T variant="title" numberOfLines={1} style={{fontVariant: ['tabular-nums']}}>{scoreTitle}</T>
+                    {sub}
+                </Animated.View>
+            ) : null}
+        </View>
+    );
+}
+
 function LoadingBody() {
     return (
-        <View style={{paddingHorizontal: 16, gap: 16}}>
-            <Skeleton height={190} radius={16}/>
-            <Skeleton height={40} radius={999}/>
-            <SkeletonList count={4} height={96}/>
+        <View style={{paddingHorizontal: GUTTER, gap: 20, paddingTop: 10}}>
+            <Skeleton height={190} radius={15}/>
+            <Skeleton height={54} radius={100}/>
+            <SkeletonList count={4} height={96} gap={4}/>
         </View>
     );
 }
@@ -91,9 +120,12 @@ export default function GameScreen({route, navigation}) {
 
     const data = useGameData(gameId, initialGame);
     const {header, landing, box, pbp, rail, mp} = data;
-    const {ratings} = useLeague();
-    const {team: favourite} = useFavoriteTeam() ?? {};
+    const radio = useRadio();
+    const openVideo = useOpenVideo();
     const {home, away} = header;
+    const broadcasts = landing?.tvBroadcasts ?? initialGame?.tvBroadcasts;
+    // Ratings as of the day before the game, so a past game's model numbers never use later results.
+    const {ratings} = useRatingsBefore(header.gameDate);
 
     /* ------------------------------------------------- derived data */
 
@@ -112,23 +144,28 @@ export default function GameScreen({route, navigation}) {
         [ratings, goalsRaw, home.abbrev, away.abbrev, header.playoff],
     );
     const shootout = useMemo(() => extractShootout(landing), [landing]);
-    const xg = useMemo(() => (pbp?.plays?.length ? gameXG(pbp) : null), [pbp]);
+    // xG: MoneyPuck's per-shot values (backtested better) matched onto the NHL shots; our model for the
+    // whole game when MoneyPuck's file is missing or doesn't line up. Every xG view reads this one object.
+    const xg = useMemo(() => (pbp?.plays?.length ? applyExternalXG(gameXG(pbp), data.mpRows) : null), [pbp, data.mpRows]);
     const xgShots = useMemo(() => (xg ? [...xg.home.shots, ...xg.away.shots] : null), [xg]);
     const roster = useMemo(() => rosterIndex(pbp, box, header),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [pbp, box, home.id, home.abbrev, away.abbrev]);
+    // Pregame odds: MoneyPuck's number (backtested better) with our model's regulation/OT split
+    // re-centred on it; our model alone only when MoneyPuck has no number. One source everywhere.
     const prediction = useMemo(() => {
-        if (!home.abbrev || !away.abbrev) return null;
+        if (!home.abbrev || !away.abbrev || !ratings) return null;
         try {
-            return predictGame(ratings, home.abbrev, away.abbrev, {playoff: header.playoff});
+            return alignPrediction(predictGame(ratings, home.abbrev, away.abbrev, {playoff: header.playoff}), data.mpPregame);
         } catch {
             return null;
         }
-    }, [ratings, home.abbrev, away.abbrev, header.playoff]);
+    }, [ratings, home.abbrev, away.abbrev, header.playoff, data.mpPregame]);
     const situationCode = useMemo(() => (header.live ? latestSituationCode(pbp, landing) : undefined), [header.live, pbp, landing]);
     const liveWP = useMemo(() => (header.live ? rinksideLive(ratings, header, situationCode) : null), [ratings, header, situationCode]);
 
-    // Header win probability: MoneyPuck when it has a number, otherwise the Rinkside model.
+    // Header win probability. Live: MoneyPuck's series when it exists (the Win Prob chart uses the
+    // same rule, so they always agree), otherwise our live model. Pregame: the aligned prediction.
     const {wp, wpSource} = useMemo(() => {
         if (header.final) {
             const h = home.score ?? 0;
@@ -140,18 +177,20 @@ export default function GameScreen({route, navigation}) {
             if (Number.isFinite(mpv)) return {wp: mpv, wpSource: 'MoneyPuck'};
             return {wp: liveWP?.home, wpSource: 'Rinkside model'};
         }
-        if (Number.isFinite(data.mpPregame)) return {wp: data.mpPregame, wpSource: 'MoneyPuck'};
-        return {wp: prediction?.homeWin, wpSource: 'Rinkside model'};
+        return {wp: prediction?.homeWin, wpSource: Number.isFinite(data.mpPregame) ? 'MoneyPuck' : 'Rinkside model'};
     }, [header.final, header.live, home.score, away.score, mp, liveWP, data.mpPregame, prediction]);
 
     /* ---------------------------------------------------- tabs */
 
     const hasStars = !!landing?.summary?.threeStars?.length;
-    const tabs = useMemo(() => (header.started ? gameTabs(header, hasStars) : PREGAME_TABS),
+    const sections = useMemo(() => (header.started ? gameSections(header, hasStars) : PREGAME_SECTIONS),
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [header.started, header.final, hasStars]);
-    const [tab, setTab] = useState(null);
-    const activeTab = tabs.some((t) => t.key === tab) ? tab : tabs[0].key;
+    const [sectionKey, setSectionKey] = useState(null);
+    const [views, setViews] = useState({}); // last view picked in each section, so switching back keeps it
+    const section = sections.find((x) => x.key === sectionKey) ?? sections[0];
+    const activeTab = section.views.some((v) => v.key === views[section.key]) ? views[section.key] : section.views[0].key;
+    const setView = useCallback((v) => setViews((cur) => ({...cur, [section.key]: v})), [section.key]);
 
     /* ------------------------------------------------- navigation */
 
@@ -167,22 +206,36 @@ export default function GameScreen({route, navigation}) {
     /* ---------------------------------------------------- links */
 
     const recapUrl = videoUrl(header.threeMinRecap) ?? videoUrl(rail?.gameVideo?.threeMinRecap);
+    const recapVideo = videoIdOf(rail?.gameVideo?.threeMinRecap) ?? videoIdOf(header.threeMinRecap);
     const condensedUrl = videoUrl(rail?.gameVideo?.condensedGame);
     const links = [];
     if (header.final) {
-        if (recapUrl) links.push({key: 'recap', icon: Video, label: '3-min recap', onPress: () => openLink(recapUrl)});
-        if (condensedUrl) links.push({key: 'condensed', icon: Video, label: 'Condensed game', onPress: () => openLink(condensedUrl)});
+        // Recap videos play in the in-app player (Brightcove HLS); nhl.com is only the fallback.
+        const matchup = `${away.abbrev} @ ${home.abbrev}`;
+        if (recapUrl) links.push({key: 'recap', icon: Video, label: '3-min recap', onPress: () => openVideo(recapVideo, {title: `${matchup} · Recap`, webUrl: recapUrl})});
+        if (condensedUrl) links.push({key: 'condensed', icon: Video, label: 'Condensed game', onPress: () => openVideo(rail?.gameVideo?.condensedGame, {title: `${matchup} · Condensed game`, webUrl: condensedUrl})});
         links.push({key: 'story', icon: DocumentText, label: 'Recap', onPress: openRecap});
     }
     if (header.live) {
-        if (home.radioLink) links.push({key: 'hr', icon: Microphone2, label: `${home.abbrev} radio`, onPress: () => openLink(home.radioLink)});
-        if (away.radioLink) links.push({key: 'ar', icon: Microphone2, label: `${away.abbrev} radio`, onPress: () => openLink(away.radioLink)});
+        // Team radio streams in the app (mini player + waveform) instead of opening a browser.
+        if (home.radioLink) links.push({key: 'hr', icon: Microphone2, label: `${home.abbrev} radio`, onPress: () => radio.play({key: `${gameId}-${home.abbrev}`, team: home.abbrev, title: `${home.abbrev} radio`, url: home.radioLink})});
+        if (away.radioLink) links.push({key: 'ar', icon: Microphone2, label: `${away.abbrev} radio`, onPress: () => radio.play({key: `${gameId}-${away.abbrev}`, team: away.abbrev, title: `${away.abbrev} radio`, url: away.radioLink})});
     }
 
-    const favouriteWon = header.final && favourite && home.score !== away.score &&
-        ((home.score > away.score && favourite === home.abbrev) || (away.score > home.score && favourite === away.abbrev));
-
     /* --------------------------------------------------- render */
+
+    // Scroll-linked header: once the score row is scrolled past, the title becomes the score
+    // (or the pregame win chances), in the same home-left order as the scoreboard.
+    const scrollY = useSharedValue(0);
+    const scoreHeight = useSharedValue(160);
+    const onScroll = useAnimatedScrollHandler({onScroll: (e) => {
+        scrollY.value = e.contentOffset.y;
+    }});
+    const scoreTitle = !home.abbrev ? null : header.started
+        ? `${home.abbrev} ${home.score ?? 0} – ${away.score ?? 0} ${away.abbrev}`
+        : Number.isFinite(prediction?.homeWin)
+            ? `${home.abbrev} ${Math.round(prediction.homeWin * 100)}% – ${Math.round((1 - prediction.homeWin) * 100)}% ${away.abbrev}`
+            : null;
 
     const subtitle = [
         header.gameDate ? shortDate(parseISODate(header.gameDate)) : null,
@@ -196,16 +249,18 @@ export default function GameScreen({route, navigation}) {
                     <PreviewTab
                         header={header}
                         prediction={prediction}
-                        mpPregame={data.mpPregame}
                         goalies={data.goalies}
                         goaliesLoading={data.goaliesLoading}
                         teams={data.teams}
                         sims={data.sims}
                         landing={landing}
                         rail={rail}
+                        milestones={data.milestones}
                         onPlayer={openPlayer}
                     />
                 );
+            case 'lines':
+                return <LinesTab header={header} onPlayer={openPlayer}/>;
             case 'series':
                 return <SeriesTab landing={landing} rail={rail} header={header} onOpenGame={openGame}/>;
             case 'goals':
@@ -219,11 +274,12 @@ export default function GameScreen({route, navigation}) {
                         mp={mp}
                         liveWP={liveWP}
                         prediction={prediction}
-                        mpPregame={data.mpPregame}
                     />
                 );
             case 'xg':
-                return <XGTab xg={xg} header={header} roster={roster} mp={mp} onPlayer={openPlayer}/>;
+                return <XGTab xg={xg} header={header} roster={roster} onPlayer={openPlayer}/>;
+            case 'gamescore':
+                return <GameScoreTab box={box} pbp={pbp} shifts={data.shifts} header={header} onPlayer={openPlayer}/>;
             case 'stats':
                 return <StatsTab header={header} landing={landing} box={box} rail={rail} mp={mp} xg={xg} sims={data.sims}/>;
             case 'players':
@@ -234,8 +290,10 @@ export default function GameScreen({route, navigation}) {
                 return <StarsTab landing={landing} onPlayer={openPlayer}/>;
             case 'penalties':
                 return <PenaltiesTab landing={landing}/>;
-            case 'info':
-                return <InfoTab header={header} landing={landing} box={box} rail={rail} onPlayer={openPlayer}/>;
+            case 'scratches':
+                return <ScratchesTab header={header} landing={landing} box={box} rail={rail} onPlayer={openPlayer}/>;
+            case 'officials':
+                return <OfficialsTab header={header} landing={landing} box={box} rail={rail}/>;
             default:
                 return null;
         }
@@ -244,44 +302,58 @@ export default function GameScreen({route, navigation}) {
     return (
         <Screen>
             <Header
-                title={home.abbrev && away.abbrev ? `${away.abbrev} @ ${home.abbrev}` : 'Game'}
-                subtitle={subtitle || undefined}
+                titleNode={
+                    <ScrollTitle
+                        title={home.abbrev && away.abbrev ? `${away.abbrev} @ ${home.abbrev}` : 'Game'}
+                        scoreTitle={scoreTitle}
+                        subtitle={subtitle || undefined}
+                        scrollY={scrollY}
+                        threshold={scoreHeight}
+                    />
+                }
                 left={<BackButton onPress={goBack}/>}
+                right={home.abbrev && (links.length || (!header.final && broadcasts?.length)) ? (
+                    <View style={styles.headerRight}>
+                        {!header.final ? <WhereToWatch broadcasts={broadcasts} home={home.abbrev} away={away.abbrev}/> : null}
+                        <LinksSheet links={links} icon={header.live ? Microphone2 : Video} title={header.live ? 'Listen' : 'Recaps'}/>
+                    </View>
+                ) : null}
             />
             {data.error ? (
                 <ErrorState message="Couldn’t load this game." onRetry={data.refresh}/>
             ) : data.loading || !home.abbrev ? (
                 <LoadingBody/>
             ) : (
-                <ScrollView
+                <Animated.ScrollView
+                    onScroll={onScroll}
+                    scrollEventThrottle={16}
                     contentContainerStyle={styles.content}
                     refreshControl={<RefreshControl refreshing={data.refreshing} onRefresh={data.refresh} tintColor={colors.textSecondary}/>}>
                     <FadeInView>
-                        <Scoreboard header={header} wp={wp} wpSource={wpSource}/>
+                        <View onLayout={(e) => {
+                            scoreHeight.value = e.nativeEvent.layout.height;
+                        }}>
+                            <Scoreboard header={header} wp={wp} wpSource={wpSource}/>
+                        </View>
                     </FadeInView>
-                    {links.length ? (
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.links}>
-                            {links.map((l) => <LinkPill key={l.key} icon={l.icon} label={l.label} onPress={l.onPress}/>)}
-                        </ScrollView>
+                    {/* Main sections as a Kalshi-style underline bar; a section with several views gets a switcher. */}
+                    <UnderlineTabs tabs={sections} value={section.key} onChange={setSectionKey} style={styles.tabs}/>
+                    {section.views.length > 1 ? (
+                        <Segmented options={section.views} value={activeTab} onChange={setView} style={styles.subTabs}/>
                     ) : null}
-                    <PillTabs tabs={tabs} value={activeTab} onChange={setTab} style={styles.tabs}/>
                     <View style={styles.body}>
                         <FadeInView key={activeTab}>{body()}</FadeInView>
                     </View>
-                </ScrollView>
+                </Animated.ScrollView>
             )}
-            {favouriteWon ? (
-                <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-                    <ConfettiCannon count={120} origin={{x: -20, y: -20}} fadeOut autoStart/>
-                </View>
-            ) : null}
         </Screen>
     );
 }
 
 const styles = StyleSheet.create({
     content: {paddingBottom: 48},
-    links: {paddingHorizontal: 16, gap: 8, paddingTop: 12},
     tabs: {marginTop: 16},
-    body: {paddingHorizontal: 16, paddingTop: 16},
+    subTabs: {marginTop: 14, marginHorizontal: GUTTER},
+    body: {paddingHorizontal: GUTTER, paddingTop: 20},
+    headerRight: {flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '62%'},
 });

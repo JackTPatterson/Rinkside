@@ -16,4 +16,5 @@ export const ROUTES = {
     favoriteTeam: 'FavoriteTeam',
     about: 'About',
     methodology: 'Methodology',
+    video: 'Video', //   params: {videoId, title?, webUrl?}  in-app NHL video player (full-screen modal)
 };

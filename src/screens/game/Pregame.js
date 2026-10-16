@@ -1,102 +1,90 @@
-import React, {memo, useMemo} from 'react';
-import {StyleSheet, View} from 'react-native';
-import {Badge, Card, CompareRow, EmptyState, FadeInView, InfoTip, Row, Section, SplitBar, T, TeamLogo} from '../../components/ui';
+import React, {memo, useMemo, useState} from 'react';
+import {Pressable, StyleSheet, View} from 'react-native';
+import {CompareRow, EmptyState, FadeInView, Row, Section, Segmented, SplitBar, T, TeamLogo} from '../../components/ui';
+import {fetchLines} from '../../api/dailyfaceoff';
+import {useQuery} from '../../hooks/useQuery';
+import LinesView from '../fan/LinesView';
+import Milestones from '../fan/Milestones';
 import {headshotUrl} from '../../api/nhl';
 import {useAppTheme} from '../../theme';
 import {loc, num, parseISODate, pct, savePct, shortDate, signed} from '../../utils/format';
-import {MatchupHeading, PlayerTile} from './common';
+import {MatchupHeading, PlayerTile, type} from './common';
 import PlayoffImpact from './PlayoffImpact';
-
-const MODEL_INFO = 'Rinkside’s model estimate. Each team’s scoring and defence are rated from this season’s results (pulled toward league average early in the season), home ice is factored in, and every possible game is worked out exactly — including power plays, pulled goalies and how often tied games really reach overtime.';
 
 /* -------------------------------------------------- prediction */
 
-const Prediction = memo(function Prediction({header, prediction, mpPregame}) {
+/** One small labelled number in a row of equal columns. */
+function Figure({label, value, color, align = 'center'}) {
+    return (
+        <View style={[styles.figure, {alignItems: align}]}>
+            <T variant="body" color={color} style={type.value}>{value}</T>
+            <T variant="caption" muted numberOfLines={1}>{label}</T>
+        </View>
+    );
+}
+
+const SubTitle = ({children, first}) => <T variant="caption" muted style={[styles.subTitle, first && styles.firstSub]}>{children.toUpperCase()}</T>;
+
+/**
+ * Pregame prediction in three plain steps: who wins (big numbers and one bar), how (regulation,
+ * overtime, expected goals per side), then the scoring picture (total goals and likeliest scores).
+ */
+const Prediction = memo(function Prediction({header, prediction}) {
     const {teamColor, colors} = useAppTheme();
     const {home, away} = header;
     const hc = teamColor(home.abbrev);
     const ac = teamColor(away.abbrev);
     if (!prediction) return null;
     const p = prediction;
+    const scores = (p.scorelines ?? []).slice(0, 4);
     return (
         <FadeInView>
-            <Card>
-                <Row style={{justifyContent: 'space-between', marginBottom: 4}}>
-                    <T variant="label" muted>Rinkside Win Probability</T>
-                    <InfoTip title="Rinkside Win Probability" body={MODEL_INFO}/>
+            <SubTitle first>Win probability</SubTitle>
+            <Row style={styles.winRow}>
+                <Row gap={8} style={styles.flex}>
+                    <TeamLogo abbrev={home.abbrev} size={30}/>
+                    <T variant="display" color={hc}>{pct(p.homeWin)}</T>
                 </Row>
-                <Row style={{justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10}}>
-                    <View>
-                        <T variant="display" color={hc}>{pct(p.homeWin)}</T>
-                        <T variant="caption" muted>{home.shortName}</T>
-                    </View>
-                    <View style={{alignItems: 'flex-end'}}>
-                        <T variant="display" color={ac}>{pct(p.awayWin)}</T>
-                        <T variant="caption" muted>{away.shortName}</T>
-                    </View>
+                <Row gap={8} style={[styles.flex, styles.end]}>
+                    <T variant="display" color={ac}>{pct(p.awayWin)}</T>
+                    <TeamLogo abbrev={away.abbrev} size={30}/>
                 </Row>
-                <SplitBar left={p.homeRegWin} middle={p.overtime} leftColor={hc} rightColor={ac} height={12}/>
-                <Row style={{justifyContent: 'space-between', marginTop: 6}}>
-                    <T variant="caption" muted>Reg. {pct(p.homeRegWin)}</T>
-                    <Row gap={4}>
-                        <T variant="caption" muted>Overtime {pct(p.overtime)}</T>
-                        <InfoTip size={13} title="Overtime chance" body="How often the model expects this game to be tied after 60 minutes. The middle of the bar is that share; each side’s colour is its chance to win in regulation."/>
-                    </Row>
-                    <T variant="caption" muted>Reg. {pct(p.awayRegWin)}</T>
-                </Row>
-                {Number.isFinite(mpPregame) ? (
-                    <View style={[styles.mp, {borderTopColor: colors.border}]}>
-                        <Row style={{justifyContent: 'space-between', marginBottom: 6}}>
-                            <T variant="label">{pct(mpPregame)}</T>
-                            <Row gap={4}>
-                                <T variant="caption" muted>MoneyPuck</T>
-                                <InfoTip size={13} title="MoneyPuck" body="MoneyPuck.com’s published pregame model estimate, shown for comparison with Rinkside’s."/>
-                            </Row>
-                            <T variant="label">{pct(1 - mpPregame)}</T>
-                        </Row>
-                        <SplitBar left={mpPregame} leftColor={hc} rightColor={ac} height={6}/>
-                    </View>
-                ) : null}
-            </Card>
-            <View style={styles.tiles}>
-                <View style={[styles.tile, {backgroundColor: colors.card}]}>
-                    <Row gap={4}>
-                        <T variant="caption" muted>Expected goals</T>
-                        <InfoTip size={13} title="Expected goals" body="The average number of regulation goals the model expects each team to score in this matchup (model estimate)."/>
-                    </Row>
-                    <Row gap={8} style={{marginTop: 4}}>
-                        <T variant="stat" color={hc}>{num(p.lambdaHome, 1)}</T>
-                        <T variant="caption" muted>–</T>
-                        <T variant="stat" color={ac}>{num(p.lambdaAway, 1)}</T>
-                    </Row>
-                </View>
-                <View style={[styles.tile, {backgroundColor: colors.card}]}>
-                    <Row gap={4}>
-                        <T variant="caption" muted>Total goals</T>
-                        <InfoTip size={13} title="Over / under" body="Model chance that the two teams combine for more than 5.5 or 6.5 goals in regulation. The expected total is the average across every outcome."/>
-                    </Row>
-                    <T variant="stat">{num(p.expectedTotal, 1)}</T>
-                    <T variant="caption" muted>O5.5 {pct(p.totals?.over55)} · O6.5 {pct(p.totals?.over65)}</T>
-                </View>
-            </View>
-            {p.scorelines?.length ? (
-                <Card style={{marginTop: 10}}>
-                    <Row gap={4} style={{marginBottom: 10}}>
-                        <T variant="label" muted style={{flex: 1}}>Likeliest regulation scores</T>
-                        <InfoTip size={13} title="Likeliest scores" body="The single most likely final scores after 60 minutes, by model estimate. Even the top one usually happens less than one game in ten."/>
-                    </Row>
-                    <View style={styles.scores}>
-                        {p.scorelines.map((s) => {
-                            const c = s.home > s.away ? hc : s.away > s.home ? ac : colors.textSecondary;
+            </Row>
+            <SplitBar left={p.homeRegWin} middle={p.overtime} leftColor={hc} rightColor={ac} height={12}/>
+            {/* Each part of the bar labelled right under it: regulation wins at the ends, overtime in the middle. */}
+            <Row gap={0} style={styles.barLabels}>
+                <Figure label="Reg. win" value={pct(p.homeRegWin)} color={hc} align="flex-start"/>
+                <Figure label="Overtime" value={pct(p.overtime)}/>
+                <Figure label="Reg. win" value={pct(p.awayRegWin)} color={ac} align="flex-end"/>
+            </Row>
+
+            <SubTitle>Goals</SubTitle>
+            <Row gap={0}>
+                <Figure label={`${home.abbrev} expected`} value={num(p.lambdaHome, 1)} color={hc} align="flex-start"/>
+                <Figure label="Expected total" value={num(p.expectedTotal, 1)}/>
+                <Figure label={`${away.abbrev} expected`} value={num(p.lambdaAway, 1)} color={ac} align="flex-end"/>
+            </Row>
+            <T variant="caption" muted style={styles.overs}>
+                Over 5.5: {pct(p.totals?.over55)}  ·  Over 6.5: {pct(p.totals?.over65)}
+            </T>
+
+            {scores.length ? (
+                <>
+                    <SubTitle>Likeliest regulation scores</SubTitle>
+                    <Row gap={0} style={styles.scores}>
+                        {scores.map((s) => {
+                            const winner = s.home > s.away ? home.abbrev : s.away > s.home ? away.abbrev : null;
+                            const c = winner ? teamColor(winner) : colors.textSecondary;
                             return (
-                                <View key={`${s.home}-${s.away}`} style={[styles.scoreChip, {backgroundColor: colors.cardAlt, borderColor: c}]}>
-                                    <T variant="label">{home.abbrev} {s.home}–{s.away} {away.abbrev}</T>
+                                <View key={`${s.home}-${s.away}`} style={styles.figure}>
+                                    <T variant="caption" color={c} style={styles.semi}>{winner ?? 'Tied'}</T>
+                                    <T variant="body" style={type.pie}>{s.home}–{s.away}</T>
                                     <T variant="caption" muted>{pct(s.p, 1)}</T>
                                 </View>
                             );
                         })}
-                    </View>
-                </Card>
+                    </Row>
+                </>
             ) : null}
         </FadeInView>
     );
@@ -105,14 +93,20 @@ const Prediction = memo(function Prediction({header, prediction, mpPregame}) {
 /* ------------------------------------------------------- goalies */
 
 const GoalieColumn = memo(function GoalieColumn({goalie, team, season, onPlayer}) {
+    const {colors} = useAppTheme();
+    // Confirmed (a beat reporter or the team said so), Likely, or Projected (the expected starter).
+    const STATUS = {Confirmed: colors.positive, Likely: colors.warning, Projected: colors.textSecondary};
+    const status = !goalie
+        ? {label: 'TBD', color: colors.textSecondary}
+        : {label: goalie.status ?? 'Projected', color: STATUS[goalie.status] ?? colors.textSecondary};
     return (
         <View style={{flex: 1, alignItems: 'center'}}>
             <PlayerTile
                 playerId={goalie?.id}
-                name={goalie?.name || 'Not confirmed'}
+                name={goalie?.name || 'Not announced'}
                 headshot={goalie?.id ? headshotUrl(goalie.id, team, season) : undefined}
                 team={team}
-                caption={goalie?.confirmedBy ? `via ${goalie.confirmedBy}` : team}
+                status={status}
                 onPress={goalie?.id ? onPlayer : undefined}
             />
         </View>
@@ -127,7 +121,7 @@ const Goalies = memo(function Goalies({goalies, loading, header, onPlayer}) {
     if (!h && !a) {
         return (
             <Section title="Starting goalies">
-                <Card><T variant="body" muted>{loading ? 'Checking for confirmed starters…' : 'Starters haven’t been confirmed yet.'}</T></Card>
+                <View><T variant="body" muted>{loading ? 'Checking for confirmed starters…' : 'Starters haven’t been confirmed yet.'}</T></View>
             </Section>
         );
     }
@@ -136,8 +130,8 @@ const Goalies = memo(function Goalies({goalies, loading, header, onPlayer}) {
     const hc = teamColor(home.abbrev);
     const ac = teamColor(away.abbrev);
     return (
-        <Section title="Starting goalies" info="Projected or confirmed starters (via MoneyPuck.com) and their season numbers.">
-            <Card>
+        <Section title="Starting goalies" info="Tonight’s expected starters and how sure that is: Confirmed (announced by the team or a beat reporter), Likely, or Projected. Season numbers below.">
+            <View>
                 <Row style={{alignItems: 'flex-start', marginBottom: 14}}>
                     <GoalieColumn goalie={h} team={home.abbrev} season={header.season} onPlayer={onPlayer}/>
                     <GoalieColumn goalie={a} team={away.abbrev} season={header.season} onPlayer={onPlayer}/>
@@ -153,12 +147,12 @@ const Goalies = memo(function Goalies({goalies, loading, header, onPlayer}) {
                             leftColor={hc}
                             rightColor={ac}
                             format={(v) => signed(v, 1)}
-                            info="Goals saved above expected this season (MoneyPuck): expected goals faced minus goals allowed. Positive means the goalie has stopped more than an average goalie would have. Model estimate."
+                            info="Goals saved above expected this season: expected goals faced minus goals allowed. Positive means the goalie has stopped more than an average goalie would have."
                         />
                         <CompareRow label="Games" left={hs.gamesPlayed} right={as.gamesPlayed} leftColor={hc} rightColor={ac}/>
                     </>
                 ) : null}
-            </Card>
+            </View>
         </Section>
     );
 });
@@ -178,7 +172,7 @@ const TeamSeason = memo(function TeamSeason({teams, header}) {
     const p1 = (v) => pct(v, 1);
     return (
         <Section title="Season per game">
-            <Card>
+            <View>
                 <MatchupHeading home={home.abbrev} away={away.abbrev}/>
                 <CompareRow label="Goals for" left={h.goalsForPerGame} right={a.goalsForPerGame} leftColor={hc} rightColor={ac} format={f2}/>
                 <CompareRow label="Goals against" left={h.goalsAgainstPerGame} right={a.goalsAgainstPerGame} leftColor={hc} rightColor={ac} format={f2} higherIsBetter={false}/>
@@ -187,7 +181,7 @@ const TeamSeason = memo(function TeamSeason({teams, header}) {
                 <CompareRow label="Power play %" left={h.powerPlayNetPct ?? h.powerPlayPct} right={a.powerPlayNetPct ?? a.powerPlayPct} leftColor={hc} rightColor={ac} format={p1}/>
                 <CompareRow label="Penalty kill %" left={h.penaltyKillNetPct ?? h.penaltyKillPct} right={a.penaltyKillNetPct ?? a.penaltyKillPct} leftColor={hc} rightColor={ac} format={p1}/>
                 <CompareRow label="Faceoff win %" left={h.faceoffWinPct} right={a.faceoffWinPct} leftColor={hc} rightColor={ac} format={p1}/>
-            </Card>
+            </View>
         </Section>
     );
 });
@@ -204,7 +198,7 @@ const Leaders = memo(function Leaders({landing, rail, header, onPlayer}) {
         <Section title="Team leaders · last 5 games">
             <View style={{gap: 10}}>
                 {leaders.slice(0, 4).map((l, i) => (
-                    <Card key={l?.category ?? i}>
+                    <View key={l?.category ?? i} style={styles.leader}>
                         <T variant="label" muted style={{textAlign: 'center', marginBottom: 8}}>{CATEGORY[l?.category] ?? l?.category}</T>
                         <Row style={{justifyContent: 'space-between'}}>
                             {[['home', l?.homeLeader, header.home.abbrev], ['away', l?.awayLeader, header.away.abbrev]].map(([k, p, team]) => (
@@ -221,7 +215,7 @@ const Leaders = memo(function Leaders({landing, rail, header, onPlayer}) {
                                 </Row>
                             ))}
                         </Row>
-                    </Card>
+                    </View>
                 ))}
             </View>
         </Section>
@@ -229,44 +223,69 @@ const Leaders = memo(function Leaders({landing, rail, header, onPlayer}) {
 });
 
 /** Pregame "Preview" tab. */
-export const PreviewTab = memo(function PreviewTab({header, prediction, mpPregame, goalies, goaliesLoading, teams, sims, landing, rail, onPlayer}) {
+export const PreviewTab = memo(function PreviewTab({header, prediction, goalies, goaliesLoading, teams, sims, landing, rail, milestones, onPlayer}) {
     return (
         <View>
-            <Prediction header={header} prediction={prediction} mpPregame={mpPregame}/>
+            <Prediction header={header} prediction={prediction}/>
             <Goalies goalies={goalies} loading={goaliesLoading} header={header} onPlayer={onPlayer}/>
             <TeamSeason teams={teams} header={header}/>
             <PlayoffImpact sims={sims} header={header}/>
             <Leaders landing={landing} rail={rail} header={header} onPlayer={onPlayer}/>
+            {milestones ? <Milestones data={milestones} onPlayer={onPlayer}/> : null}
+        </View>
+    );
+});
+
+/* ------------------------------------------------------------ lines */
+
+/** Pregame "Lines" tab: each team's projected line combinations, one team at a time. */
+export const LinesTab = memo(function LinesTab({header, onPlayer}) {
+    const {home, away} = header;
+    const [team, setTeam] = useState(home.abbrev);
+    const q = useQuery(({force}) => fetchLines(team, {force}), [team], {enabled: !!team});
+    return (
+        <View>
+            <Segmented
+                options={[{key: home.abbrev, label: home.abbrev}, {key: away.abbrev, label: away.abbrev}]}
+                value={team}
+                onChange={setTeam}
+            />
+            <LinesView key={team} lines={q.data} team={team} loading={q.loading} error={q.error} onRetry={q.refresh} onPlayer={onPlayer}/>
         </View>
     );
 });
 
 /* ---------------------------------------------------- season series */
 
+/** Old season-series card: logo, score (Bold 20), date, score, logo — centred on one line. */
 const SeriesGame = memo(function SeriesGame({game, onOpen}) {
+    const {colors} = useAppTheme();
     const h = game?.homeTeam ?? {};
     const a = game?.awayTeam ?? {};
     const played = h.score != null && a.score != null;
     const date = game?.gameDate ? shortDate(parseISODate(game.gameDate)) : '';
     return (
-        <Card onPress={() => onOpen(game)} accessibilityLabel={`${a.abbrev} at ${h.abbrev}, ${date}`}>
-            <Row style={{justifyContent: 'space-between'}}>
-                <Row gap={10} style={{flex: 1}}>
-                    <TeamLogo abbrev={h.abbrev} size={32}/>
-                    <T variant="stat" style={{opacity: played && h.score < a.score ? 0.5 : 1}}>{played ? h.score : '–'}</T>
-                </Row>
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${a.abbrev} at ${h.abbrev}, ${date}`}
+            onPress={() => onOpen(game)}
+            style={({pressed}) => [styles.seriesCard, {backgroundColor: colors.card}, pressed && {opacity: 0.7}]}>
+            <Row gap={0} style={{justifyContent: 'center'}}>
+                <TeamLogo abbrev={h.abbrev} size={35}/>
+                <T variant="body" style={[styles.seriesScore, {paddingLeft: 15}]}>{played ? h.score : '--'}</T>
                 <View style={{alignItems: 'center'}}>
-                    <T variant="label">{date}</T>
-                    {game?.gameOutcome?.lastPeriodType && game.gameOutcome.lastPeriodType !== 'REG' ? (
-                        <Badge label={game.gameOutcome.lastPeriodType}/>
-                    ) : <T variant="caption" muted>{played ? 'Final' : 'Upcoming'}</T>}
+                    {/* Plain text, no pill (same treatment as the header date/time). */}
+                    <T variant="body" style={styles.seriesDate}>{date}</T>
+                    <T variant="body" style={[type.sub, {marginTop: 4}]}>
+                        {game?.gameOutcome?.lastPeriodType && game.gameOutcome.lastPeriodType !== 'REG'
+                            ? game.gameOutcome.lastPeriodType
+                            : played ? 'Final' : 'Upcoming'}
+                    </T>
                 </View>
-                <Row gap={10} style={{flex: 1, justifyContent: 'flex-end'}}>
-                    <T variant="stat" style={{opacity: played && a.score < h.score ? 0.5 : 1}}>{played ? a.score : '–'}</T>
-                    <TeamLogo abbrev={a.abbrev} size={32}/>
-                </Row>
+                <T variant="body" style={[styles.seriesScore, {paddingLeft: 15}]}>{played ? a.score : '--'}</T>
+                <TeamLogo abbrev={a.abbrev} size={35}/>
             </Row>
-        </Card>
+        </Pressable>
     );
 });
 
@@ -275,25 +294,31 @@ export const SeriesTab = memo(function SeriesTab({landing, rail, header, onOpenG
     const wins = rail?.seasonSeriesWins ?? landing?.matchup?.seasonSeriesWins;
     if (!series.length) return <EmptyState title="First meeting" message="These teams haven’t met yet this season."/>;
     return (
-        <View style={{gap: 10}}>
+        <View>
             {wins ? (
-                <T variant="label" muted style={{textAlign: 'center', marginBottom: 4}}>
-                    {header.home.abbrev} {wins.homeTeamWins ?? 0} – {wins.awayTeamWins ?? 0} {header.away.abbrev} this season
+                <T variant="body" style={[type.value, {textAlign: 'center', marginBottom: 20}]}>
+                    {header.home.abbrev} {wins.homeTeamWins ?? 0} • {wins.awayTeamWins ?? 0} {header.away.abbrev} this season
                 </T>
             ) : null}
-            {series.map((g, i) => (
-                <FadeInView key={g?.id ?? i} delay={i * 40}>
-                    <SeriesGame game={g} onOpen={onOpenGame}/>
-                </FadeInView>
-            ))}
+            {series.map((g, i) => <SeriesGame key={g?.id ?? i} game={g} onOpen={onOpenGame}/>)}
         </View>
     );
 });
 
 const styles = StyleSheet.create({
-    mp: {marginTop: 14, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth},
-    tiles: {flexDirection: 'row', gap: 10, marginTop: 10},
-    tile: {flex: 1, borderRadius: 16, padding: 14},
-    scores: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
-    scoreChip: {borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, borderLeftWidth: 3, minWidth: '47%', flexGrow: 1},
+    flex: {flex: 1},
+    end: {justifyContent: 'flex-end'},
+    right: {textAlign: 'right'},
+    semi: {fontFamily: 'Sora_600SemiBold'},
+    firstSub: {marginTop: 0},
+    subTitle: {fontFamily: 'Sora_600SemiBold', letterSpacing: 0.8, marginTop: 24, marginBottom: 10},
+    winRow: {marginBottom: 10},
+    barLabels: {marginTop: 10, alignItems: 'flex-start'},
+    overs: {textAlign: 'center', marginTop: 10, fontVariant: ['tabular-nums']},
+    figure: {flex: 1, alignItems: 'center', gap: 2},
+    leader: {paddingVertical: 4},
+    scores: {alignItems: 'flex-start'},
+    seriesCard: {borderRadius: 15, paddingVertical: 15, marginBottom: 4},
+    seriesDate: {fontFamily: 'Sora_600SemiBold', textAlign: 'center', fontVariant: ['tabular-nums']},
+    seriesScore: {fontFamily: 'Sora_700Bold', fontSize: 20, lineHeight: 26, width: 55, fontVariant: ['tabular-nums']},
 });

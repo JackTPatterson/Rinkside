@@ -124,12 +124,41 @@ export function gamePrediction(ratings, game) {
 
 /* --------------------------------------------------------------- injuries */
 
-export const injuriesUrl = (abbrev) =>
-    `https://www.rotowire.com/hockey/tables/injury-report.php?team=${abbrev}&pos=ALL`;
+// League-wide injury report from ESPN (RotoWire-sourced notes). The old RotoWire table endpoint now
+// ignores its `team` filter and returns the same few-row teaser for every team.
+export const INJURIES_URL = 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/injuries';
+
+const foldName = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/gi, '').toLowerCase();
+
+/** ESPN injury entry → the row shape InjuriesTab renders. */
+function toInjuryRow(e) {
+    const a = e?.athlete ?? {};
+    return {
+        ID: e?.id ?? null,
+        firstname: a.firstName ?? '',
+        lastname: a.lastName ?? a.displayName ?? '',
+        player: a.displayName ?? null,
+        position: a.position?.abbreviation ?? null,
+        injury: e?.details?.type ?? null,
+        status: e?.status ?? e?.details?.fantasyStatus?.description ?? null,
+        returnDate: e?.details?.returnDate ?? null,
+        note: e?.shortComment ?? null,
+    };
+}
+
+/**
+ * Injuries for one team (matched on full name: ESPN's abbreviations differ, e.g. TB / LA / NJ).
+ * A team with nobody hurt isn't in the feed at all → [].
+ */
+export function injuriesForTeam(data, abbrev) {
+    const name = foldName(getTeam(abbrev)?.name);
+    const team = (data?.injuries ?? []).find((t) => foldName(t?.displayName) === name);
+    return (team?.injuries ?? []).filter(Boolean).map(toInjuryRow);
+}
 
 export async function fetchInjuries(abbrev, force) {
-    const data = await request(injuriesUrl(abbrev), {type: 'json', ttl: 30 * 60 * 1000, force});
-    return Array.isArray(data) ? data.filter(Boolean) : [];
+    const data = await request(INJURIES_URL, {type: 'json', ttl: 30 * 60 * 1000, force});
+    return injuriesForTeam(data, abbrev);
 }
 
 /* ----------------------------------------------------------------- roster */
@@ -200,7 +229,7 @@ const f = (r, k) => num(r?.[k]) ?? 0;
 export const METRICS = [
     {
         key: 'xg', label: 'xGoals %', kind: 'xg',
-        info: 'Share of the expected goals in a game that belonged to this team, based on the quality of every shot (MoneyPuck model estimate). The line is a form average with a 5-game half-life, so recent games count most. Over 50% means they are out-chancing opponents; it predicts future results better than goals do.',
+        info: 'Share of the expected goals in a game that belonged to this team, based on the quality of every shot. The line is a form average with a 5-game half-life, so recent games count most. Over 50% means they are out-chancing opponents; it predicts future results better than goals do.',
     },
     {
         key: 'goals', label: 'Goals', kind: 'diff', diff: (r) => f(r, 'goalsFor') - f(r, 'goalsAgainst'),

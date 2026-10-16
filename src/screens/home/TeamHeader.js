@@ -3,8 +3,16 @@ import {Pressable, StyleSheet, View} from 'react-native';
 import {ArrowDown2, Heart} from '../../components/icons';
 import {BackButton, Skeleton, T, TeamLogo, tap} from '../../components/ui';
 import {getTeam} from '../../data/teams';
-import {readableOn, withAlpha} from '../../theme';
+import {GUTTER, readableOn, withAlpha} from '../../theme';
 import {rankLabel, recordLabel} from './data';
+
+/** Title size for a team name: full size for short names, stepping down for the long ones. */
+function nameSize(name) {
+    const n = String(name ?? '').length;
+    if (n <= 15) return null; // variant size (24)
+    if (n <= 19) return {fontSize: 21, lineHeight: 27};
+    return {fontSize: 19, lineHeight: 25};
+}
 
 /**
  * Team-coloured header. Tapping the name opens the team switcher.
@@ -59,11 +67,13 @@ function TeamHeader({abbrev, row, loading, bg, onPickTeam, onBack, onFavorite, i
                 style={({pressed}) => [styles.main, pressed && {opacity: 0.8}]}>
                 <TeamLogo abbrev={abbrev} size={48}/>
                 <View style={styles.nameCol}>
+                    {/* One line, sized from the name's length (iOS shrink-to-fit with a lineHeight can collapse it to
+                        the minimum scale), so the chevron always sits right after the name, centred on it. */}
                     <View style={styles.nameRow}>
-                        <T variant="title" color={fg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.name}>
+                        <T variant="title" color={fg} numberOfLines={1} style={[styles.name, nameSize(team?.name ?? abbrev)]}>
                             {team?.name ?? abbrev}
                         </T>
-                        <ArrowDown2 size={18} color={fg}/>
+                        <View style={styles.chevron}><ArrowDown2 size={18} color={fg}/></View>
                     </View>
                     {record ? (
                         <T variant="body" color={fg} style={styles.record} numberOfLines={1}>
@@ -92,14 +102,15 @@ function TeamHeader({abbrev, row, loading, bg, onPickTeam, onBack, onFavorite, i
 export default memo(TeamHeader);
 
 const styles = StyleSheet.create({
-    wrap: {paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24},
+    wrap: {paddingHorizontal: GUTTER, paddingTop: 8, paddingBottom: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24},
     overscroll: {position: 'absolute', left: 0, right: 0, top: -800, height: 800},
     topRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12},
     action: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999},
     main: {flexDirection: 'row', alignItems: 'center', gap: 10},
     nameCol: {flex: 1},
-    nameRow: {flexDirection: 'row', alignItems: 'center', gap: 6},
+    nameRow: {flexDirection: 'row', alignItems: 'center', gap: 4},
     name: {flexShrink: 1},
+    chevron: {marginTop: 2}, // Sora sits slightly low in its line box; nudge the glyph to the text's optical centre
     dim: {opacity: 0.8},
     record: {opacity: 0.8, fontVariant: ['tabular-nums']},
     skel: {marginTop: 4, opacity: 0.5},

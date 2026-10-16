@@ -1,6 +1,8 @@
 import React, {useCallback, useRef} from 'react';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {BackButton, Header, Screen} from '../components/ui';
+import {StyleSheet} from 'react-native';
+import {BackButton, Header, Screen, T} from '../components/ui';
+import {GUTTER} from '../theme';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import TeamPicker from './settings/TeamPicker';
 
@@ -22,10 +24,15 @@ export default function FavoriteTeamScreen({navigation}) {
         <Screen>
             <Header
                 title="Favourite team"
-                subtitle="Your team drives the My Team tab"
                 left={<BackButton onPress={() => navigation.goBack()}/>}
             />
+            <T variant="body" style={styles.sub}>Your team drives the My Team tab</T>
             <TeamPicker selected={team} onSelect={onSelect} bottomInset={insets.bottom}/>
         </Screen>
     );
 }
+
+const styles = StyleSheet.create({
+    // Original FavTeam page: 16pt Medium line under the title, then the team list.
+    sub: {paddingHorizontal: GUTTER, marginBottom: 10, lineHeight: 25},
+});

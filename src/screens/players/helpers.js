@@ -203,13 +203,21 @@ export function ageFrom(birthDate, now = new Date()) {
     return age;
 }
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "2002-01-15" → "Jan 15, 2002". */
+export function birthDateText(iso) {
+    const [y, m, d] = String(iso ?? '').split('-').map(Number);
+    return y && m && d ? `${MONTH_NAMES[m - 1]} ${d}, ${y}` : iso ?? null;
+}
+
 export function bioRows(p) {
     if (!p) return [];
     const rows = [];
     const place = [loc(p.birthCity), loc(p.birthStateProvince), p.birthCountry].filter(Boolean).join(', ');
     const age = ageFrom(p.birthDate);
     if (p.birthDate || place) {
-        rows.push({label: 'Born', value: [p.birthDate, age != null ? `(age ${age})` : null].filter(Boolean).join(' '), sub: place || null});
+        rows.push({label: 'Born', value: [birthDateText(p.birthDate), age != null ? `(age ${age})` : null].filter(Boolean).join(' '), sub: place || null});
     }
     const h = heightText(p.heightInInches);
     if (h) rows.push({label: 'Height', value: h, sub: p.heightInCentimeters ? `${p.heightInCentimeters} cm` : null});
@@ -327,7 +335,8 @@ export function seasonOptions(p) {
     const ids = [...new Set(nhlRegularSeasons(p).map((s) => String(s.season)))].sort().reverse();
     const cur = currentSeasonId();
     const list = p?.isActive !== false ? [cur, ...ids.filter((id) => id !== cur)] : ids;
-    return (list.length ? list : [cur]).slice(0, 2).map((id) => ({key: id, label: seasonLabel(id)}));
+    // Every NHL season he has played (newest first), for the season selector.
+    return (list.length ? list : [cur]).map((id) => ({key: id, label: seasonLabel(id)}));
 }
 
 /** Career table rows (newest first, traded seasons kept per team). */
