@@ -67,7 +67,7 @@ export const TeamCell = memo(function TeamCell({rank, abbrev, width = 112, suffi
         <View style={[styles.teamCell, {width}]}>
             <T style={[type.rank, styles.rank]}>{rank}</T>
             <TeamLogo abbrev={abbrev} size={26}/>
-            <T numberOfLines={1} style={[type.abbrev, {flexShrink: 1}]}>{abbrev ?? '—'}</T>
+            <T numberOfLines={1} style={[type.abbrev, styles.abbrev]}>{abbrev ?? '—'}</T>
             {suffix ? <T muted style={type.small}>{suffix}</T> : null}
         </View>
     );
@@ -197,6 +197,8 @@ const ROW_MARGIN = GUTTER - ROW_PAD - ROW_BORDER;
 export const ROW_INSET = ROW_MARGIN + ROW_PAD + ROW_BORDER;
 
 export const styles = StyleSheet.create({
+    // Team codes never truncate ("W…"); the cell's other content gives way instead.
+    abbrev: {flexShrink: 0, minWidth: 36},
     teamCell: {flexDirection: 'row', alignItems: 'center', gap: 6},
     rank: {minWidth: 20, textAlign: 'right', fontVariant: ['tabular-nums']},
     row: {

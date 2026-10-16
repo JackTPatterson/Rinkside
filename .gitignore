@@ -45,3 +45,6 @@ yarn-error.*
 
 # Backtest raw-response cache (scripts/backtest-models.mjs)
 scripts/.cache/
+# Render smoke test output
+scripts/smoke/dist/
+scripts/smoke/out/

@@ -164,7 +164,7 @@ export default function RecapScreen({route, navigation}) {
     };
     const contentW = width - GUTTER * 2;
     const winner = header.home.score > header.away.score ? header.home : header.away;
-    const winnerPre = prediction ? (winner === header.home ? prediction.homeWin : prediction.awayWin) : null;
+    const winnerPre = Number.isFinite(homeProb) ? (winner === header.home ? homeProb : 1 - homeProb) : null;
 
     return (
         <Screen>

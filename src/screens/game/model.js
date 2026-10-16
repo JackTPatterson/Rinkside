@@ -248,9 +248,13 @@ export function parseMoneyPuckGame(rows) {
  * Season simulations around tonight's game: each team's odds now and after a regulation / OT win
  * or loss, at the first stage still in doubt. {label, home: {now, winReg, winOT, lossOT, lossReg, swing}, away}.
  */
+// MoneyPuck spells four teams with dots.
+const MP_CODES = {'L.A': 'LAK', 'N.J': 'NJD', 'S.J': 'SJS', 'T.B': 'TBL'};
+const mpCode = (c) => MP_CODES[c] ?? c;
+
 export function playoffStakes(rows, home, away) {
     if (!Array.isArray(rows) || !rows.length) return null;
-    const find = (team, sc) => rows.find((r) => r?.teamCode === team && (r?.scenerio ?? r?.scenario) === sc);
+    const find = (team, sc) => rows.find((r) => mpCode(r?.teamCode) === team && (r?.scenerio ?? r?.scenario) === sc);
     const side = (team) => ({
         now: find(team, 'ALL'),
         winReg: find(team, 'WINREG'),

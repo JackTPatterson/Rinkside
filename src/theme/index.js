@@ -57,16 +57,22 @@ const palettes = {
     },
 };
 
-// Relative luminance → pick black or white text for a background.
-export function readableOn(hex) {
+// Pick black or white text for a background by WCAG contrast ratio.
+function luminance(hex) {
     const h = String(hex).replace('#', '');
-    if (h.length < 6) return '#FFFFFF';
+    if (h.length < 6) return 0;
     const [r, g, b] = [0, 2, 4].map((i) => {
         const c = parseInt(h.slice(i, i + 2), 16) / 255;
         return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
     });
-    const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return L > 0.4 ? '#111111' : '#FFFFFF';
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export function readableOn(hex) {
+    const L = luminance(hex);
+    const vsWhite = 1.05 / (L + 0.05);
+    const vsDark = (L + 0.05) / (luminance('#111111') + 0.05);
+    return vsDark > vsWhite ? '#111111' : '#FFFFFF';
 }
 
 export function withAlpha(hex, alpha) {
