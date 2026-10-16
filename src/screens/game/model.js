@@ -59,7 +59,8 @@ export function buildHeader(game, landing, box) {
             inIntermission: !!clock.inIntermission,
             running: !!clock.running,
         },
-        lastPeriodType: outcome.lastPeriodType ?? null,
+        // The landing feed has no gameOutcome; once the game is over its last period tells OT / SO.
+        lastPeriodType: outcome.lastPeriodType ?? (['OFF', 'FINAL'].includes(state) && pd.periodType ? pd.periodType : null),
         seriesStatus: first(game?.seriesStatus, landing?.seriesStatus),
         threeMinRecap: first(game?.threeMinRecap, landing?.threeMinRecap),
         situation: landing?.situation ?? null,
@@ -138,6 +139,7 @@ export function extractGoals(landing, homeAbbrev) {
                     toDate: a?.assistsToDate,
                 })),
                 clip: g?.highlightClipSharingUrl || (g?.highlightClip ? brightcoveUrl(g.highlightClip) : null),
+                clipId: g?.highlightClip ?? null, // Brightcove id → plays in the in-app video player
             });
         }
     }
@@ -154,15 +156,21 @@ export function goalsWithWPA(ratings, header, goals) {
     }
 }
 
-/** Shootout attempts (landing.summary.shootout), if any. */
+/** Shootout attempts (landing.summary.shootout), if any. The feed sends {liveScore, events: [...]}. */
 export function extractShootout(landing) {
-    return (landing?.summary?.shootout ?? []).map((s, i) => ({
+    const so = landing?.summary?.shootout;
+    const attempts = Array.isArray(so) ? so : Array.isArray(so?.events) ? so.events : [];
+    return attempts.map((s, i) => ({
         key: String(s?.sequence ?? i),
         team: loc(s?.teamAbbrev) || s?.teamAbbrev || '',
         name: [loc(s?.firstName), loc(s?.lastName)].filter(Boolean).join(' ') || loc(s?.name),
         playerId: s?.playerId,
         result: s?.result,
         headshot: s?.headshot,
+        shotType: s?.shotType ?? null,
+        gameWinner: !!s?.gameWinner,
+        homeScore: s?.homeScore ?? null,
+        awayScore: s?.awayScore ?? null,
     }));
 }
 
@@ -237,24 +245,36 @@ export function parseMoneyPuckGame(rows) {
 }
 
 /**
- * MoneyPuck season simulations: what a win / loss does to each team's odds at the next stage
- * that isn't already decided (playoffs → round 2 → …). scenario 'REG' | 'OT'.
- * Column is spelled `scenerio` in MoneyPuck's file.
+ * Season simulations around tonight's game: each team's odds now and after a regulation / OT win
+ * or loss, at the first stage still in doubt. {label, home: {now, winReg, winOT, lossOT, lossReg, swing}, away}.
  */
-export function playoffImpact(rows, home, away, scenario = 'REG') {
+export function playoffStakes(rows, home, away) {
     if (!Array.isArray(rows) || !rows.length) return null;
     const find = (team, sc) => rows.find((r) => r?.teamCode === team && (r?.scenerio ?? r?.scenario) === sc);
-    const hw = find(home, `WIN${scenario}`);
-    const hl = find(home, `LOSS${scenario}`);
-    const aw = find(away, `WIN${scenario}`);
-    const al = find(away, `LOSS${scenario}`);
-    if (!hw || !hl || !aw || !al) return null;
-    const stages = [['madePlayoffs', 'Make playoffs'], ['round2', 'Reach round 2'], ['round3', 'Reach conf. final'], ['round4', 'Reach the Final']];
+    const side = (team) => ({
+        now: find(team, 'ALL'),
+        winReg: find(team, 'WINREG'),
+        winOT: find(team, 'WINOT'),
+        lossOT: find(team, 'LOSSOT'),
+        lossReg: find(team, 'LOSSREG'),
+    });
+    const h = side(home);
+    const a = side(away);
+    const all = [...Object.values(h), ...Object.values(a)];
+    if (all.some((r) => !r)) return null;
+    // The first stage still in doubt for either team (once both are in, talk about round 2, etc.).
+    const stages = [['madePlayoffs', 'make the playoffs'], ['round2', 'reach round 2'], ['round3', 'reach the conference final'], ['round4', 'reach the Final'], ['wonCup', 'win the Cup']];
     for (const [col, label] of stages) {
-        const vals = [hw, hl, aw, al].map((r) => num(r?.[col]));
+        const vals = all.map((r) => num(r?.[col]));
         if (vals.some((v) => v == null)) continue;
-        if (num(hw[col]) >= 1 && num(aw[col]) >= 1) continue;
-        return {label, home: {win: vals[0], loss: vals[1]}, away: {win: vals[2], loss: vals[3]}};
+        if (vals.every((v) => v >= 0.995)) continue;
+        const pick = (s) => ({
+            now: num(s.now[col]), winReg: num(s.winReg[col]), winOT: num(s.winOT[col]),
+            lossOT: num(s.lossOT[col]), lossReg: num(s.lossReg[col]),
+        });
+        const hv = pick(h);
+        const av = pick(a);
+        return {label, home: {...hv, swing: hv.winReg - hv.lossReg}, away: {...av, swing: av.winReg - av.lossReg}};
     }
     return null;
 }
@@ -459,12 +479,21 @@ export const MAP_EVENTS = [
 ];
 
 /**
- * Should coordinates be rotated 180° so the home team always attacks to the right?
+ * Should coordinates be rotated 180° so the home team always attacks to the LEFT? The home team is
+ * the left column everywhere on the game page, so its shots (and colour) belong on the left half.
  * Uses the play's homeTeamDefendingSide when present.
  */
-const flipFor = (play) => play?.homeTeamDefendingSide === 'right';
+const flipFor = (play) => play?.homeTeamDefendingSide === 'left';
 
-/** Plays of one type as rink points ({x, y, isHome, eventId}), normalised: home attacks right. */
+/** Period / clock / shot type of a play, for filtering and the tapped-dot detail line. */
+const playMeta = (p) => ({
+    period: p?.periodDescriptor?.number ?? null,
+    periodType: p?.periodDescriptor?.periodType ?? null,
+    time: p?.timeInPeriod ?? null,
+    shotType: p?.details?.shotType ?? null,
+});
+
+/** Plays of one type as rink points ({x, y, isHome, eventId}), normalised: home attacks left. */
 export function mapEvents(pbp, header, type) {
     const homeId = header.home.id ?? pbp?.homeTeam?.id;
     const out = [];
@@ -475,20 +504,29 @@ export function mapEvents(pbp, header, type) {
         const y = num(d.yCoord);
         if (x == null || y == null) continue;
         const f = flipFor(p);
-        out.push({x: f ? -x : x, y: f ? -y : y, isHome: d.eventOwnerTeamId === homeId, eventId: p?.eventId, playerId: d.shootingPlayerId ?? d.scoringPlayerId ?? d.hittingPlayerId ?? d.playerId});
+        out.push({
+            x: f ? -x : x,
+            y: f ? -y : y,
+            isHome: d.eventOwnerTeamId === homeId,
+            eventId: p?.eventId,
+            playerId: d.shootingPlayerId ?? d.scoringPlayerId ?? d.hittingPlayerId ?? d.playerId,
+            ...playMeta(p),
+        });
     }
     return out;
 }
 
-/** gameXG shots normalised (home attacks right). */
+/** gameXG shots normalised (home attacks left). */
 export function mapXGShots(pbp, xg) {
     if (!xg) return [];
     const byId = new Map((pbp?.plays ?? []).map((p) => [p?.eventId, p]));
     const shots = [];
     for (const [isHome, list] of [[true, xg.home.shots], [false, xg.away.shots]]) {
         for (const s of list) {
-            const f = flipFor(byId.get(s.eventId));
-            shots.push({...s, x: f ? -s.x : s.x, y: f ? -s.y : s.y, isHome});
+            const play = byId.get(s.eventId);
+            const f = flipFor(play);
+            const d = play?.details ?? {};
+            shots.push({...s, x: f ? -s.x : s.x, y: f ? -s.y : s.y, isHome, playerId: d.shootingPlayerId ?? d.scoringPlayerId, ...playMeta(play)});
         }
     }
     return shots;

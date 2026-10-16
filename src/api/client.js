@@ -51,12 +51,18 @@ const PARSERS = {
     json: (t) => JSON.parse(t),
     csv: parseCSV,
     text: (t) => t,
+    // A Next.js page's server data (the JSON in <script id="__NEXT_DATA__">): its pageProps.
+    nextData: (t) => {
+        const m = /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/.exec(t);
+        if (!m) throw new Error('No page data');
+        return JSON.parse(m[1])?.props?.pageProps ?? null;
+    },
 };
 
 /**
  * Cached request.
  * @param {string} url
- * @param {{type?: 'json'|'csv'|'text', ttl?: number, persist?: boolean, force?: boolean}} opts
+ * @param {{type?: 'json'|'csv'|'text'|'nextData', ttl?: number, persist?: boolean, force?: boolean}} opts
  *   ttl: ms a cached value is considered fresh (default 60s).
  */
 export async function request(url, {type = 'json', ttl = 60000, persist = false, force = false} = {}) {

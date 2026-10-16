@@ -1,142 +1,230 @@
-import React, {memo, useCallback, useMemo, useState} from 'react';
-import {Modal, Pressable, ScrollView, StyleSheet, View} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Card, EmptyState, FadeInView, Headshot, InfoTip, Row, T, TeamLogo, tap} from '../../components/ui';
-import {CloseCircle, Play, User} from '../../components/icons';
-import {useAppTheme} from '../../theme';
+import React, {memo, useCallback, useMemo, useRef, useState} from 'react';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {EmptyState, Headshot, Row, Sheet, T, fillRadii, tap} from '../../components/ui';
+import {ArrowDownRight, ArrowRight, ArrowUpRight, Close, User, Video} from '../../components/icons';
+import {useAppTheme, withAlpha} from '../../theme';
 import {num, pct, periodLabel} from '../../utils/format';
-import {LinkPill, openLink, WPABadge} from './common';
+import {LinkPill, type, useOpenVideo, ValueRow} from './common';
 import {HalfRink} from './Rink';
 import {findGoalPlay, shotTypeLabel} from './model';
+import Shootout from './Shootout';
 
-const WPA_INFO = 'Win Probability Added: how much this goal changed the scoring team’s chance of winning, according to Rinkside’s model estimate. A tie-breaking goal late in the 3rd is worth far more than a fourth goal in a blowout.';
+const WPA_INFO = 'Win Probability Added: how much this goal changed the scoring team’s chance of winning, as estimated. A tie-breaking goal late in the 3rd is worth far more than a fourth goal in a blowout.';
 
-const GoalCard = memo(function GoalCard({goal, index, home, away, onPress, onPlayer}) {
+// Shot danger bands (same cut-offs as the xG tab): low < 5%, medium 5–15%, high 15%+. The meter runs to 40%.
+const XG_MAX = 0.4;
+const BANDS = [[0, 0.05, 'Low'], [0.05, 0.15, 'Medium'], [0.15, XG_MAX, 'High']];
+
+/** Shot xG on a danger meter: three bands (low / medium / high danger) and a marker at this shot. */
+function XgMeter({xg, color}) {
+    const {colors} = useAppTheme();
+    const at = Math.min(1, Math.max(0, xg / XG_MAX));
+    const band = BANDS.find(([lo, hi]) => xg >= lo && xg < hi) ?? BANDS[2];
+    return (
+        <View>
+            <View style={styles.meter}>
+                {BANDS.map(([lo, hi, label], i) => (
+                    <View
+                        key={label}
+                        style={[styles.meterBand, {
+                            // Flex shares must sum to 1, or the layout only fills that fraction of the row.
+                            flex: (hi - lo) / XG_MAX,
+                            backgroundColor: band[2] === label ? withAlpha(color, 0.35 + 0.3 * i) : colors.card,
+                        }, i === 0 && styles.leftEnd, i === BANDS.length - 1 && styles.rightEnd]}
+                    />
+                ))}
+                <View style={[styles.meterMark, {left: `${at * 100}%`, backgroundColor: colors.text, borderColor: colors.background}]}/>
+            </View>
+            <Row style={styles.meterLabels}>
+                {BANDS.map(([lo, hi, label]) => (
+                    <T key={label} variant="caption" color={band[2] === label ? colors.text : colors.textSecondary} style={[{flex: (hi - lo) / XG_MAX}, band[2] === label && styles.semi]}>
+                        {label}
+                    </T>
+                ))}
+            </Row>
+        </View>
+    );
+}
+
+/** Win probability before the goal (faded) and what it added (solid), with before → after labels. */
+function WpaBar({before, after, color}) {
+    const {colors} = useAppTheme();
+    const b = Math.max(0, Math.min(1, before));
+    const a = Math.max(b, Math.min(1, after));
+    return (
+        <View>
+            <View style={[styles.wpBig, {backgroundColor: colors.card}]}>
+                <View style={[styles.wpFill, {width: `${b * 100}%`, backgroundColor: withAlpha(color, 0.35)}, styles.leftEnd]}/>
+                <View style={[styles.wpFill, {left: `${b * 100}%`, width: `${(a - b) * 100}%`, backgroundColor: color}, a >= 0.999 && styles.rightEnd]}/>
+                {b > 0 && a > b ? <View style={[styles.wpDivider, {left: `${b * 100}%`, backgroundColor: colors.background}]}/> : null}
+            </View>
+            <Row style={styles.meterLabels}>
+                <T variant="caption" muted style={styles.flex}>Before {pct(b)}</T>
+                <T variant="caption" style={styles.semi}>After {pct(a)}</T>
+            </Row>
+        </View>
+    );
+}
+
+/** Small count chip (a player's season total) next to a name; tinted in the team colour for the scorer. */
+function CountChip({value, color}) {
+    const {colors} = useAppTheme();
+    return (
+        <View style={[styles.chip, {backgroundColor: color ? withAlpha(color, 0.18) : colors.card}]}>
+            <T variant="caption" color={color ?? colors.textSecondary} style={styles.chipText}>{value}</T>
+        </View>
+    );
+}
+
+/**
+ * One goal in the old goal style, laid out as a vertical list row: 80pt headshot with team ring,
+ * team + score, "Scorer • goals", assists, "shot • time • strength", WPA and the Clip pill.
+ */
+const GoalRow = memo(function GoalRow({goal, index, onPress, onPlayer}) {
+    const openVideo = useOpenVideo();
     const {colors, teamColor} = useAppTheme();
     const color = teamColor(goal.team);
     const details = [shotTypeLabel(goal.shotType), goal.timeInPeriod, goal.strength && goal.strength !== 'EV' ? goal.strength : null, goal.modifier || null]
         .filter(Boolean)
-        .join(' · ');
+        .join(' • ');
+    const hasWpa = Number.isFinite(goal.wpa);
+    const wpAfter = Number.isFinite(goal.wpAfter) ? goal.wpAfter : Number.isFinite(goal.wpBefore) && hasWpa ? goal.wpBefore + goal.wpa : null;
     return (
-        <Card onPress={() => onPress(goal, index)} accessibilityLabel={`${goal.team} goal by ${goal.name}`} style={styles.goalCard}>
-            <View style={[styles.accent, {backgroundColor: color}]}/>
-            <Row gap={12} style={{alignItems: 'flex-start'}}>
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${goal.team} goal by ${goal.name}`}
+            onPress={() => onPress(goal, index)}
+            style={({pressed}) => [styles.goalRow, pressed && {opacity: 0.6}]}>
+            <Row gap={15} style={{alignItems: 'flex-start'}}>
                 <Pressable hitSlop={6} onPress={() => onPlayer(goal.playerId)} accessibilityRole="button" accessibilityLabel={goal.name}>
-                    <Headshot uri={goal.headshot} size={52} borderColor={color}/>
+                    <Headshot uri={goal.headshot} size={80} borderColor={color} style={styles.ring}/>
                 </Pressable>
-                <View style={{flex: 1, gap: 2}}>
-                    <Row style={{justifyContent: 'space-between', alignItems: 'flex-start'}}>
-                        <T variant="label" numberOfLines={1} style={{flex: 1}}>
-                            {goal.name}{goal.goalsToDate != null ? ` (${goal.goalsToDate})` : ''}
-                        </T>
-                        <WPABadge wpa={goal.wpa} color={color}/>
+                <View style={{flex: 1}}>
+                    <Row style={{justifyContent: 'space-between'}}>
+                        <Row gap={8}>
+                            <T variant="body" style={styles.teamText}>{goal.team}</T>
+                            <T variant="body" style={type.sub}>{goal.homeScore} • {goal.awayScore}</T>
+                        </Row>
+                        {hasWpa ? (
+                            <Row gap={3}>
+                                {goal.wpa >= 0 ? <ArrowUpRight size={13} color={color}/> : <ArrowDownRight size={13} color={colors.negative}/>}
+                                <T variant="body" style={[type.sub, styles.wpaText]}>{Math.abs(Math.round(goal.wpa * 100))}% win chance</T>
+                            </Row>
+                        ) : null}
                     </Row>
-                    <T variant="caption" muted numberOfLines={2}>
-                        {goal.assists.length ? goal.assists.map((a) => `${a.name}${a.toDate != null ? ` (${a.toDate})` : ''}`).join(', ') : 'Unassisted'}
-                    </T>
-                    <T variant="caption" muted numberOfLines={1}>{details}</T>
+                    {/* Season totals as small chips beside each name (goals for the scorer, assists for the helpers). */}
+                    <Row gap={6} style={styles.line}>
+                        <T variant="body" numberOfLines={1} style={[type.name, styles.shrink]}>{goal.name}</T>
+                        {goal.goalsToDate != null ? <CountChip value={goal.goalsToDate} color={color}/> : null}
+                    </Row>
+                    {goal.assists.length ? goal.assists.map((a, i) => (
+                        <Row key={a.playerId ?? i} gap={6} style={styles.line}>
+                            <T variant="body" numberOfLines={1} style={[type.sub, styles.shrink]}>{a.name}</T>
+                            {a.toDate != null ? <CountChip value={a.toDate}/> : null}
+                        </Row>
+                    )) : <T variant="body" style={[type.sub, styles.line]}>Unassisted</T>}
+                    {/* Clip shares the shot-details line (right-aligned), so the swing bar sits directly under the details. */}
+                    <Row gap={8} style={styles.line}>
+                        <T variant="body" numberOfLines={1} style={[type.sub, styles.flex]}>{details}</T>
+                        {goal.clip ? (
+                            <LinkPill icon={Video} label="Clip" small onPress={() => openVideo(goal.clipId ?? goal.clip, {title: goal.name, webUrl: goal.clip})}/>
+                        ) : null}
+                    </Row>
+                    {Number.isFinite(goal.wpBefore) ? (
+                        <Row gap={10} style={styles.wpRow}>
+                            <View style={[styles.wpTrack, {backgroundColor: colors.card}]}>
+                                {/* Rounded at the origin, flat on the leading edges; a 3pt background divider separates before / added. */}
+                                <View style={[styles.wpFill, fillRadii(goal.wpBefore, 3), {width: `${goal.wpBefore * 100}%`, backgroundColor: color, opacity: 0.35}]}/>
+                                <View style={[styles.wpFill, fillRadii(goal.wpBefore + Math.max(0, goal.wpa), 3), {borderTopLeftRadius: 0, borderBottomLeftRadius: 0, left: `${goal.wpBefore * 100}%`, width: `${Math.max(0, goal.wpa) * 100}%`, backgroundColor: color}]}/>
+                                {goal.wpBefore > 0 && goal.wpa > 0 ? (
+                                    <View style={[styles.wpDivider, {left: `${goal.wpBefore * 100}%`, backgroundColor: colors.background}]}/>
+                                ) : null}
+                            </View>
+                            {/* Before → after, so the bar reads without the legend. */}
+                            {wpAfter != null ? (
+                                <Row gap={4}>
+                                    <T variant="caption" muted style={styles.wpLabel}>{pct(goal.wpBefore)}</T>
+                                    <ArrowRight size={12} color={colors.textSecondary}/>
+                                    <T variant="caption" style={styles.wpLabel}>{pct(wpAfter)}</T>
+                                </Row>
+                            ) : null}
+                        </Row>
+                    ) : null}
                 </View>
             </Row>
-            <Row style={{justifyContent: 'space-between', marginTop: 10}}>
-                <Row gap={6}>
-                    <TeamLogo abbrev={home} size={18}/>
-                    <T variant="label" style={{opacity: goal.isHome ? 1 : 0.55}}>{goal.homeScore}</T>
-                    <T variant="caption" muted>–</T>
-                    <T variant="label" style={{opacity: goal.isHome ? 0.55 : 1}}>{goal.awayScore}</T>
-                    <TeamLogo abbrev={away} size={18}/>
-                </Row>
-                {goal.clip ? (
-                    <LinkPill icon={Play} label="Clip" onPress={() => openLink(goal.clip)}/>
-                ) : <View style={{height: 1}}/>}
-            </Row>
-            {Number.isFinite(goal.wpBefore) ? (
-                <View style={[styles.wpTrack, {backgroundColor: colors.cardAlt}]}>
-                    <View style={[styles.wpFill, {width: `${goal.wpBefore * 100}%`, backgroundColor: color, opacity: 0.35}]}/>
-                    <View style={[styles.wpFill, {left: `${goal.wpBefore * 100}%`, width: `${Math.max(0, goal.wpa) * 100}%`, backgroundColor: color}]}/>
-                </View>
-            ) : null}
-        </Card>
+        </Pressable>
     );
 });
 
-function GoalSheet({goal, index, pbp, xgShots, header, onClose, onPlayer}) {
+function GoalSheet({visible, goal, index, pbp, xgShots, header, onClose, onPlayer}) {
+    const openVideo = useOpenVideo();
     const {colors, teamColor} = useAppTheme();
-    const insets = useSafeAreaInsets();
+    // Clip / player page run only after the sheet has fully closed (opening the browser over a
+    // dismissing sheet makes iOS drop it and leaves the app unresponsive).
+    const pending = useRef(null);
     const play = useMemo(() => (goal ? findGoalPlay(pbp, goal, index) : null), [pbp, goal, index]);
     const shot = useMemo(() => (play ? xgShots?.find((s) => s.eventId === play.eventId) : null), [xgShots, play]);
-    if (!goal) return null;
-    const color = teamColor(goal.team);
+    const after = (fn) => {
+        pending.current = fn;
+        onClose();
+    };
+    const runPending = () => {
+        const fn = pending.current;
+        pending.current = null;
+        fn?.();
+    };
+    const color = goal ? teamColor(goal.team) : colors.text;
     const x = Number(play?.details?.xCoord);
     const y = Number(play?.details?.yCoord);
     return (
-        <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={[styles.backdrop, {backgroundColor: colors.overlay}]} onPress={onClose}>
-                <View
-                    onStartShouldSetResponder={() => true}
-                    style={[styles.sheet, {backgroundColor: colors.background, paddingBottom: insets.bottom + 16}]}>
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                        <Row style={{justifyContent: 'space-between', marginBottom: 12}}>
-                            <Row gap={8}>
-                                <TeamLogo abbrev={goal.team} size={28}/>
-                                <T variant="heading">{goal.team} goal</T>
-                            </Row>
-                            <Pressable hitSlop={10} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-                                <CloseCircle size={24} color={colors.textSecondary}/>
-                            </Pressable>
-                        </Row>
-                        <Row gap={12} style={{marginBottom: 14}}>
-                            <Headshot uri={goal.headshot} size={60} borderColor={color}/>
-                            <View style={{flex: 1}}>
-                                <T variant="title" numberOfLines={1} adjustsFontSizeToFit>{goal.name}</T>
-                                <T variant="caption" muted>
-                                    {periodLabel(goal.period, goal.periodType)} · {goal.timeInPeriod} · {shotTypeLabel(goal.shotType) || 'Shot'}{goal.strength ? ` · ${goal.strength}` : ''}
-                                </T>
-                            </View>
-                        </Row>
+        <Sheet visible={visible} onClose={onClose} onClosed={runPending} style={styles.sheet}>
+            {goal ? (
+                <ScrollView showsVerticalScrollIndicator={false} alwaysBounceVertical={false}>
+                    <Row style={{justifyContent: 'space-between'}}>
+                        <T variant="title">{goal.team} Goal</T>
+                        <Pressable hitSlop={10} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
+                            <Close size={24} color={colors.textSecondary}/>
+                        </Pressable>
+                    </Row>
+                    <T variant="body" numberOfLines={1} adjustsFontSizeToFit style={[styles.sheetName, {marginTop: 20}]}>{goal.name}</T>
+                    <T variant="body" style={[type.sub, {marginTop: 4}]}>
+                        {periodLabel(goal.period, goal.periodType)} • {goal.timeInPeriod} • {shotTypeLabel(goal.shotType) || 'Shot'}{goal.strength ? ` • ${goal.strength}` : ''}
+                    </T>
+                    {goal.assists.length ? (
+                        <T variant="body" style={[type.sub, {marginTop: 4}]}>Assists: {goal.assists.map((a) => a.name).join(', ')}</T>
+                    ) : null}
+                    <View style={{marginTop: 20}}>
                         <HalfRink x={x} y={y} color={color} width={230}/>
-                        <View style={styles.statRow}>
-                            <View style={[styles.statBox, {backgroundColor: colors.card}]}>
-                                <Row gap={4}>
-                                    <T variant="caption" muted>Shot xG</T>
-                                    <InfoTip size={13} title="Shot xG" body="Rinkside’s model estimate of how often a shot like this (same distance, angle, type and situation) becomes a goal."/>
-                                </Row>
-                                <T variant="stat">{shot ? num(shot.xg, 2) : '–'}</T>
-                                <T variant="caption" muted>{shot ? `Scores ~${pct(shot.xg)} of the time` : 'No location data'}</T>
-                            </View>
-                            <View style={[styles.statBox, {backgroundColor: colors.card}]}>
-                                <Row gap={4}>
-                                    <T variant="caption" muted>Win prob.</T>
-                                    <InfoTip size={13} title="Win Probability Added" body={WPA_INFO}/>
-                                </Row>
-                                <T variant="stat" color={color}>{Number.isFinite(goal.wpa) ? `${goal.wpa >= 0 ? '+' : ''}${Math.round(goal.wpa * 100)}%` : '–'}</T>
-                                <T variant="caption" muted>
-                                    {Number.isFinite(goal.wpBefore) ? `${pct(goal.wpBefore)} → ${pct(goal.wpAfter)} for ${goal.team}` : 'Model loading'}
-                                </T>
-                            </View>
-                        </View>
-                        {goal.assists.length ? (
-                            <T variant="body" muted style={{marginTop: 12}}>
-                                Assists: {goal.assists.map((a) => a.name).join(', ')}
-                            </T>
+                    </View>
+                    <ValueRow
+                        title="Shot xG"
+                        info="An estimate of how often a shot like this (same distance, angle, type and situation) becomes a goal."
+                        sub={shot ? `Scores ~${pct(shot.xg)} of the time` : 'No location data'}
+                        value={shot ? num(shot.xg, 2) : '–'}>
+                        {shot ? <XgMeter xg={shot.xg} color={color}/> : null}
+                    </ValueRow>
+                    <ValueRow
+                        title="Win Probability Added"
+                        info={WPA_INFO}
+                        sub={`For ${goal.team}`}
+                        value={Number.isFinite(goal.wpa) ? (
+                            <Row gap={4}>
+                                {goal.wpa >= 0 ? <ArrowUpRight size={22} color={colors.text}/> : <ArrowDownRight size={22} color={colors.text}/>}
+                                <T variant="body" style={type.big}>{Math.abs(Math.round(goal.wpa * 100))}%</T>
+                            </Row>
+                        ) : '–'}>
+                        {Number.isFinite(goal.wpBefore) && Number.isFinite(goal.wpAfter) ? <WpaBar before={goal.wpBefore} after={goal.wpAfter} color={color}/> : null}
+                    </ValueRow>
+                    <T variant="body" style={[type.sub, {marginTop: 20}]}>{header.away.abbrev} {goal.awayScore} • {goal.homeScore} {header.home.abbrev} after this goal</T>
+                    <Row gap={10} style={{marginTop: 20, marginBottom: 16, flexWrap: 'wrap'}}>
+                        {goal.clip ? <LinkPill icon={Video} label="Clip" color={color} onPress={() => after(() => openVideo(goal.clipId ?? goal.clip, {title: goal.name, webUrl: goal.clip}))}/> : null}
+                        {goal.playerId ? (
+                            <LinkPill icon={User} label="Player page" color={colors.text} onPress={() => after(() => onPlayer(goal.playerId))}/>
                         ) : null}
-                        <Row gap={8} style={{marginTop: 16, flexWrap: 'wrap'}}>
-                            {goal.clip ? <LinkPill icon={Play} label="Watch clip" onPress={() => openLink(goal.clip)}/> : null}
-                            {goal.playerId ? (
-                                <LinkPill
-                                    icon={User}
-                                    label="Player page"
-                                    onPress={() => {
-                                        onClose();
-                                        onPlayer(goal.playerId);
-                                    }}
-                                />
-                            ) : null}
-                        </Row>
-                        <T variant="caption" muted style={{marginTop: 12}}>{header.away.abbrev} {goal.awayScore} – {goal.homeScore} {header.home.abbrev} after this goal</T>
-                    </ScrollView>
-                </View>
-            </Pressable>
-        </Modal>
+                    </Row>
+                </ScrollView>
+            ) : null}
+        </Sheet>
     );
 }
 
@@ -146,23 +234,11 @@ function GoalsTab({goals, shootout, header, pbp, xgShots, onPlayer}) {
     const open = useCallback((goal, index) => {
         tap();
         setSelected({goal, index});
+        setSheetOpen(true);
     }, []);
-    const close = useCallback(() => setSelected(null), []);
-
-    const groups = useMemo(() => {
-        const out = [];
-        goals.forEach((g, i) => {
-            const label = periodLabel(g.period, g.periodType);
-            let grp = out[out.length - 1];
-            if (!grp || grp.label !== label) {
-                grp = {label: g.period <= 3 ? `${label} period` : label === 'OT' ? 'Overtime' : label, items: []};
-                grp.key = label;
-                out.push(grp);
-            }
-            grp.items.push({goal: g, index: i});
-        });
-        return out;
-    }, [goals]);
+    // Keep the last goal rendered while the sheet slides away.
+    const [sheetOpen, setSheetOpen] = useState(false);
+    const close = useCallback(() => setSheetOpen(false), []);
 
     if (!goals.length && !shootout.length) {
         return <EmptyState title="No goals yet" message={header.live ? 'Goals will appear here as they’re scored.' : 'This one finished scoreless.'}/>;
@@ -170,38 +246,24 @@ function GoalsTab({goals, shootout, header, pbp, xgShots, onPlayer}) {
 
     return (
         <View>
-            <Row gap={4} style={{marginBottom: 4}}>
-                <T variant="caption" muted style={{flex: 1}}>Tap a goal for its location, shot quality and win-probability swing.</T>
-                <InfoTip size={14} title="Win Probability Added (WP)" body={WPA_INFO}/>
-            </Row>
-            {groups.map((grp, gi) => (
-                <FadeInView key={grp.key} delay={gi * 40}>
-                    <T variant="heading" style={styles.periodHeader}>{grp.label}</T>
-                    <View style={{gap: 10}}>
-                        {grp.items.map(({goal, index}) => (
-                            <GoalCard key={goal.key} goal={goal} index={index} home={header.home.abbrev} away={header.away.abbrev} onPress={open} onPlayer={onPlayer}/>
-                        ))}
+            {goals.map((g, i) => {
+                const label = periodLabel(g.period, g.periodType);
+                const prev = goals[i - 1];
+                const isNew = !prev || periodLabel(prev.period, prev.periodType) !== label;
+                const title = g.period <= 3 ? `Period ${g.period}` : label === 'OT' ? 'Overtime' : label;
+                return (
+                    <View key={g.key}>
+                        {isNew ? <T variant="body" style={[type.name, styles.center, styles.period, i === 0 && {marginTop: 0}]}>{title}</T> : null}
+                        <GoalRow goal={g} index={i} onPress={open} onPlayer={onPlayer}/>
                     </View>
-                </FadeInView>
-            ))}
+                );
+            })}
             {shootout.length ? (
-                <FadeInView>
-                    <T variant="heading" style={styles.periodHeader}>Shootout</T>
-                    <Card style={{gap: 10}}>
-                        {shootout.map((s) => (
-                            <Row key={s.key} style={{justifyContent: 'space-between'}}>
-                                <Row gap={8} style={{flex: 1}}>
-                                    <TeamLogo abbrev={s.team} size={20}/>
-                                    <T variant="body" numberOfLines={1} style={{flex: 1}}>{s.name}</T>
-                                </Row>
-                                <T variant="label" muted={s.result !== 'goal'}>{s.result === 'goal' ? 'Goal' : 'No goal'}</T>
-                            </Row>
-                        ))}
-                    </Card>
-                </FadeInView>
+                <Shootout attempts={shootout} home={header.home.abbrev} away={header.away.abbrev} onPlayer={onPlayer}/>
             ) : null}
             {selected ? (
                 <GoalSheet
+                    visible={sheetOpen}
                     goal={selected.goal}
                     index={selected.index}
                     pbp={pbp}
@@ -218,13 +280,30 @@ function GoalsTab({goals, shootout, header, pbp, xgShots, onPlayer}) {
 export default memo(GoalsTab);
 
 const styles = StyleSheet.create({
-    periodHeader: {marginTop: 18, marginBottom: 10},
-    goalCard: {overflow: 'hidden', paddingLeft: 18},
-    accent: {position: 'absolute', left: 0, top: 0, bottom: 0, width: 5},
-    wpTrack: {height: 4, borderRadius: 4, marginTop: 12, overflow: 'hidden'},
+    goalRow: {marginBottom: 20},
+    period: {marginTop: 10, marginBottom: 10},
+    teamText: {fontFamily: 'Sora_700Bold', fontSize: 16, lineHeight: 22},
+    center: {textAlign: 'center'},
+    ring: {borderWidth: 3},
+    line: {marginTop: 4},
+    wpRow: {marginTop: 10},
+    semi: {fontFamily: 'Sora_600SemiBold'},
+    meter: {flexDirection: 'row', height: 10, gap: 3},
+    meterBand: {height: '100%'},
+    leftEnd: {borderTopLeftRadius: 5, borderBottomLeftRadius: 5},
+    rightEnd: {borderTopRightRadius: 5, borderBottomRightRadius: 5},
+    meterMark: {position: 'absolute', top: -4, width: 6, height: 18, borderRadius: 3, marginLeft: -3, borderWidth: 1.5},
+    meterLabels: {marginTop: 6},
+    wpBig: {height: 10, borderRadius: 5, overflow: 'hidden'},
+    shrink: {flexShrink: 1},
+    chip: {minWidth: 22, paddingHorizontal: 7, paddingVertical: 1, borderRadius: 100, alignItems: 'center'},
+    chipText: {fontFamily: 'Sora_600SemiBold', fontVariant: ['tabular-nums']},
+    wpTrack: {flex: 1, height: 8, borderRadius: 4, overflow: 'hidden'},
+    wpLabel: {fontFamily: 'Sora_600SemiBold', fontVariant: ['tabular-nums']},
+    wpaText: {opacity: 1},
     wpFill: {position: 'absolute', top: 0, bottom: 0},
-    backdrop: {flex: 1, justifyContent: 'flex-end'},
-    sheet: {borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '90%'},
-    statRow: {flexDirection: 'row', gap: 10, marginTop: 16},
-    statBox: {flex: 1, borderRadius: 16, padding: 12, gap: 2},
+    wpDivider: {position: 'absolute', top: 0, bottom: 0, width: 3, marginLeft: -1.5},
+    sheet: {paddingBottom: 20, paddingHorizontal: 20},
+    flex: {flex: 1},
+    sheetName: {fontFamily: 'Sora_400Regular', fontSize: 20, lineHeight: 26},
 });

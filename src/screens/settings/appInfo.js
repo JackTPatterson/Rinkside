@@ -11,6 +11,8 @@ export const LINKS = {
     nhlApi: 'https://api-web.nhle.com',
     moneypuck: 'https://moneypuck.com',
     moneypuckData: 'https://moneypuck.com/data.htm',
+    espn: 'https://www.espn.com/nhl/injuries',
+    dailyfaceoff: 'https://www.dailyfaceoff.com',
 };
 
 export const MONEYPUCK_LOGO = 'https://peter-tanner.com/moneypuck/logos/moneypucklogo.png';

@@ -2,14 +2,14 @@ import {BottomSheetModalProvider} from '@gorhom/bottom-sheet';
 import {useScrollToTop} from '@react-navigation/native';
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Pressable, RefreshControl, SectionList, StyleSheet, View} from 'react-native';
-import {EmptyState, ErrorState, FadeInView, Header, InfoTip, LiveDot, Row, Screen, Skeleton, SkeletonList, T, tap} from '../components/ui';
+import {EmptyState, ErrorState, FadeInView, Header, LiveDot, Row, Screen, Skeleton, SkeletonList, T, tap} from '../components/ui';
 import {Calendar} from '../components/icons';
 import {nhl} from '../api/nhl';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {useLeague} from '../hooks/useLeague';
 import {useNow, useQuery} from '../hooks/useQuery';
 import {ROUTES} from '../navigation/routes';
-import {useAppTheme} from '../theme';
+import {GUTTER, useAppTheme} from '../theme';
 import {parseISODate, relativeDayLabel, toISODate} from '../utils/format';
 import DateStrip from './scores/DateStrip';
 import GameCard from './scores/GameCard';
@@ -23,18 +23,6 @@ const SOON_POLL_MS = 60000;
 const DAY_ROLLOVER_MS = 4 * 3600 * 1000;
 const hockeyToday = (now) => toISODate(new Date(now.getTime() - DAY_ROLLOVER_MS));
 
-const SECTION_INFO = {
-    live:
-        'The bar shows each team’s chance to win right now from Rinkside’s live model, which plays out the rest ' +
-        'of the game from the current score and clock using both teams’ scoring rates. It’s a model estimate. ' +
-        'MoneyPuck’s live number is shown too when available.',
-    upcoming:
-        'Pre-game win chances from Rinkside’s model: each team’s goals for and against (shrunk toward league ' +
-        'average early in the season) plus home ice, played out minute by minute. It’s a model estimate. ' +
-        'MoneyPuck’s prediction is shown too when available.',
-    favorite: 'Your favourite team’s game is pinned to the top. Long-press any game for goalies and team stats.',
-};
-
 const keyExtractor = (g) => String(g.id);
 const renderSectionHeader = ({section}) => <SectionHeader section={section}/>;
 
@@ -44,11 +32,8 @@ function SectionHeader({section}) {
         <View style={[styles.sectionHeader, {backgroundColor: colors.background}]}>
             <Row gap={6}>
                 {section.key === 'live' ? <LiveDot/> : null}
-                <T variant="heading">{section.title}</T>
+                <T variant="body" style={styles.sectionTitle}>{section.title}</T>
                 {section.key !== 'favorite' ? <T variant="caption" muted style={styles.tabular}>{section.data.length}</T> : null}
-                {SECTION_INFO[section.key] ? (
-                    <InfoTip title={section.key === 'favorite' ? section.title : `${section.title} win probability`} body={SECTION_INFO[section.key]}/>
-                ) : null}
             </Row>
         </View>
     );
@@ -66,8 +51,8 @@ function TodayButton({onPress}) {
                 onPress();
             }}
             style={({pressed}) => [styles.todayBtn, {backgroundColor: colors.card}, pressed && {opacity: 0.6}]}>
-            <Calendar size={16} color={colors.text}/>
-            <T variant="label">Today</T>
+            <Calendar size={18} color={colors.text}/>
+            <T variant="body" style={styles.todayText}>Today</T>
         </Pressable>
     );
 }
@@ -154,8 +139,8 @@ function ScoresContent({navigation}) {
     if (scores.loading && !scores.data) {
         body = (
             <View style={styles.skeleton}>
-                <Skeleton width={120} height={24} style={styles.skeletonHeader}/>
-                <SkeletonList count={4} height={160}/>
+                <Skeleton width={120} height={20} radius={15} style={styles.skeletonHeader}/>
+                <SkeletonList count={5} height={70} gap={4}/>
             </View>
         );
     } else if (scores.error && !scores.data) {
@@ -224,10 +209,12 @@ export default function ScoresScreen(props) {
 
 const styles = StyleSheet.create({
     flex: {flex: 1},
-    skeleton: {paddingHorizontal: 16, paddingTop: 12},
-    skeletonHeader: {marginBottom: 8},
+    skeleton: {paddingHorizontal: GUTTER, paddingTop: 20},
+    skeletonHeader: {marginBottom: 15},
     tabular: {fontVariant: ['tabular-nums']},
-    listContent: {paddingBottom: 32, flexGrow: 1},
-    sectionHeader: {paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8},
-    todayBtn: {flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, minHeight: 36, borderRadius: 999},
+    listContent: {paddingBottom: 100, flexGrow: 1},
+    sectionHeader: {paddingHorizontal: GUTTER, paddingTop: 20, paddingBottom: 15},
+    sectionTitle: {fontFamily: 'Sora_600SemiBold'},
+    todayBtn: {flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, minHeight: 44, borderRadius: 100},
+    todayText: {fontFamily: 'Sora_500Medium', fontSize: 14, lineHeight: 20},
 });

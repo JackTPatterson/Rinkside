@@ -6,7 +6,7 @@ import {getTeam} from '../../data/teams';
 import {useAppTheme} from '../../theme';
 import {num, pct, signed} from '../../utils/format';
 import {REGULAR_SEASON_GAMES} from '../../utils/season';
-import {ColTitle, CutLine, TeamCell, TeamRow, conferenceOf, styles as shared} from './shared';
+import {ColTitle, CutLine, TeamCell, TeamRow, conferenceOf, styles as shared, type} from './shared';
 
 const CONFS = [
     {key: 'E', label: 'East'},
@@ -15,7 +15,7 @@ const CONFS = [
 
 const LINE_INFO = 'The projected cut line is the final points total of the team projected 8th in the conference ' +
     '(8 of 16 teams per conference make the playoffs). Real seeding also uses divisions and wild cards, so treat ' +
-    'this as a guide. Projections blend each team’s points rate with league-average hockey. A model estimate.';
+    'this as a guide. Projections blend each team’s points rate with league-average hockey.';
 const CUSHION_INFO = 'Projected final points minus the projected cut line. Positive means the team is on course to ' +
     'make it with room to spare; negative means it’s projected to fall short by that many points.';
 const NEED_INFO = 'Points percentage the team needs in its remaining games to reach the projected cut line. For ' +
@@ -23,7 +23,7 @@ const NEED_INFO = 'Points percentage the team needs in its remaining games to re
 
 const RaceRow = memo(function RaceRow({item, rank, fav, onTeamPress}) {
     const {colors} = useAppTheme();
-    const cushionColor = item.cushion == null ? undefined : item.cushion >= 0 ? colors.positive : colors.negative;
+    const cushionColor = item.cushion == null ? undefined : item.cushion >= 0 ? colors.positive : colors.live;
     let need = '–';
     let needColor;
     if (item.neededPointPct != null) {
@@ -32,24 +32,24 @@ const RaceRow = memo(function RaceRow({item, rank, fav, onTeamPress}) {
             needColor = colors.positive;
         } else if (item.neededPointPct > 1) {
             need = '>100%';
-            needColor = colors.negative;
+            needColor = colors.live;
         } else {
             need = pct(item.neededPointPct);
-            needColor = item.neededPointPct > 0.7 ? colors.negative : item.neededPointPct > 0.58 ? colors.warning : undefined;
+            needColor = item.neededPointPct > 0.7 ? colors.live : item.neededPointPct > 0.58 ? colors.warning : undefined;
         }
     } else if (item.gp >= REGULAR_SEASON_GAMES) {
         need = 'Final';
     }
     return (
         <TeamRow abbrev={item.abbrev} fav={fav} onPress={onTeamPress}>
-            <TeamCell rank={rank} abbrev={item.abbrev} width={92}/>
+            <TeamCell rank={rank} abbrev={item.abbrev} width={106}/>
             <View style={st.ptsCol}>
-                <T variant="label" style={shared.num}>{item.points}</T>
-                <T variant="caption" muted style={shared.num}>{item.gp} GP</T>
+                <T style={[type.strong, shared.num]}>{item.points}</T>
+                <T muted style={[type.small, shared.num]}>{item.gp} GP</T>
             </View>
-            <T variant="label" style={[shared.num, st.c]}>{num(item.projected, 0)}</T>
-            <T variant="label" color={cushionColor} style={[shared.num, st.c]}>{signed(item.cushion, 0)}</T>
-            <T variant="label" color={needColor} style={[shared.num, st.n]}>{need}</T>
+            <T style={[type.value, shared.num, st.c]}>{num(item.projected, 0)}</T>
+            <T color={cushionColor} style={[type.value, shared.num, st.c]}>{signed(item.cushion, 0)}</T>
+            <T color={needColor} style={[type.value, shared.num, st.n]}>{need}</T>
         </TeamRow>
     );
 });
@@ -82,14 +82,14 @@ export default memo(function RaceView({rows, fav, onTeamPress, refreshControl, l
             <View style={shared.subHeader}>
                 <Segmented options={CONFS} value={conf} onChange={setConf}/>
                 <View style={st.tiles}>
-                    <StatTile label="Projected cut line" value={race.line == null ? '–' : `${num(race.line, 0)} pts`} info={LINE_INFO}
+                    <StatTile style={st.tile} label="Projected cut line" value={race.line == null ? '–' : `${num(race.line, 0)} pts`} info={LINE_INFO}
                         sub={race.teams[7] ? `8th: ${race.teams[7].abbrev}` : undefined}/>
-                    <StatTile label="First team out" value={bubble ? bubble.abbrev : '–'}
+                    <StatTile style={st.tile} label="First team out" value={bubble ? bubble.abbrev : '–'}
                         sub={bubble ? `${signed(bubble.cushion, 0)} pts vs line` : undefined}/>
                 </View>
             </View>
             <View style={shared.colHeader}>
-                <ColTitle width={92} align="left">TEAM</ColTitle>
+                <ColTitle width={106} align="left">TEAM</ColTitle>
                 <View style={st.ptsCol}><ColTitle>PTS</ColTitle></View>
                 <ColTitle width={48}>PROJ</ColTitle>
                 <View style={[st.c, st.hRow]}><ColTitle>+/−</ColTitle><InfoTip title="Cushion" body={CUSHION_INFO} size={12}/></View>
@@ -114,7 +114,8 @@ export default memo(function RaceView({rows, fav, onTeamPress, refreshControl, l
 });
 
 const st = StyleSheet.create({
-    tiles: {flexDirection: 'row', gap: 10},
+    tiles: {flexDirection: 'row', gap: 16, paddingTop: 6},
+    tile: {backgroundColor: 'transparent', padding: 0, borderRadius: 0},
     ptsCol: {flex: 1, alignItems: 'flex-end'},
     hRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 2},
     c: {width: 48},

@@ -2,16 +2,23 @@ import React, {memo} from 'react';
 import {Pressable, StyleSheet, View} from 'react-native';
 import {headshotUrl} from '../../api/nhl';
 import {Headshot, Skeleton, T, TeamLogo} from '../../components/ui';
-import {useAppTheme} from '../../theme';
+import {GUTTER, useAppTheme} from '../../theme';
 import {lastTeam} from './helpers';
 
-export const ROW_HEIGHT = 64;
-export const TABLE_ROW_HEIGHT = 52;
+// Rows sit straight on the page background (no card), aligned to the screen gutter and separated
+// by their own vertical breathing room. ROW_HEIGHT / TABLE_ROW_HEIGHT are the full per-row pitch
+// because FlatList getItemLayout uses them.
+const ROW_GAP = 0;
+const CARD_HEIGHT = 60;
+const TABLE_CARD_HEIGHT = 44;
+const CARD_PAD = 0;
+export const ROW_HEIGHT = CARD_HEIGHT + ROW_GAP;
+export const TABLE_ROW_HEIGHT = TABLE_CARD_HEIGHT + ROW_GAP;
 export const TABLE_NAME_WIDTH = 168;
 
 /** Compact leaderboard row: rank, headshot, name / team, three stat columns. Fixed height. */
 export const LeaderboardRow = memo(function LeaderboardRow({item, columns, sortKey, seasonId, onPress}) {
-    const {colors, teamColor} = useAppTheme();
+    const {teamColor} = useAppTheme();
     const r = item.row;
     const team = lastTeam(r.teamAbbrevs);
     const accent = teamColor(team);
@@ -20,11 +27,11 @@ export const LeaderboardRow = memo(function LeaderboardRow({item, columns, sortK
             accessibilityRole="button"
             accessibilityLabel={`${item.rank ? `${item.rank}. ` : ''}${item.name}, ${team}`}
             onPress={() => onPress(r, item.name)}
-            style={({pressed}) => [styles.row, {borderBottomColor: colors.border}, pressed && {backgroundColor: colors.card}]}>
+            style={({pressed}) => [styles.row, pressed && styles.pressed]}>
             <T variant="label" muted style={styles.rank}>{item.rank ?? '–'}</T>
             <Headshot uri={team ? headshotUrl(r.playerId, team, seasonId) : null} size={40} borderColor={accent}/>
             <View style={styles.name}>
-                <T variant="label" numberOfLines={1}>{item.name}</T>
+                <T variant="body" numberOfLines={1} style={styles.semibold}>{item.name}</T>
                 <View style={styles.teamLine}>
                     <TeamLogo abbrev={team} size={14}/>
                     <T variant="caption" muted numberOfLines={1}>
@@ -37,12 +44,11 @@ export const LeaderboardRow = memo(function LeaderboardRow({item, columns, sortK
                 return (
                     <T
                         key={c.key}
-                        variant={active ? 'label' : 'body'}
-                        color={active ? accent : undefined}
+                        variant="body"
                         muted={!active}
                         numberOfLines={1}
                         adjustsFontSizeToFit
-                        style={[styles.stat, {width: c.width + 6}]}>
+                        style={[styles.stat, active && styles.semibold, {width: c.width + 6}]}>
                         {c.text(r)}
                     </T>
                 );
@@ -52,12 +58,11 @@ export const LeaderboardRow = memo(function LeaderboardRow({item, columns, sortK
 });
 
 export const CompactHeader = memo(function CompactHeader({columns, sortKey}) {
-    const {colors} = useAppTheme();
     return (
-        <View style={[styles.header, {borderBottomColor: colors.border}]}>
-            <T variant="caption" muted style={styles.headerName}>Player</T>
+        <View style={styles.header}>
+            <T variant="caption" style={[styles.headerText, styles.headerName]}>Player</T>
             {columns.map((c) => (
-                <T key={c.key} variant="caption" muted={c.key !== sortKey} style={[styles.stat, {width: c.width + 6}]}>{c.title}</T>
+                <T key={c.key} variant="caption" style={[styles.headerText, styles.stat, c.key === sortKey && styles.headerActive, {width: c.width + 6}]}>{c.title}</T>
             ))}
         </View>
     );
@@ -65,7 +70,7 @@ export const CompactHeader = memo(function CompactHeader({columns, sortKey}) {
 
 /** Wide row with every column (table mode, inside a horizontal ScrollView). */
 export const TableRow = memo(function TableRow({item, columns, sortKey, onPress}) {
-    const {colors, teamColor} = useAppTheme();
+    const {teamColor} = useAppTheme();
     const r = item.row;
     const team = lastTeam(r.teamAbbrevs);
     return (
@@ -73,21 +78,22 @@ export const TableRow = memo(function TableRow({item, columns, sortKey, onPress}
             accessibilityRole="button"
             accessibilityLabel={`${item.rank ? `${item.rank}. ` : ''}${item.name}`}
             onPress={() => onPress(r, item.name)}
-            style={({pressed}) => [styles.tableRow, {borderBottomColor: colors.border}, pressed && {backgroundColor: colors.card}]}>
+            style={({pressed}) => [styles.tableRow, pressed && styles.pressed]}>
             <View style={styles.tableName}>
                 <T variant="caption" muted style={styles.tableRank}>{item.rank ?? '–'}</T>
                 <TeamLogo abbrev={team} size={18}/>
-                <T variant="label" numberOfLines={1} style={styles.flex}>{item.name}</T>
+                <T variant="body" numberOfLines={1} style={[styles.flex, styles.semibold]}>{item.name}</T>
             </View>
             {columns.map((c) => {
                 const active = c.key === sortKey;
                 return (
                     <T
                         key={c.key}
-                        variant={active ? 'label' : 'body'}
+                        variant="body"
                         color={active ? teamColor(team) : undefined}
                         numberOfLines={1}
-                        style={[styles.stat, {width: c.width}]}>
+                        adjustsFontSizeToFit
+                        style={[styles.stat, active && styles.semibold, {width: c.width}]}>
                         {c.text(r)}
                     </T>
                 );
@@ -97,12 +103,11 @@ export const TableRow = memo(function TableRow({item, columns, sortKey, onPress}
 });
 
 export const TableHeader = memo(function TableHeader({columns, sortKey}) {
-    const {colors} = useAppTheme();
     return (
-        <View style={[styles.tableHeader, {borderBottomColor: colors.border}]}>
-            <T variant="caption" muted style={{width: TABLE_NAME_WIDTH}}>Player</T>
+        <View style={styles.tableHeader}>
+            <T variant="caption" style={[styles.headerText, {width: TABLE_NAME_WIDTH}]}>Player</T>
             {columns.map((c) => (
-                <T key={c.key} variant="caption" muted={c.key !== sortKey} style={[styles.stat, {width: c.width}]}>{c.title}</T>
+                <T key={c.key} variant="caption" style={[styles.headerText, styles.stat, c.key === sortKey && styles.headerActive, {width: c.width}]}>{c.title}</T>
             ))}
         </View>
     );
@@ -110,21 +115,19 @@ export const TableHeader = memo(function TableHeader({columns, sortKey}) {
 
 /** Placeholder with the exact geometry of CompactHeader + LeaderboardRow, so nothing shifts. */
 export function LeaderboardSkeleton({count = 10}) {
-    const {colors} = useAppTheme();
     return (
         <View>
-            <View style={[styles.header, {borderBottomColor: colors.border}]}>
-                <Skeleton width={48} height={16} radius={6}/>
+            <View style={styles.header}>
+                <Skeleton width={48} height={16} radius={15}/>
             </View>
             {Array.from({length: count}).map((_, i) => (
-                <View key={i} style={[styles.row, {borderBottomColor: colors.border}]}>
-                    <Skeleton width={18} height={14} style={styles.skRank}/>
+                <View key={i} style={styles.skRow}>
                     <Skeleton width={40} height={40} radius={20}/>
                     <View style={styles.name}>
-                        <Skeleton width="70%" height={14}/>
-                        <Skeleton width="40%" height={10} style={styles.skSub}/>
+                        <Skeleton width="60%" height={14} radius={7}/>
+                        <Skeleton width="35%" height={10} radius={5} style={styles.skLine}/>
                     </View>
-                    <Skeleton width={120} height={14}/>
+                    <Skeleton width={96} height={14} radius={7}/>
                 </View>
             ))}
         </View>
@@ -133,36 +136,43 @@ export function LeaderboardSkeleton({count = 10}) {
 
 const styles = StyleSheet.create({
     flex: {flex: 1},
-    skRank: {marginLeft: 6},
-    skSub: {marginTop: 6},
+    semibold: {fontFamily: 'Sora_600SemiBold'},
+    pressed: {opacity: 0.6},
+    skRow: {height: CARD_HEIGHT, marginHorizontal: GUTTER, marginBottom: ROW_GAP, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 34},
+    skLine: {marginTop: 6},
     row: {
-        height: ROW_HEIGHT,
+        height: CARD_HEIGHT,
+        marginHorizontal: GUTTER,
+        marginBottom: ROW_GAP,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
-        paddingHorizontal: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: CARD_PAD,
     },
-    rank: {width: 24, textAlign: 'right', fontVariant: ['tabular-nums']},
+    rank: {width: 24, textAlign: 'right', fontSize: 14, fontVariant: ['tabular-nums']},
     name: {flex: 1, minWidth: 0},
     teamLine: {flexDirection: 'row', alignItems: 'center', gap: 2},
     stat: {textAlign: 'right', fontVariant: ['tabular-nums']},
+    // Old table header: 14pt SemiBold at half opacity, no rule underneath.
+    headerText: {fontFamily: 'Sora_600SemiBold', fontSize: 14, lineHeight: 18, opacity: 0.5},
+    headerActive: {opacity: 1},
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 10,
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: GUTTER + CARD_PAD,
+        paddingTop: 4,
+        paddingBottom: 8,
     },
     headerName: {flex: 1},
     tableRow: {
-        height: TABLE_ROW_HEIGHT,
+        height: TABLE_CARD_HEIGHT,
+        marginHorizontal: GUTTER,
+        marginBottom: ROW_GAP,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        paddingHorizontal: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: 0,
     },
     tableName: {width: TABLE_NAME_WIDTH, flexDirection: 'row', alignItems: 'center', gap: 6},
     tableRank: {width: 22, textAlign: 'right'},
@@ -170,8 +180,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 6,
-        borderBottomWidth: StyleSheet.hairlineWidth,
+        paddingHorizontal: GUTTER,
+        paddingTop: 4,
+        paddingBottom: 8,
     },
 });

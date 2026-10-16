@@ -1,12 +1,12 @@
 // Presentational sections for the Player screen. All derived data is passed in already computed
 // (memoised by the screen); the only local state is the chart's stat selector.
 import React, {memo, useMemo, useState} from 'react';
-import {StyleSheet, View} from 'react-native';
+import {ScrollView, StyleSheet, View} from 'react-native';
 import {formLine} from '../../analytics';
 import LineChart from '../../components/LineChart';
-import {TrendDown, TrendUp} from '../../components/icons';
-import {Badge, Card, DataTable, Headshot, InfoTip, PillTabs, Row, Section, Skeleton, T, TeamLogo} from '../../components/ui';
-import {useAppTheme, withAlpha} from '../../theme';
+import {ArrowDownRight, ArrowUpRight, TrendDown, TrendUp} from '../../components/icons';
+import {Badge, Headshot, InfoTip, PillTabs, Row, Section, Skeleton, T, TeamLogo} from '../../components/ui';
+import {useAppTheme} from '../../theme';
 import {loc, num, pct, savePct, secondsToMMSS, signed} from '../../utils/format';
 import {seasonLabel} from '../../utils/season';
 import {
@@ -24,21 +24,21 @@ const int = (v) => (toNum(v) == null ? '–' : String(Math.round(Number(v))));
 /* ----------------------------------------------------------------- hero */
 
 export const Hero = memo(function Hero({p, name, color}) {
+    const {colors} = useAppTheme();
     const meta = [p?.sweaterNumber != null ? `#${p.sweaterNumber}` : null, positionName(p?.position)].filter(Boolean).join(' · ');
     return (
-        <View style={[styles.hero, {backgroundColor: withAlpha(color, 0.16), borderColor: withAlpha(color, 0.45)}]}>
-            <Headshot uri={p?.headshot} size={92} borderColor={color}/>
+        <View style={styles.hero}>
+            <Headshot uri={p?.headshot} size={80} borderColor={color} style={[styles.heroShot, {backgroundColor: colors.card}]}/>
             <View style={styles.flex}>
                 <T variant="title" numberOfLines={2}>{name}</T>
-                {meta ? <T variant="label" muted>{meta}</T> : null}
-                <Row gap={6} style={{marginTop: 6}}>
+                <Row gap={6} style={{marginTop: 2}}>
                     {p?.currentTeamAbbrev ? <TeamLogo abbrev={p.currentTeamAbbrev} size={20}/> : null}
-                    <T variant="caption" muted numberOfLines={1} style={styles.flexShrink}>
+                    <T variant="body" numberOfLines={1} style={[styles.flexShrink, styles.half]}>
                         {loc(p?.fullTeamName) || (p?.isActive === false ? 'Not active' : p?.currentTeamAbbrev ?? '')}
                     </T>
                 </Row>
+                {meta ? <T variant="body" style={[styles.small, styles.half]}>{meta}</T> : null}
             </View>
-            <View style={[styles.heroStripe, {backgroundColor: color}]}/>
         </View>
     );
 });
@@ -46,31 +46,31 @@ export const Hero = memo(function Hero({p, name, color}) {
 /* ------------------------------------------------------------------ bio */
 
 export const BioCard = memo(function BioCard({rows}) {
-    const {colors} = useAppTheme();
     if (!rows?.length) return null;
     return (
-        <Card style={styles.bio}>
-            {rows.map((r, i) => (
-                <View key={r.label} style={[styles.bioRow, i > 0 && {borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth}]}>
-                    <T variant="caption" muted style={styles.bioLabel}>{r.label}</T>
+        <View>
+            {rows.map((r) => (
+                <View key={r.label} style={styles.bioRow}>
+                    <T variant="body" style={[styles.small, styles.half, styles.bioLabel]}>{r.label}</T>
                     <View style={styles.flex}>
-                        <T variant="label">{r.value}</T>
-                        {r.sub ? <T variant="caption" muted>{r.sub}</T> : null}
+                        <T variant="body" style={styles.semibold}>{r.value}</T>
+                        {r.sub ? <T variant="body" style={[styles.small, styles.half]}>{r.sub}</T> : null}
                     </View>
                 </View>
             ))}
-        </Card>
+        </View>
     );
 });
 
 /* ---------------------------------------------------------- stat grids */
 
+// Season grid tiles keep the old card look (colors.card, radius 10).
 const MiniStat = memo(function MiniStat({label, value, color}) {
     const {colors} = useAppTheme();
     return (
         <View style={[styles.mini, {backgroundColor: colors.card}]}>
-            <T variant="stat" color={color} numberOfLines={1} adjustsFontSizeToFit>{value}</T>
-            <T variant="caption" muted numberOfLines={1}>{label}</T>
+            <T variant="body" color={color} numberOfLines={1} adjustsFontSizeToFit style={styles.miniValue}>{value}</T>
+            <T variant="body" numberOfLines={1} style={styles.miniLabel}>{label}</T>
         </View>
     );
 });
@@ -78,18 +78,18 @@ const MiniStat = memo(function MiniStat({label, value, color}) {
 export function skaterTiles(t) {
     if (!t) return [];
     return [
-        {label: 'GP', value: int(t.gamesPlayed)},
-        {label: 'Goals', value: int(t.goals)},
-        {label: 'Assists', value: int(t.assists)},
-        {label: 'Points', value: int(t.points), accent: true},
-        {label: '+/-', value: signed(t.plusMinus)},
-        {label: 'Shots', value: int(t.shots)},
-        {label: 'Shooting %', value: pct(t.shootingPctg, 1)},
-        {label: 'PP goals', value: int(t.powerPlayGoals)},
-        {label: 'PP points', value: int(t.powerPlayPoints)},
-        {label: 'SH goals', value: int(t.shorthandedGoals)},
-        {label: 'PIM', value: int(t.pim)},
-        {label: 'TOI / GP', value: toNum(t.avgToiSeconds) ? secondsToMMSS(t.avgToiSeconds) : '–'},
+        {group: 'main', label: 'GP', value: int(t.gamesPlayed)},
+        {group: 'main', label: 'Goals', value: int(t.goals)},
+        {group: 'main', label: 'Assists', value: int(t.assists)},
+        {group: 'main', label: 'Points', value: int(t.points), accent: true},
+        {group: 'Shooting', label: 'Shots', value: int(t.shots)},
+        {group: 'Shooting', label: 'Shooting %', value: pct(t.shootingPctg, 1)},
+        {group: 'Shooting', label: '+/-', value: signed(t.plusMinus)},
+        {group: 'Special teams', label: 'PP goals', value: int(t.powerPlayGoals)},
+        {group: 'Special teams', label: 'PP points', value: int(t.powerPlayPoints)},
+        {group: 'Special teams', label: 'SH goals', value: int(t.shorthandedGoals)},
+        {group: 'Ice time', label: 'TOI / game', value: toNum(t.avgToiSeconds) ? secondsToMMSS(t.avgToiSeconds) : '–'},
+        {group: 'Ice time', label: 'PIM', value: int(t.pim)},
     ];
 }
 
@@ -97,12 +97,13 @@ export function goalieTiles(t) {
     if (!t) return [];
     const record = [t.wins, t.losses, t.otLosses].map((v) => int(v)).join('-');
     return [
-        {label: 'GP', value: int(t.gamesPlayed)},
-        {label: 'Record', value: record},
-        {label: 'Save %', value: savePct(t.savePctg), accent: true},
-        {label: 'GAA', value: num(t.goalsAgainstAvg, 2)},
-        {label: 'Shutouts', value: int(t.shutouts)},
-        {label: 'Shots against', value: int(t.shotsAgainst)},
+        {group: 'main', label: 'GP', value: int(t.gamesPlayed)},
+        {group: 'main', label: 'Record', value: record},
+        {group: 'main', label: 'Save %', value: savePct(t.savePctg), accent: true},
+        {group: 'main', label: 'GAA', value: num(t.goalsAgainstAvg, 2)},
+        {group: 'Workload', label: 'Shots against', value: int(t.shotsAgainst)},
+        {group: 'Workload', label: 'Saves', value: toNum(t.shotsAgainst) != null && toNum(t.goalsAgainst) != null ? int(toNum(t.shotsAgainst) - toNum(t.goalsAgainst)) : '–'},
+        {group: 'Workload', label: 'Shutouts', value: int(t.shutouts)},
     ];
 }
 
@@ -128,11 +129,47 @@ export function careerTiles(c, goalie) {
     ];
 }
 
+/** The headline numbers in one card: equal columns, big values, hairline dividers between. */
+function HeadlineRow({tiles, color}) {
+    const {colors} = useAppTheme();
+    return (
+        <View style={[styles.headline, {backgroundColor: colors.card}]}>
+            {tiles.map((t, i) => (
+                <View key={t.label} style={[styles.headCell, i > 0 && {borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.border}]}>
+                    <T variant="body" color={t.accent ? color : undefined} numberOfLines={1} adjustsFontSizeToFit style={styles.headValue}>{t.value}</T>
+                    <T variant="caption" muted numberOfLines={1}>{t.label}</T>
+                </View>
+            ))}
+        </View>
+    );
+}
+
+/**
+ * Stat grid. Tiles with `group: 'main'` become one headline card; the rest are grouped under small
+ * captions in rows of three, so related numbers sit together. Ungrouped tiles are one plain grid.
+ */
 export const StatGrid = memo(function StatGrid({tiles, color}) {
     if (!tiles?.length) return null;
+    if (!tiles.some((t) => t.group)) {
+        return (
+            <View style={styles.grid}>
+                {tiles.map((t) => <MiniStat key={t.label} label={t.label} value={t.value} color={t.accent ? color : undefined}/>)}
+            </View>
+        );
+    }
+    const main = tiles.filter((t) => t.group === 'main');
+    const groups = [...new Set(tiles.filter((t) => t.group !== 'main').map((t) => t.group))];
     return (
-        <View style={styles.grid}>
-            {tiles.map((t) => <MiniStat key={t.label} label={t.label} value={t.value} color={t.accent ? color : undefined}/>)}
+        <View>
+            {main.length ? <HeadlineRow tiles={main} color={color}/> : null}
+            {groups.map((g) => (
+                <View key={g} style={styles.statGroup}>
+                    <T variant="caption" muted style={styles.groupTitle}>{g.toUpperCase()}</T>
+                    <View style={styles.grid}>
+                        {tiles.filter((t) => t.group === g).map((t) => <MiniStat key={t.label} label={t.label} value={t.value} color={t.accent ? color : undefined}/>)}
+                    </View>
+                </View>
+            ))}
         </View>
     );
 });
@@ -141,7 +178,7 @@ export const StatGrid = memo(function StatGrid({tiles, color}) {
 export function StatGridSkeleton({count = 6}) {
     return (
         <View style={styles.grid}>
-            {Array.from({length: count}).map((_, i) => <Skeleton key={i} height={64} radius={14} style={styles.miniSkeleton}/>)}
+            {Array.from({length: count}).map((_, i) => <Skeleton key={i} height={MINI_HEIGHT} radius={10} style={styles.miniSkeleton}/>)}
         </View>
     );
 }
@@ -158,7 +195,7 @@ export const StreakCard = memo(function StreakCard({streak, goalie}) {
     const {colors} = useAppTheme();
     if (!streak || streak.expected == null) return null;
     const copy = STREAK_COPY[streak.status] ?? STREAK_COPY.normal;
-    const tone = streak.status === 'hot' ? colors.positive : streak.status === 'cold' ? colors.negative : colors.cardAlt;
+    const tone = streak.status === 'hot' ? colors.positive : streak.status === 'cold' ? colors.negative : colors.card;
     const Icon = copy.icon;
     const unit = goalie ? 'goals allowed' : 'points';
     const chance = streak.pValue == null ? '–' : streak.pValue < 0.001 ? '<0.1%' : pct(streak.pValue, streak.pValue < 0.01 ? 1 : 0);
@@ -171,19 +208,24 @@ export const StreakCard = memo(function StreakCard({streak, goalie}) {
         : 'Compares his points over the last 10 games with his scoring rate in the rest of the season. If a stretch that good (or bad) would happen by chance less than 10% of the time, he’s flagged as heating up or cooling off. A statistical estimate, not a guarantee.';
     return (
         <Section title="Current form" info={info}>
-            <Card>
-                <Row style={{justifyContent: 'space-between', marginBottom: 8}}>
+            <View>
+                <Row style={{justifyContent: 'space-between', marginBottom: 10}}>
                     <Row gap={6}>
-                        {Icon ? <Icon size={18} color={tone}/> : null}
-                        <Badge label={copy.label} color={streak.status === 'normal' ? undefined : tone}/>
+                        {Icon ? <Icon size={20} color={tone}/> : null}
+                        <Badge
+                            label={copy.label}
+                            color={tone}
+                            textColor={streak.status === 'normal' ? colors.text : undefined}
+                            style={styles.badge}
+                        />
                     </Row>
-                    <T variant="caption" muted>Last {streak.window} games</T>
+                    <T variant="body" style={[styles.small, styles.half]}>Last {streak.window} games</T>
                 </Row>
-                <T variant="body">
+                <T variant="body" style={styles.semibold}>
                     {num(streak.actual)} {unit} vs {num(streak.expected, 1)} expected.
                 </T>
-                <T variant="caption" muted style={{marginTop: 4}}>{sentence}</T>
-            </Card>
+                <T variant="body" style={[styles.small, styles.half, {marginTop: 4}]}>{sentence}</T>
+            </View>
         </Section>
     );
 });
@@ -217,8 +259,8 @@ export const FormChart = memo(function FormChart({log, goalie, color}) {
         ? 'A rolling save % that weights recent games more (each game counts half as much five games later). The dashed line is his season average.'
         : 'Points per game, smoothed so recent games count more (a game’s weight halves every five games). The dashed line is his season average, so you can see hot and cold stretches at a glance.';
     return (
-        <Section title="Form" info={info}>
-            <Card>
+        <Section title="Form">
+            <View>
                 <LineChart
                     data={series.data}
                     color={color}
@@ -227,7 +269,7 @@ export const FormChart = memo(function FormChart({log, goalie, color}) {
                     format={(v) => (goalie ? savePct(v) : num(v, 2))}
                     height={150}
                 />
-            </Card>
+            </View>
         </Section>
     );
 });
@@ -249,7 +291,7 @@ export const SeasonChart = memo(function SeasonChart({log, goalie, color}) {
     return (
         <Section title="Season progression">
             <PillTabs tabs={tabs} value={stat.key} onChange={setStatKey} contentStyle={styles.noPad} style={styles.chartTabs}/>
-            <Card>
+            <View>
                 <LineChart
                     data={data}
                     color={color}
@@ -258,15 +300,15 @@ export const SeasonChart = memo(function SeasonChart({log, goalie, color}) {
                     markers={markers}
                     height={180}
                 />
-                {markers?.length ? <T variant="caption" muted style={{marginTop: 6}}>Dots mark games with a goal.</T> : null}
-            </Card>
+                {markers?.length ? <T variant="caption" muted style={{marginTop: 10}}>Dots mark games with a goal.</T> : null}
+            </View>
         </Section>
     );
 });
 
 /* ------------------------------------------------------- talent cards */
 
-export const ShootingTalentCard = memo(function ShootingTalentCard({talent, goals, shots, position, color}) {
+export const ShootingTalentCard = memo(function ShootingTalentCard({talent, goals, shots, position, color, right}) {
     if (!talent) return null;
     const d = position === 'D';
     const avg = d ? 0.05 : 0.105;
@@ -282,16 +324,13 @@ export const ShootingTalentCard = memo(function ShootingTalentCard({talent, goal
     return (
         <Section
             title="True shooting talent"
-            info="Shooting % bounces around a lot over small samples. This blends his actual shooting % with the league average for his position, trusting his own numbers more as he takes more shots. The bar shows the model’s best estimate and an 80% range for his real talent.">
-            <Card>
+            right={right}
+            info="Shooting % bounces around a lot over small samples. This blends his actual shooting % with the league average for his position, trusting his own numbers more as he takes more shots. The bar shows the best estimate and an 80% range for his real talent.">
+            <View>
                 <Row style={{justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10}}>
                     <View>
-                        <T variant="caption" muted>Estimated talent</T>
-                        <T variant="stat" color={color}>{pct(talent.estimate, 1)}</T>
-                    </View>
-                    <View style={styles.right}>
-                        <T variant="caption" muted>Actual</T>
-                        <T variant="heading">{talent.observed == null ? '–' : pct(talent.observed, 1)}</T>
+                        <T variant="body" style={[styles.small, styles.half]}>Estimated talent</T>
+                        <T variant="body" color={color} style={styles.big}>{pct(talent.estimate, 1)}</T>
                     </View>
                 </Row>
                 <RangeBar
@@ -306,45 +345,58 @@ export const ShootingTalentCard = memo(function ShootingTalentCard({talent, goal
                     format={(v) => pct(v, 0)}
                     observedLabel="Actual"
                 />
-                <T variant="caption" muted style={{marginTop: 8}}>
+                <T variant="caption" muted style={{marginTop: 10}}>
                     80% range: {pct(talent.lo, 1)} – {pct(talent.hi, 1)} · {Math.round(talent.weight * 100)}% based on his own shots
                 </T>
-            </Card>
+            </View>
             <View style={styles.tileRow}>
                 <View style={[styles.flex]}>
                     <XgTile
                         label="Expected goals"
                         value={num(talent.expectedGoals, 1)}
                         sub={`from ${int(shots)} shots`}
-                        info="Goals he ‘should’ have from his shots if he finished at his estimated true shooting %. A model estimate — it doesn’t know shot locations."
+                        info="Goals he ‘should’ have from his shots if he finished at his estimated true shooting %. It doesn’t know shot locations."
                     />
                 </View>
                 <View style={[styles.flex]}>
                     <XgTile
                         label="Finishing luck"
-                        value={signed(luck, 1)}
+                        delta={luck}
                         sub={`${int(goals)} actual goals`}
                         tone={Math.abs(luck) < 0.5 ? undefined : luck > 0 ? 'positive' : 'negative'}
                         info="Actual goals minus expected goals. Positive means more pucks have gone in than his talent suggests (often luck that fades); negative means he’s been unlucky."
                     />
                 </View>
             </View>
-            <T variant="caption" muted style={{marginTop: 8}}>{luckText}</T>
+            <T variant="caption" muted style={{marginTop: 10}}>{luckText}</T>
         </Section>
     );
 });
 
-const XgTile = memo(function XgTile({label, value, sub, info, tone}) {
+/**
+ * Small labelled number. `delta` (a signed number) is shown as a 45° up/down arrow plus the size of
+ * the change instead of a +/− sign.
+ */
+const XgTile = memo(function XgTile({label, value, delta, dp = 1, sub, info, tone}) {
     const {colors} = useAppTheme();
     const c = tone === 'positive' ? colors.positive : tone === 'negative' ? colors.negative : undefined;
+    const d = Number(delta);
+    const Arrow = Number.isFinite(d) && Math.abs(d) >= 0.05 ? (d > 0 ? ArrowUpRight : ArrowDownRight) : null;
     return (
-        <View style={[styles.tile, {backgroundColor: colors.card}]}>
-            <Row gap={4} style={{marginBottom: 4}}>
-                <T variant="caption" muted numberOfLines={1} style={styles.flexShrink}>{label}</T>
+        <View>
+            <Row gap={4} style={{marginBottom: 2}}>
+                <T variant="body" numberOfLines={1} style={[styles.small, styles.half, styles.flexShrink]}>{label}</T>
                 <InfoTip title={label} body={info} size={14}/>
             </Row>
-            <T variant="stat" color={c}>{value}</T>
-            {sub ? <T variant="caption" muted>{sub}</T> : null}
+            {delta != null ? (
+                <Row gap={4}>
+                    {Arrow ? <Arrow size={22} color={c ?? colors.text}/> : null}
+                    <T variant="body" color={c} style={styles.big}>{Number.isFinite(d) ? num(Math.abs(d), dp) : '–'}</T>
+                </Row>
+            ) : (
+                <T variant="body" color={c} style={styles.big}>{value}</T>
+            )}
+            {sub ? <T variant="body" style={[styles.small, styles.half]}>{sub}</T> : null}
         </View>
     );
 });
@@ -360,16 +412,12 @@ export const GoalieTalentCard = memo(function GoalieTalentCard({talent, shotsAga
     return (
         <Section
             title="True save talent"
-            info="Save % takes most of a season to mean much. This blends his actual save % with the league average (≈.902), trusting his own numbers more as he faces more shots. The bar shows the model’s best estimate and an 80% range for his real talent.">
-            <Card>
+            info="Save % takes most of a season to mean much. This blends his actual save % with the league average (≈.902), trusting his own numbers more as he faces more shots. The bar shows the best estimate and an 80% range for his real talent.">
+            <View>
                 <Row style={{justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10}}>
                     <View>
-                        <T variant="caption" muted>Estimated talent</T>
-                        <T variant="stat" color={color}>{savePct(talent.estimate)}</T>
-                    </View>
-                    <View style={styles.right}>
-                        <T variant="caption" muted>Actual</T>
-                        <T variant="heading">{talent.observed == null ? '–' : savePct(talent.observed)}</T>
+                        <T variant="body" style={[styles.small, styles.half]}>Estimated talent</T>
+                        <T variant="body" color={color} style={styles.big}>{savePct(talent.estimate)}</T>
                     </View>
                 </Row>
                 <RangeBar
@@ -384,15 +432,15 @@ export const GoalieTalentCard = memo(function GoalieTalentCard({talent, shotsAga
                     format={savePct}
                     observedLabel="Actual"
                 />
-                <T variant="caption" muted style={{marginTop: 8}}>
+                <T variant="caption" muted style={{marginTop: 10}}>
                     80% range: {savePct(talent.lo)} – {savePct(talent.hi)}
                 </T>
-            </Card>
+            </View>
             <View style={styles.tileRow}>
                 <View style={styles.flex}>
                     <XgTile
                         label="Goals saved vs avg"
-                        value={signed(gsaa, 1)}
+                        delta={gsaa}
                         sub={`on ${int(shotsAgainst)} shots`}
                         tone={Math.abs(gsaa) < 0.5 ? undefined : gsaa > 0 ? 'positive' : 'negative'}
                         info="How many goals he’s prevented compared with a league-average goalie facing the same number of shots. It doesn’t adjust for shot quality, so treat it as an estimate."
@@ -407,7 +455,7 @@ export const GoalieTalentCard = memo(function GoalieTalentCard({talent, shotsAga
                     />
                 </View>
             </View>
-            <T variant="caption" muted style={{marginTop: 8}}>{weight}% of this estimate is his own data.</T>
+            <T variant="caption" muted style={{marginTop: 10}}>{weight}% of this estimate is his own data.</T>
         </Section>
     );
 });
@@ -415,30 +463,62 @@ export const GoalieTalentCard = memo(function GoalieTalentCard({talent, shotsAga
 /* ---------------------------------------------------------- projection */
 
 export const ProjectionCard = memo(function ProjectionCard({goals, points, priorSource, remaining, color}) {
+    const {colors} = useAppTheme();
     if (!goals || !points) return null;
-    const line = (label, abbr, pr) => (
-        <View style={styles.projRow}>
-            <T variant="caption" muted>{label}</T>
-            <Row gap={6} style={{alignItems: 'baseline'}}>
-                <T variant="stat" color={color}>Projected {Math.round(pr.projected)} {abbr}</T>
-                <T variant="label" muted>({Math.round(pr.lo)}–{Math.round(pr.hi)})</T>
-            </Row>
+    // Two flex-1 cards side by side, in the same card style as the season stat grid.
+    const tile = (label, pr) => (
+        <View style={[styles.projTile, {backgroundColor: colors.card}]}>
+            <T variant="body" style={styles.miniLabel}>Projected {label}</T>
+            <T variant="body" color={color} numberOfLines={1} adjustsFontSizeToFit style={styles.projValue}>{Math.round(pr.projected)}</T>
+            <T variant="caption" muted style={styles.tabular}>{Math.round(pr.lo)}–{Math.round(pr.hi)} range</T>
         </View>
     );
     return (
         <Section
             title="Season projection"
-            info={`A model estimate of his final regular-season totals. It starts from his scoring rate ${priorSource === 'position' ? 'typical for his position' : `last season (${priorSource})`}, updates with this season’s games, and simulates the ${remaining} games left. The range covers 80% of likely outcomes.`}>
-            <Card style={{gap: 12}}>
-                {line('Goals', 'G', goals)}
-                {line('Points', 'PTS', points)}
-                <T variant="caption" muted>{remaining} games remaining · 80% range in brackets</T>
-            </Card>
+            info={`An estimate of his final regular-season totals. It starts from his scoring rate ${priorSource === 'position' ? 'typical for his position' : `last season (${priorSource})`}, updates with this season’s games, and simulates the ${remaining} games left. The range covers 80% of likely outcomes.`}>
+            <View style={styles.projGrid}>
+                {tile('goals', goals)}
+                {tile('points', points)}
+            </View>
+            <T variant="caption" muted style={{marginTop: 10}}>{remaining} games remaining · 80% range</T>
         </Section>
     );
 });
 
 /* ---------------------------------------------------------- game tables */
+
+/**
+ * Same column contract as ui.DataTable, drawn like the original Rinkside tables: plain rows with
+ * no rules, a 14pt half-opacity header and 16pt SemiBold values, straight on the page background.
+ * Highlighted rows (career total, current season) sit on a colors.card band.
+ */
+const PlainTable = memo(function PlainTable({columns, rows, keyExtractor = (r, i) => String(i), highlight}) {
+    const {colors} = useAppTheme();
+    return (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.tableInner}>
+                <View style={styles.tr}>
+                    {columns.map((c) => (
+                        <T key={c.key} variant="body" numberOfLines={1} style={[styles.th, {width: c.width, textAlign: c.align ?? 'left'}]}>
+                            {c.title}
+                        </T>
+                    ))}
+                </View>
+                {rows.map((r, i) => (
+                    <View key={keyExtractor(r, i)} style={[styles.tr, highlight?.(r) && {backgroundColor: colors.card}]}>
+                        {columns.map((c) => {
+                            const v = c.render ? c.render(r, i) : r[c.key];
+                            return (
+                                <T key={c.key} variant="body" numberOfLines={1} style={[styles.td, {width: c.width, textAlign: c.align ?? 'left'}]}>{v}</T>
+                            );
+                        })}
+                    </View>
+                ))}
+            </View>
+        </ScrollView>
+    );
+});
 
 const SKATER_GAME_COLS = [
     {key: 'date', title: 'Date', width: 52, render: (g) => String(g.gameDate ?? '').slice(5).replace('-', '/')},
@@ -468,9 +548,7 @@ export const RecentGames = memo(function RecentGames({log, goalie}) {
     if (!rows.length) return null;
     return (
         <Section title={`Last ${rows.length} games`}>
-            <Card style={styles.tableCard}>
-                <DataTable columns={goalie ? GOALIE_GAME_COLS : SKATER_GAME_COLS} rows={rows} keyExtractor={gameKey}/>
-            </Card>
+            <PlainTable columns={goalie ? GOALIE_GAME_COLS : SKATER_GAME_COLS} rows={rows} keyExtractor={gameKey}/>
         </Section>
     );
 });
@@ -511,42 +589,53 @@ export const CareerTable = memo(function CareerTable({rows, career, goalie, high
     if (!rows?.length) return null;
     return (
         <Section title="NHL career">
-            <Card style={styles.tableCard}>
-                <DataTable
-                    columns={goalie ? GOALIE_CAREER_COLS : SKATER_CAREER_COLS}
-                    rows={all}
-                    keyExtractor={careerKey}
-                    highlight={(s) => s._career || String(s.season) === String(highlightSeason)}
-                />
-            </Card>
+            <PlainTable
+                columns={goalie ? GOALIE_CAREER_COLS : SKATER_CAREER_COLS}
+                rows={all}
+                keyExtractor={careerKey}
+                highlight={(s) => s._career || String(s.season) === String(highlightSeason)}
+            />
         </Section>
     );
 });
+
+// Stat block (no card): 20pt SemiBold value over a 16pt half-opacity label, 4px vertical padding.
+const MINI_HEIGHT = 30 + 26 + 20;
 
 const styles = StyleSheet.create({
     flex: {flex: 1},
     flexShrink: {flexShrink: 1},
     right: {alignItems: 'flex-end'},
-    hero: {
-        borderRadius: 24,
-        padding: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 16,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    heroStripe: {position: 'absolute', left: 0, top: 0, bottom: 0, width: 5},
-    bio: {paddingVertical: 4},
-    bioRow: {flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 10, gap: 12},
-    bioLabel: {width: 64, paddingTop: 1},
-    grid: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
-    mini: {flexGrow: 1, flexBasis: '30%', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12},
+    semibold: {fontFamily: 'Sora_600SemiBold'},
+    half: {opacity: 0.5},
+    small: {fontSize: 14, lineHeight: 19},
+    big: {fontFamily: 'Sora_600SemiBold', fontSize: 24, lineHeight: 30, fontVariant: ['tabular-nums']},
+    mid: {fontFamily: 'Sora_600SemiBold', fontSize: 20, lineHeight: 26, fontVariant: ['tabular-nums']},
+    divider: {height: 2, opacity: 0.2, marginVertical: 0},
+    badge: {borderRadius: 15, paddingHorizontal: 10, paddingVertical: 4},
+    hero: {flexDirection: 'row', alignItems: 'center', paddingVertical: 10},
+    heroShot: {borderWidth: 3, marginRight: 20},
+    bioRow: {flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 6, gap: 12},
+    bioLabel: {width: 72, paddingTop: 2},
+    grid: {flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, rowGap: 10},
+    headline: {flexDirection: 'row', borderRadius: 15, paddingVertical: 16},
+    headCell: {flex: 1, alignItems: 'center', paddingHorizontal: 4, gap: 2},
+    headValue: {fontFamily: 'Sora_700Bold', fontSize: 26, lineHeight: 32, fontVariant: ['tabular-nums']},
+    statGroup: {marginTop: 18},
+    groupTitle: {fontFamily: 'Sora_600SemiBold', letterSpacing: 0.8, marginBottom: 8},
+    tabular: {fontVariant: ['tabular-nums']},
+    projGrid: {flexDirection: 'row', gap: 10},
+    projTile: {flex: 1, borderRadius: 10, paddingVertical: 15, paddingLeft: 20, paddingRight: 10},
+    projValue: {fontFamily: 'Sora_600SemiBold', fontSize: 28, lineHeight: 34, fontVariant: ['tabular-nums'], marginTop: 4},
+    mini: {flexGrow: 1, flexBasis: '30%', borderRadius: 10, paddingVertical: 15, paddingLeft: 20, paddingRight: 8},
+    miniValue: {fontFamily: 'Sora_600SemiBold', fontSize: 20, lineHeight: 26, fontVariant: ['tabular-nums']},
+    miniLabel: {fontFamily: 'Sora_400Regular', opacity: 0.5},
     miniSkeleton: {flexGrow: 1, flexBasis: '30%'},
-    tileRow: {flexDirection: 'row', gap: 8, marginTop: 8},
-    tile: {borderRadius: 16, padding: 14},
-    projRow: {gap: 2},
-    tableCard: {paddingVertical: 4},
+    tileRow: {flexDirection: 'row', gap: 16, marginTop: 20},
+    tableInner: {paddingHorizontal: 0},
+    tr: {flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, minHeight: 40, borderRadius: 10},
+    th: {fontFamily: 'Sora_600SemiBold', fontSize: 14, lineHeight: 18, opacity: 0.5},
+    td: {fontFamily: 'Sora_600SemiBold', fontVariant: ['tabular-nums']},
     chartTabs: {marginBottom: 10},
     noPad: {paddingHorizontal: 0},
 });

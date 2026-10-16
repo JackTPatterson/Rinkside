@@ -11,7 +11,7 @@ export const mpUrls = {
     prediction: (gameId) => `${MP}/predictions/${gameId}.csv`,
     gameData: (seasonId, gameId) => `${MP}/gameData/${seasonId}/${gameId}.csv`,
     startingGoalie: (gameId, side /* 'H' | 'A' */) => `${MP}/tweets/starting_goalies/${gameId}${side}.csv`,
-    goalieSeason: (seasonId) => `${MP}/playerData/seasonSummary/${moneyPuckYear(seasonId)}_goalies.csv`,
+    goalieSeason: (seasonId) => `${MP}/playerData/seasonSummary/${moneyPuckYear(seasonId)}/regular/goalies.csv`,
     teamGameByGame: (team, seasonId) => `${MP}/playerData/teamGameByGame/${moneyPuckYear(seasonId)}/regular/${team}.csv`,
     simulations: () => `${MP}/simulations/simulations_recent.csv`,
     powerRankings: (date /* YYYY_MM_DD (underscores, as MoneyPuck names snapshots) or undefined */) =>
@@ -49,25 +49,42 @@ export async function preGameHomeWinProb(gameId) {
     return Number.isFinite(v) ? v : null;
 }
 
-/** Starting goalie for one side plus MoneyPuck season stats, or null. */
-export async function startingGoalieWithStats(gameId, side, seasonId) {
-    const rows = await safe(moneypuck.startingGoalie(gameId, side));
+function goalieStats(s) {
+    if (!s) return null;
+    const minutes = Number(s.icetime) / 60;
+    return {
+        gamesPlayed: Number(s.games_played),
+        goalsAgainst: Number(s.goals),
+        shotsAgainst: Number(s.ongoal),
+        xGoalsAgainst: Number(s.xGoals),
+        gaa: minutes > 0 ? (Number(s.goals) * 60) / minutes : null,
+        savePct: s.ongoal > 0 ? (Number(s.ongoal) - Number(s.goals)) / Number(s.ongoal) : null,
+        gsax: Number(s.xGoals) - Number(s.goals),
+    };
+}
+
+const fold = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+
+/**
+ * Starting goalie for one side plus MoneyPuck season stats, or null. `report` (DailyFaceoff's
+ * {name, strength} for this side) adds how sure the start is, and wins when it names someone else
+ * and is confirmed (MoneyPuck's file can lag a late change).
+ * Result: {id, name, status: 'Confirmed' | 'Likely' | 'Projected', stats}.
+ */
+export async function startingGoalieWithStats(gameId, side, seasonId, report) {
+    const [rows, all] = await Promise.all([safe(moneypuck.startingGoalie(gameId, side)), safe(moneypuck.goalieSeason(seasonId))]);
+    const season = (all ?? []).filter((r) => r.situation === 'all');
     const g = rows?.[0];
-    if (!g?.goalie_id) return null;
-    const all = await safe(moneypuck.goalieSeason(seasonId));
-    const s = all?.find((r) => String(r.playerId) === String(g.goalie_id) && r.situation === 'all');
-    const goalie = {id: g.goalie_id, name: g.goalie_name, confirmedBy: g.handle ?? null, stats: null};
-    if (s) {
-        const minutes = Number(s.icetime) / 60;
-        goalie.stats = {
-            gamesPlayed: Number(s.games_played),
-            goalsAgainst: Number(s.goals),
-            shotsAgainst: Number(s.ongoal),
-            xGoalsAgainst: Number(s.xGoals),
-            gaa: minutes > 0 ? (Number(s.goals) * 60) / minutes : null,
-            savePct: s.ongoal > 0 ? (Number(s.ongoal) - Number(s.goals)) / Number(s.ongoal) : null,
-            gsax: Number(s.xGoals) - Number(s.goals),
-        };
+    let goalie = g?.goalie_id ? {id: g.goalie_id, name: g.goalie_name, status: g.handle ? 'Confirmed' : 'Projected'} : null;
+    const reported = report?.name ? fold(report.name) : null;
+    if (reported && (!goalie || (fold(goalie.name) !== reported && report.strength === 'Confirmed'))) {
+        const match = season.find((r) => fold(r.name) === reported);
+        goalie = {id: match?.playerId ?? null, name: report.name, status: 'Projected'};
     }
+    if (!goalie) return null;
+    if (reported && fold(goalie.name) === reported && goalie.status !== 'Confirmed') {
+        goalie.status = report.strength === 'Confirmed' ? 'Confirmed' : report.strength === 'Likely' ? 'Likely' : 'Projected';
+    }
+    goalie.stats = goalieStats(season.find((r) => String(r.playerId) === String(goalie.id)));
     return goalie;
 }

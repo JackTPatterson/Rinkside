@@ -1,31 +1,32 @@
-import React, {memo, useCallback, useMemo} from 'react';
+import React, {memo, useCallback, useMemo, useState} from 'react';
 import {FlatList, Pressable, StyleSheet, View} from 'react-native';
 import {headshotUrl} from '../../api/nhl';
-import {EmptyState, ErrorState, Headshot, Skeleton, T} from '../../components/ui';
-import {useAppTheme} from '../../theme';
+import {EmptyState, ErrorState, Headshot, Segmented, Skeleton, T} from '../../components/ui';
+import LinesView from '../fan/LinesView';
+import {GUTTER, useAppTheme} from '../../theme';
 import {loc} from '../../utils/format';
 import {playerName, rosterGroups} from './data';
 
-const CARD_W = 116;
-const CARD_GAP = 8;
-const SIDE = 16;
+const CARD_W = 120;
+const CARD_GAP = 0;
+const SIDE = GUTTER;
 const keyExtractor = (p, i) => String(p?.id ?? i);
 // Fixed-width cards: offsets include the leading padding and the gap after each card.
 const getItemLayout = (_, index) => ({length: CARD_W + CARD_GAP, offset: SIDE + (CARD_W + CARD_GAP) * index, index});
 
 const PlayerCard = memo(function PlayerCard({player, abbrev, onPress}) {
-    const {colors, teamColor} = useAppTheme();
+    const {colors} = useAppTheme();
     const uri = player?.headshot ?? (player?.id ? headshotUrl(player.id, abbrev) : undefined);
     return (
         <Pressable
             accessibilityRole="button"
             accessibilityLabel={playerName(player)}
             onPress={() => onPress(player)}
-            style={({pressed}) => [styles.card, {backgroundColor: colors.card}, pressed && styles.pressed]}>
-            <Headshot uri={uri} size={72} borderColor={teamColor(abbrev)}/>
-            <T variant="heading" style={styles.num}>{player?.sweaterNumber != null ? `#${player.sweaterNumber}` : '–'}</T>
-            <T variant="caption" muted numberOfLines={1}>{loc(player?.firstName)}</T>
-            <T variant="label" numberOfLines={1}>{loc(player?.lastName)}</T>
+            style={({pressed}) => [styles.card, pressed && styles.pressed]}>
+            <Headshot uri={uri} size={80} borderColor={colors.text} style={[styles.headshot, {backgroundColor: colors.card}]}/>
+            <T variant="title" style={styles.num}>{player?.sweaterNumber != null ? `#${player.sweaterNumber}` : '–'}</T>
+            <T variant="caption" muted numberOfLines={1} style={styles.first}>{loc(player?.firstName)}</T>
+            <T variant="body" numberOfLines={1} style={styles.semi}>{loc(player?.lastName)}</T>
             <T variant="caption" muted>{player?.positionCode ?? ' '}</T>
         </Pressable>
     );
@@ -51,7 +52,24 @@ const RosterRow = memo(function RosterRow({players, abbrev, onOpenPlayer}) {
     );
 });
 
-function RosterTab({abbrev, roster, loading, error, onRetry, onOpenPlayer}) {
+const VIEWS = [{key: 'lines', label: 'Lines'}, {key: 'roster', label: 'Roster'}];
+
+/** Roster tab: projected lines (default) or the full roster by position. */
+function RosterTab({lines, onOpenPlayerId, ...rest}) {
+    const [view, setView] = useState('lines');
+    return (
+        <View>
+            <Segmented options={VIEWS} value={view} onChange={setView} style={styles.switcher}/>
+            {view === 'lines' ? (
+                <View style={styles.pad}>
+                    <LinesView lines={lines?.data} team={rest.abbrev} loading={lines?.loading} error={lines?.error} onRetry={lines?.refresh} onPlayer={onOpenPlayerId}/>
+                </View>
+            ) : <Roster {...rest}/>}
+        </View>
+    );
+}
+
+function Roster({abbrev, roster, loading, error, onRetry, onOpenPlayer}) {
     const groups = useMemo(() => rosterGroups(roster), [roster]);
 
     if (loading && !roster) {
@@ -59,9 +77,9 @@ function RosterTab({abbrev, roster, loading, error, onRetry, onOpenPlayer}) {
             <View style={styles.pad}>
                 {[0, 1, 2].map((i) => (
                     <View key={i} style={styles.skelBlock}>
-                        <Skeleton width={120} height={24}/>
+                        <Skeleton width={120} height={20} radius={15}/>
                         <View style={styles.skelRow}>
-                            {[0, 1, 2].map((j) => <Skeleton key={j} width={CARD_W} height={182} radius={16}/>)}
+                            {[0, 1, 2].map((j) => <Skeleton key={j} width={80} height={80} radius={40} style={styles.skelHead}/>)}
                         </View>
                     </View>
                 ))}
@@ -75,8 +93,8 @@ function RosterTab({abbrev, roster, loading, error, onRetry, onOpenPlayer}) {
         <View>
             {groups.map((g) => (g.players.length ? (
                 <View key={g.key} style={styles.section}>
-                    <T variant="heading" style={styles.groupTitle}>
-                        {g.title} <T variant="heading" muted>{g.players.length}</T>
+                    <T variant="body" style={[styles.groupTitle, styles.semi]}>
+                        {g.title} <T variant="body" muted style={styles.semi}>{g.players.length}</T>
                     </T>
                     <RosterRow players={g.players} abbrev={abbrev} onOpenPlayer={onOpenPlayer}/>
                 </View>
@@ -88,13 +106,18 @@ function RosterTab({abbrev, roster, loading, error, onRetry, onOpenPlayer}) {
 export default memo(RosterTab);
 
 const styles = StyleSheet.create({
-    pad: {paddingHorizontal: 16},
-    section: {marginTop: 16},
-    groupTitle: {paddingHorizontal: 16, marginBottom: 10},
+    pad: {paddingHorizontal: GUTTER},
+    switcher: {marginHorizontal: GUTTER, marginBottom: 4},
+    semi: {fontFamily: 'Sora_600SemiBold'},
+    section: {marginTop: 20},
+    groupTitle: {paddingHorizontal: GUTTER, marginBottom: 10},
     rowContent: {paddingHorizontal: SIDE, gap: CARD_GAP},
-    card: {width: CARD_W, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center'},
+    card: {width: CARD_W, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center'},
+    headshot: {borderWidth: 3},
     pressed: {opacity: 0.7, transform: [{scale: 0.97}]},
-    num: {marginTop: 8},
-    skelBlock: {marginTop: 16, gap: 10},
-    skelRow: {flexDirection: 'row', gap: CARD_GAP},
+    num: {marginTop: 10},
+    first: {marginTop: 2},
+    skelBlock: {marginTop: 20, gap: 10},
+    skelRow: {flexDirection: 'row', gap: 40},
+    skelHead: {marginLeft: 20},
 });

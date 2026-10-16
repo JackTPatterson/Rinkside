@@ -1,17 +1,41 @@
 import React, {memo, useCallback, useMemo} from 'react';
-import {StyleSheet, View} from 'react-native';
+import {Pressable, StyleSheet, View} from 'react-native';
 import {isFinal, isLive} from '../../api/nhl';
-import {Badge, Card, EmptyState, ErrorState, FadeInView, InfoTip, LiveDot, Row, Section, Skeleton, SkeletonList, SplitBar, T, TeamLogo} from '../../components/ui';
+import {Badge, EmptyState, ErrorState, FadeInView, LiveDot, Row, Section, Skeleton, SkeletonList, SplitBar, T, TeamLogo} from '../../components/ui';
 import {useNow} from '../../hooks/useQuery';
-import {useAppTheme} from '../../theme';
+import {GUTTER, useAppTheme} from '../../theme';
 import {countdown, formatTime, isSameDay, loc, pct, periodLabel, relativeDayLabel} from '../../utils/format';
+import {useMoneyPuckProb} from '../scores/GameCard';
 import {finalSuffix, gamePrediction, gameTime, resultFor, sides} from './data';
-
-const WIN_INFO = 'Chance to win from the Rinkside game model: a model estimate built from each team’s goals for and against this season (pulled toward league average early on) plus home ice. MoneyPuck’s number, when shown, comes from their own shot-quality model.';
 
 function teamWinProb(pred, isHome) {
     if (!pred) return null;
     return isHome ? pred.homeWin : pred.awayWin;
+}
+
+/* ------------------------------------------------------------ shared bits */
+
+// Old Match-card building blocks: logo (70x50 at .7 scale) over the abbrev.
+function Side({abbrev}) {
+    return (
+        <View style={styles.side}>
+            <TeamLogo abbrev={abbrev} size={35}/>
+            <T variant="body" numberOfLines={1}>{abbrev ?? '–'}</T>
+        </View>
+    );
+}
+
+function Prob({value, align}) {
+    return (
+        <T variant="body" numberOfLines={1} style={[styles.prob, {textAlign: align}]}>
+            {value != null ? pct(value) : ''}
+        </T>
+    );
+}
+
+function Divider() {
+    const {colors} = useAppTheme();
+    return <View style={[styles.divider, {backgroundColor: colors.text}]}/>;
 }
 
 /* ------------------------------------------------------------ hero card */
@@ -29,14 +53,14 @@ function HeroCenter({game, start}) {
         const pd = game?.periodDescriptor;
         const clock = game?.clock?.inIntermission ? 'INT' : game?.clock?.timeRemaining;
         return (
+            // Plain text, no pills (same treatment as the date/time): score, then period · clock.
             <View style={styles.center}>
-                <T variant="display" style={styles.tabular}>{game?.awayTeam?.score ?? 0} – {game?.homeTeam?.score ?? 0}</T>
-                <Row gap={6}>
-                    <LiveDot/>
-                    <T variant="caption" muted style={styles.tabular}>
-                        {pd?.number ? periodLabel(pd.number, pd.periodType) : 'Live'}{clock ? ` · ${clock}` : ''}
-                    </T>
-                </Row>
+                <T variant="body" numberOfLines={1} style={styles.rowScore}>
+                    {game?.awayTeam?.score ?? 0}–{game?.homeTeam?.score ?? 0}
+                </T>
+                <T variant="caption" muted numberOfLines={1} style={styles.tabular}>
+                    {pd?.number ? periodLabel(pd.number, pd.periodType) : 'Live'}{clock ? ` · ${clock}` : ''}
+                </T>
             </View>
         );
     }
@@ -45,26 +69,17 @@ function HeroCenter({game, start}) {
         <View style={styles.center}>
             {today ? (
                 <>
+                    {/* Kept as designed at HEAD: "Puck drop in" countdown block. */}
                     <T variant="caption" muted>Puck drop in</T>
                     <Countdown start={start}/>
                     <T variant="caption" muted>{formatTime(start)}</T>
                 </>
             ) : (
                 <>
-                    <T variant="label">{start ? relativeDayLabel(start) : 'TBD'}</T>
-                    <T variant="stat">{start ? formatTime(start) : '–'}</T>
+                    <T variant="caption" muted numberOfLines={1} style={styles.rowDay}>{start ? relativeDayLabel(start) : 'TBD'}</T>
+                    <T variant="body" numberOfLines={1} adjustsFontSizeToFit style={styles.rowTime}>{start ? formatTime(start) : '–'}</T>
                 </>
             )}
-        </View>
-    );
-}
-
-function HeroSide({team, prob}) {
-    return (
-        <View style={styles.side}>
-            <TeamLogo abbrev={team?.abbrev} size={44}/>
-            <T variant="label" numberOfLines={1} style={styles.sideAbbrev}>{team?.abbrev ?? '–'}</T>
-            {prob != null ? <T variant="caption" muted style={styles.tabular}>{pct(prob)}</T> : <View style={styles.probSpacer}/>}
         </View>
     );
 }
@@ -83,76 +98,100 @@ export const NextGameCard = memo(function NextGameCard({game, abbrev, mpHomeProb
     const title = live ? 'Live now' : today ? 'Today’s game' : 'Next game';
     const venue = loc(game?.venue);
     const onPress = useCallback(() => onOpenGame(game), [onOpenGame, game]);
+    const showProb = !live && homeP != null;
 
     return (
-        <Card onPress={onPress} accessibilityLabel={`${title}: ${away?.abbrev ?? 'TBD'} at ${home?.abbrev ?? 'TBD'}`} style={styles.hero}>
-            <Row style={styles.heroTop}>
-                <T variant="label" color={live ? colors.live : undefined}>{title.toUpperCase()}</T>
-                {venue ? <T variant="caption" muted numberOfLines={1} style={styles.venue}>{venue}</T> : null}
-            </Row>
-            <Row style={styles.heroMain}>
-                <HeroSide team={away} prob={homeP != null && !live ? 1 - homeP : null}/>
-                <HeroCenter game={game} start={start}/>
-                <HeroSide team={home} prob={homeP != null && !live ? homeP : null}/>
-            </Row>
-            {!live && homeP != null ? (
-                <View style={styles.probBlock}>
-                    <SplitBar left={1 - homeP} leftColor={teamColor(away?.abbrev)} rightColor={teamColor(home?.abbrev)} height={8}/>
-                    <Row style={styles.probCaption}>
-                        <T variant="caption" muted style={styles.flex}>
-                            {abbrev} win chance {pct(ourP)}{hasMP && pred ? ` · Rinkside model ${pct(teamWinProb(pred, isHome))}` : ''}
-                        </T>
-                        <InfoTip title={hasMP ? 'MoneyPuck win probability' : 'Win probability'} body={WIN_INFO} size={14}/>
-                    </Row>
-                    <T variant="caption" muted>{hasMP ? 'Source: MoneyPuck pregame model' : 'Source: Rinkside model estimate'}</T>
+        <View>
+            {live ? (
+                // Compact live marker instead of a big red title.
+                <Row gap={6} style={styles.liveHead}>
+                    <LiveDot size={8}/>
+                    <T variant="label" color={colors.live} style={styles.liveText}>Live now</T>
+                </Row>
+            ) : (
+                <T variant="title" style={styles.heroTitle}>{title}</T>
+            )}
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${title}: ${away?.abbrev ?? 'TBD'} at ${home?.abbrev ?? 'TBD'}`}
+                onPress={onPress}
+                style={({pressed}) => [styles.card, pressed && styles.pressed]}>
+                <View style={styles.match}>
+                    <Side abbrev={away?.abbrev}/>
+                    <Prob value={showProb ? 1 - homeP : null} align="right"/>
+                    <HeroCenter game={game} start={start}/>
+                    <Prob value={showProb ? homeP : null} align="left"/>
+                    <Side abbrev={home?.abbrev}/>
                 </View>
-            ) : null}
-        </Card>
+                {venue ? <T variant="caption" muted numberOfLines={1} style={styles.venue}>{venue}</T> : null}
+                {showProb ? (
+                    <View style={styles.probBlock}>
+                        <SplitBar left={1 - homeP} leftColor={teamColor(away?.abbrev)} rightColor={teamColor(home?.abbrev)} height={8}/>
+                        <Row style={styles.probCaption}>
+                            <T variant="caption" muted style={styles.flex}>{abbrev} win chance {pct(ourP)}</T>
+                        </Row>
+                    </View>
+                ) : null}
+            </Pressable>
+        </View>
     );
 });
 
 /* ------------------------------------------------------------ week rows */
 
 const GameRow = memo(function GameRow({game, abbrev, winProb, onOpenGame}) {
-    const {colors, teamColor} = useAppTheme();
+    const {colors} = useAppTheme();
     const onPress = useCallback(() => onOpenGame(game), [onOpenGame, game]);
     const start = gameTime(game);
     const {isHome, opp, us, them} = sides(game, abbrev);
     const result = resultFor(game, abbrev);
     const live = isLive(game);
+    const final = isFinal(game);
     const resultColor = result === 'W' ? colors.positive : result === 'OTL' ? colors.warning : colors.negative;
+    const away = game?.awayTeam;
+    const home = game?.homeTeam;
+    // Home win chance: MoneyPuck first (backtested better), our model only when MoneyPuck has none.
+    const mp = useMoneyPuckProb(game);
+    const ours = winProb == null ? null : isHome ? winProb : 1 - winProb;
+    const homeP = mp ?? ours;
+    const showProb = homeP != null && !final && !live;
+    const status = final ? `Final${finalSuffix(game)}` : live ? 'Live' : start ? formatTime(start) : '–';
     return (
-        <Card
+        <Pressable
+            accessibilityRole="button"
             onPress={onPress}
-            style={styles.row}
+            style={({pressed}) => [styles.card, pressed && styles.pressed]}
             accessibilityLabel={`${start ? relativeDayLabel(start) : 'TBD'}, ${isHome ? 'versus' : 'at'} ${opp ?? 'TBD'}${result ? `, ${result} ${us?.score ?? ''}–${them?.score ?? ''}` : ''}`}>
-            <View style={[styles.rowStripe, {backgroundColor: teamColor(opp)}]}/>
-            <View style={styles.rowDate}>
-                <T variant="label" numberOfLines={1}>{start ? relativeDayLabel(start) : 'TBD'}</T>
-                <T variant="caption" muted numberOfLines={1}>{isFinal(game) ? `Final${finalSuffix(game)}` : live ? 'Live' : start ? formatTime(start) : ''}</T>
-            </View>
-            <Row gap={6} style={styles.flex}>
-                <T variant="caption" muted>{isHome ? 'vs' : '@'}</T>
-                <TeamLogo abbrev={opp} size={26}/>
-                <T variant="label" numberOfLines={1}>{opp ?? 'TBD'}</T>
-            </Row>
-            {result ? (
-                <Row gap={8}>
-                    <T variant="label" style={styles.tabular}>{us?.score ?? '–'}–{them?.score ?? '–'}</T>
-                    <Badge label={result} color={resultColor}/>
-                </Row>
-            ) : live ? (
-                <Row gap={6}>
-                    <LiveDot/>
-                    <T variant="label" style={styles.tabular}>{us?.score ?? 0}–{them?.score ?? 0}</T>
-                </Row>
-            ) : winProb != null ? (
-                <View style={styles.rowProb}>
-                    <T variant="label" style={styles.tabular}>{pct(winProb)}</T>
-                    <T variant="caption" muted>win</T>
+            <View style={styles.match}>
+                <Side abbrev={away?.abbrev}/>
+                <Prob value={showProb ? 1 - homeP : null} align="right"/>
+                <View style={styles.rowCenter}>
+                    <T variant="caption" muted numberOfLines={1} style={styles.rowDay}>{start ? relativeDayLabel(start) : 'TBD'}</T>
+                    {final || live ? (
+                        <>
+                            {/* Fixed size (no shrink-to-fit: with a lineHeight iOS can collapse it to the minimum scale). */}
+                            <T variant="body" numberOfLines={1} style={styles.rowScore}>
+                                {`${away?.score ?? 0}–${home?.score ?? 0}`}
+                            </T>
+                            {/* Result pill / live dot sit centred with the status, not pinned to a corner. */}
+                            <Row gap={6} style={styles.rowStatus}>
+                                {live ? <LiveDot size={6}/> : null}
+                                {/* One pill: "Win" / "Loss" (with OT / SO when it went past regulation), or the live status. */}
+                                {final && result ? (
+                                    <Badge label={`${result === 'W' ? 'Win' : 'Loss'}${finalSuffix(game) ? ` ·${finalSuffix(game)}` : ''}`} color={resultColor}/>
+                                ) : (
+                                    <Badge label={status} color={colors.card} textColor={colors.textSecondary}/>
+                                )}
+                            </Row>
+                        </>
+                    ) : (
+                        <T variant="body" numberOfLines={1} adjustsFontSizeToFit style={styles.rowTime}>{status}</T>
+                    )}
                 </View>
-            ) : null}
-        </Card>
+                <Prob value={showProb ? homeP : null} align="left"/>
+                <Side abbrev={home?.abbrev}/>
+            </View>
+        </Pressable>
     );
 });
 
@@ -185,9 +224,10 @@ function ScheduleTab({abbrev, games, loading, error, onRetry, hero, heroFromSeas
     if (loading && !games) {
         return (
             <View style={styles.pad}>
-                <Skeleton height={210} radius={16}/>
-                <Skeleton height={24} width={120} style={styles.mt24}/>
-                <SkeletonList count={3} height={58} style={styles.mt12}/>
+                <Skeleton height={30} width={180} radius={15}/>
+                <Skeleton height={140} radius={15} style={styles.mt10}/>
+                <Skeleton height={30} width={160} radius={15} style={styles.mt24}/>
+                <SkeletonList count={3} height={64} gap={22} style={styles.mt12}/>
             </View>
         );
     }
@@ -208,17 +248,19 @@ function ScheduleTab({abbrev, games, loading, error, onRetry, hero, heroFromSeas
             ) : (
                 <EmptyState title="No upcoming games" message="Nothing on the schedule right now."/>
             )}
-            <Section title="This week" info={rest.some((g) => preds[g.id]) ? WIN_INFO : undefined}>
+            <Section title="This week">
                 {rest.length ? (
                     <View style={styles.list}>
                         {rest.map((g, i) => (
-                            <GameRow
-                                key={g.id ?? `idx-${i}`}
-                                game={g}
-                                abbrev={abbrev}
-                                winProb={teamWinProb(preds[g.id], sides(g, abbrev).isHome)}
-                                onOpenGame={onOpenGame}
-                            />
+                            <React.Fragment key={g.id ?? `idx-${i}`}>
+                                {i > 0 ? <Divider/> : null}
+                                <GameRow
+                                    game={g}
+                                    abbrev={abbrev}
+                                    winProb={teamWinProb(preds[g.id], sides(g, abbrev).isHome)}
+                                    onOpenGame={onOpenGame}
+                                />
+                            </React.Fragment>
                         ))}
                     </View>
                 ) : (
@@ -232,24 +274,30 @@ function ScheduleTab({abbrev, games, loading, error, onRetry, hero, heroFromSeas
 export default memo(ScheduleTab);
 
 const styles = StyleSheet.create({
-    pad: {paddingHorizontal: 16},
+    pad: {paddingHorizontal: GUTTER},
+    mt10: {marginTop: 10},
     mt12: {marginTop: 12},
     mt24: {marginTop: 24},
     tabular: {fontVariant: ['tabular-nums']},
-    probSpacer: {height: 16},
+    semi: {fontFamily: 'Sora_600SemiBold'},
     flex: {flex: 1},
-    hero: {padding: 16},
-    heroTop: {justifyContent: 'space-between', marginBottom: 12},
-    venue: {flexShrink: 1, marginLeft: 12, textAlign: 'right'},
-    heroMain: {justifyContent: 'space-between'},
-    side: {alignItems: 'center', width: 84, gap: 2},
-    sideAbbrev: {marginTop: 4},
-    center: {flex: 1, alignItems: 'center', gap: 2},
-    probBlock: {marginTop: 16, gap: 6},
+    heroTitle: {marginBottom: 10},
+    liveHead: {marginBottom: 8},
+    liveText: {fontFamily: 'Sora_600SemiBold', fontSize: 14, lineHeight: 18},
+    card: {paddingVertical: 10},
+    pressed: {opacity: 0.6},
+    divider: {height: 2, opacity: 0.2, marginVertical: 10},
+    match: {flexDirection: 'row', justifyContent: 'center', alignItems: 'center'},
+    side: {alignItems: 'center', width: 52},
+    center: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2},
+    prob: {width: 52, paddingHorizontal: 4, fontFamily: 'Sora_600SemiBold', fontVariant: ['tabular-nums']},
+    rowCenter: {width: 110, alignItems: 'center', justifyContent: 'center'},
+    rowDay: {textAlign: 'center'},
+    rowTime: {fontFamily: 'Sora_600SemiBold', fontSize: 18, lineHeight: 24, textAlign: 'center', fontVariant: ['tabular-nums']},
+    rowScore: {fontFamily: 'Sora_600SemiBold', fontSize: 26, lineHeight: 32, textAlign: 'center', fontVariant: ['tabular-nums']},
+    rowStatus: {justifyContent: 'center', marginTop: 2},
+    venue: {textAlign: 'center', marginTop: 10},
+    probBlock: {marginTop: 10, gap: 6},
     probCaption: {justifyContent: 'space-between'},
-    list: {gap: 8},
-    row: {flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingLeft: 0, overflow: 'hidden'},
-    rowStripe: {width: 4, alignSelf: 'stretch', borderRadius: 2},
-    rowDate: {width: 104},
-    rowProb: {alignItems: 'flex-end'},
+    list: {},
 });

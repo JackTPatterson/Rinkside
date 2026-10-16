@@ -1,20 +1,13 @@
-import React, {memo} from 'react';
-import {Modal, Pressable, ScrollView, StyleSheet, View} from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {InfoTip, T, TeamLogo, tap} from '../../components/ui';
-import {ArrowRight2, CloseCircle} from '../../components/icons';
+import React, {memo, useRef} from 'react';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {Sheet, T, TeamLogo, tap} from '../../components/ui';
+import {ArrowRight2, Close} from '../../components/icons';
 import {getTeam} from '../../data/teams';
-import {useAppTheme, withAlpha} from '../../theme';
+import {GUTTER, useAppTheme} from '../../theme';
 import {pct} from '../../utils/format';
-import {AnimatedBar} from './shared';
+import {AnimatedBar, Divider, type} from './shared';
+import {PlayoffBar, StopValues} from './PlayoffBar';
 
-const OVERALL = [
-    ['madePlayoffs', 'Make playoffs'],
-    ['round2', 'Reach second round'],
-    ['round3', 'Reach conference final'],
-    ['round4', 'Reach Stanley Cup Final'],
-    ['wonCup', 'Win the Cup'],
-];
 const ROUNDS = [
     [1, 'First round'],
     [2, 'Second round'],
@@ -22,51 +15,46 @@ const ROUNDS = [
     [4, 'Stanley Cup Final'],
 ];
 
-const SERIES_INFO = 'MoneyPuck simulates the rest of the season and playoffs thousands of times. ' +
-    'Each number is the share of simulations where the team wins that series in exactly that many games. ' +
-    'These are model estimates, not certainties.';
-
+// Old Rinkside PCTStat: label left, percentage in a card pill right, 10pt team-colour bar under.
 const OddsLine = memo(function OddsLine({label, value, color, delay}) {
+    const {colors} = useAppTheme();
     return (
         <View style={st.line}>
             <View style={st.lineTop}>
-                <T variant="body">{label}</T>
-                <T variant="label">{pct(value, value != null && value < 0.01 && value > 0 ? 1 : 0)}</T>
+                <T style={st.lineLabel} numberOfLines={1}>{label}</T>
+                <View style={[st.pctPill, {backgroundColor: colors.card}]}>
+                    <T style={st.pctText}>{pct(value, value != null && value < 0.01 && value > 0 ? 1 : 0)}</T>
+                </View>
             </View>
-            <AnimatedBar value={value} color={color} delay={delay}/>
+            <AnimatedBar value={value} color={color} delay={delay} track={colors.card} height={6}/>
         </View>
     );
 });
 
-function SeriesGrid({odds, color}) {
+/**
+ * Series wins, kept simple: per round, the chance to win that series and the likeliest length.
+ * (The per-length split is in the data; only the most likely one is worth showing.)
+ */
+function SeriesGrid({odds}) {
     const {colors} = useAppTheme();
     const rounds = ROUNDS.filter(([r]) => [4, 5, 6, 7].some((g) => odds[`round${r}Winin${g}`] != null));
     if (!rounds.length) return null;
+    const fmt = (v) => (v > 0 && v < 0.01 ? '<1%' : pct(v));
     return (
-        <View style={{marginTop: 20}}>
-            <View style={st.lineTop}>
-                <View style={st.titleRow}>
-                    <T variant="heading">Series wins by length</T>
-                    <InfoTip title="Series wins by length" body={SERIES_INFO}/>
-                </View>
-            </View>
-            {rounds.map(([r, label]) => {
+        <View>
+            <Divider style={st.divider}/>
+            <T variant="title" style={st.seriesTitle}>Series wins</T>
+            {rounds.map(([r, label], i) => {
                 const vals = [4, 5, 6, 7].map((g) => odds[`round${r}Winin${g}`] ?? 0);
-                const max = Math.max(0.0001, ...vals);
+                const total = vals.reduce((x, y) => x + y, 0);
+                const best = vals.indexOf(Math.max(...vals));
                 return (
-                    <View key={r} style={[st.round, {backgroundColor: colors.card}]}>
-                        <T variant="label" style={{marginBottom: 8}}>{label}</T>
-                        <View style={st.cols}>
-                            {vals.map((v, i) => (
-                                <View key={i} style={st.col}>
-                                    <View style={[st.colTrack, {backgroundColor: colors.cardAlt}]}>
-                                        <View style={{height: `${(v / max) * 100}%`, backgroundColor: withAlpha(color, 0.35 + 0.65 * (v / max)), borderRadius: 6}}/>
-                                    </View>
-                                    <T variant="caption">{pct(v, v > 0 && v < 0.01 ? 1 : 0)}</T>
-                                    <T variant="caption" muted>in {i + 4}</T>
-                                </View>
-                            ))}
+                    <View key={r} style={[st.sRow, i > 0 && {borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border}]}>
+                        <View style={st.flex}>
+                            <T style={type.value}>{label}</T>
+                            {total > 0 ? <T muted style={type.small}>Most likely in {best + 4} games</T> : null}
                         </View>
+                        <T style={[type.value, st.sPct]}>{fmt(total)}</T>
                     </View>
                 );
             })}
@@ -75,64 +63,87 @@ function SeriesGrid({odds, color}) {
 }
 
 /** Bottom sheet with one team's MoneyPuck playoff odds. odds: parsed simulations row. */
-export default function OddsSheet({odds, onClose, onOpenTeam}) {
+export default function OddsSheet({odds: incoming, onClose, onOpenTeam}) {
     const {colors, teamColor} = useAppTheme();
-    const insets = useSafeAreaInsets();
-    const visible = !!odds;
+    const visible = !!incoming;
+    // Keep the last team rendered while the sheet slides away.
+    const last = useRef(null);
+    if (incoming) last.current = incoming;
+    const odds = incoming ?? last.current;
+    // "Open team page" navigates only once the sheet has fully closed.
+    const pending = useRef(null);
     const abbrev = odds?.abbrev;
     const color = teamColor(abbrev);
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={[st.backdrop, {backgroundColor: colors.overlay}]} onPress={onClose} accessibilityLabel="Close"/>
+        <Sheet
+            visible={visible}
+            onClose={onClose}
+            onClosed={() => {
+                const fn = pending.current;
+                pending.current = null;
+                fn?.();
+            }}
+            style={st.sheet}>
             {odds ? (
-                <View style={[st.sheet, {backgroundColor: colors.background, paddingBottom: insets.bottom + 16}]}>
-                    <View style={[st.grabber, {backgroundColor: colors.border}]}/>
+                <View style={st.body}>
                     <View style={st.header}>
-                        <TeamLogo abbrev={abbrev} size={36}/>
+                        <TeamLogo abbrev={abbrev} size={44}/>
                         <View style={{flex: 1}}>
-                            <T variant="heading" numberOfLines={1}>{getTeam(abbrev)?.name ?? abbrev}</T>
-                            <T variant="caption" muted>MoneyPuck simulation odds</T>
+                            <T variant="title" numberOfLines={1}>{getTeam(abbrev)?.name ?? abbrev}</T>
+                            <T muted style={type.small}>Playoff odds</T>
                         </View>
                         <Pressable hitSlop={10} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
-                            <CloseCircle size={24} color={colors.textSecondary}/>
+                            <Close size={24} color={colors.textSecondary}/>
                         </Pressable>
                     </View>
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 8}}>
-                        {OVERALL.filter(([k]) => odds[k] != null).map(([k, label], i) => (
-                            <OddsLine key={k} label={label} value={odds[k]} color={color} delay={i * 60}/>
-                        ))}
-                        {odds.draftLottery != null ? (
-                            <OddsLine label="Win the draft lottery" value={odds.draftLottery} color={colors.textSecondary} delay={OVERALL.length * 60}/>
+                    <ScrollView showsVerticalScrollIndicator={false} alwaysBounceVertical={false} contentContainerStyle={{paddingBottom: 8}}>
+                        {odds.madePlayoffs != null ? (
+                            <View style={st.line}>
+                                <View style={st.lineTop}>
+                                    <T style={st.lineLabel}>Make playoffs</T>
+                                    <T style={st.bigPct}>{pct(odds.madePlayoffs, odds.madePlayoffs > 0 && odds.madePlayoffs < 0.01 ? 1 : 0)}</T>
+                                </View>
+                                <PlayoffBar odds={odds} height={8}/>
+                                <StopValues odds={odds}/>
+                            </View>
                         ) : null}
-                        <SeriesGrid odds={odds} color={color}/>
+                        {odds.draftLottery != null ? (
+                            <OddsLine label="Win the draft lottery" value={odds.draftLottery} color={colors.textSecondary} delay={0}/>
+                        ) : null}
+                        <SeriesGrid odds={odds}/>
                         <Pressable
                             accessibilityRole="button"
                             onPress={() => {
                                 tap();
-                                onOpenTeam(abbrev);
+                                pending.current = () => onOpenTeam(abbrev);
+                                onClose();
                             }}
                             style={({pressed}) => [st.cta, {backgroundColor: colors.text}, pressed && {opacity: 0.7}]}>
-                            <T variant="label" color={colors.background}>Open team page</T>
+                            <T color={colors.background} style={st.ctaText}>Open team page</T>
                             <ArrowRight2 size={16} color={colors.background}/>
                         </Pressable>
                     </ScrollView>
                 </View>
             ) : null}
-        </Modal>
+        </Sheet>
     );
 }
 
 const st = StyleSheet.create({
-    backdrop: {flex: 1},
-    sheet: {maxHeight: '82%', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 8},
-    grabber: {alignSelf: 'center', width: 40, height: 4, borderRadius: 2, marginBottom: 12},
-    header: {flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16},
-    line: {marginBottom: 16, gap: 8},
-    lineTop: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
-    titleRow: {flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12},
-    round: {borderRadius: 16, padding: 14, marginBottom: 10},
-    cols: {flexDirection: 'row', gap: 10},
-    col: {flex: 1, alignItems: 'center', gap: 4},
-    colTrack: {width: '100%', height: 56, borderRadius: 6, justifyContent: 'flex-end', overflow: 'hidden'},
-    cta: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, borderRadius: 999, marginTop: 12},
+    seriesTitle: {marginBottom: 6},
+    flex: {flex: 1},
+    sRow: {flexDirection: 'row', alignItems: 'center', paddingVertical: 10},
+    sPct: {fontFamily: 'Sora_700Bold', fontVariant: ['tabular-nums']},
+    sheet: {paddingHorizontal: GUTTER * 2},
+    body: {flexShrink: 1},
+    header: {flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20},
+    line: {marginBottom: 20},
+    bigPct: {fontFamily: 'Sora_700Bold', fontSize: 24, lineHeight: 30, fontVariant: ['tabular-nums']},
+    lineTop: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 10},
+    lineLabel: {fontFamily: 'Sora_400Regular', fontSize: 20, lineHeight: 26, flexShrink: 1},
+    pctPill: {borderRadius: 100, paddingHorizontal: 15, paddingVertical: 4},
+    pctText: {fontFamily: 'Sora_500Medium', fontSize: 20, lineHeight: 26, fontVariant: ['tabular-nums']},
+    divider: {marginHorizontal: 0, marginBottom: 20},
+    cta: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 15, borderRadius: 100, marginTop: 20},
+    ctaText: {fontFamily: 'Sora_600SemiBold', fontSize: 16, lineHeight: 22},
 });

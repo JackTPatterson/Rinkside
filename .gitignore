@@ -42,3 +42,6 @@ yarn-error.*
 .idea/
 *.swp
 .expo-export-check/
+
+# Backtest raw-response cache (scripts/backtest-models.mjs)
+scripts/.cache/
