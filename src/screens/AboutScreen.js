@@ -131,6 +131,16 @@ export default function AboutScreen({navigation}) {
                         <Bullet>No analytics, ads or tracking.</Bullet>
                         <Bullet>Your favourite team and cached stats are stored only on this device. Clear the cache any time in Settings.</Bullet>
                         <Bullet>The app talks directly to the NHL, MoneyPuck, Daily Faceoff and ESPN to fetch public data. Nothing about you is sent.</Bullet>
+                        <Pressable
+                            accessibilityRole="link"
+                            onPress={() => {
+                                tap();
+                                openLink(LINKS.privacy);
+                            }}
+                            style={({pressed}) => [styles.linkRow, pressed && styles.pressed]}>
+                            <Link size={16} color={colors.accent}/>
+                            <T variant="label" color={colors.accent}>Privacy policy</T>
+                        </Pressable>
                     </View>
                 </Section>
 

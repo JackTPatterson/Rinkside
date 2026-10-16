@@ -13,6 +13,7 @@ export const LINKS = {
     moneypuckData: 'https://moneypuck.com/data.htm',
     espn: 'https://www.espn.com/nhl/injuries',
     dailyfaceoff: 'https://www.dailyfaceoff.com',
+    privacy: 'https://www.jpdigital.studio/legal/rinkside/privacy',
 };
 
 export const MONEYPUCK_LOGO = 'https://peter-tanner.com/moneypuck/logos/moneypucklogo.png';
