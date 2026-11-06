@@ -83,6 +83,22 @@ Rules and limits:
 - Changing widget names, families or the plugin config needs a new native build (`expo prebuild`).
 - Text uses SF fonts and team colours (no logos): images must be written to `widgetsDirectory` first.
 
+## Live Rink, Game Pulse and share cards (game screen → Analytics)
+
+| Piece | Role |
+|---|---|
+| `game/liveRink.js` | **pure, unit-tested**: play-by-play → ordered events (home attacks left), tallies / score at time *t*, win-probability series and lookup |
+| `game/winProbSeries.js` | the one rule for the series: MoneyPuck's when it has one (same as the header), else the Rinkside model |
+| `game/LiveRink.js` | the tab: animated rink (xG-sized dots, goal shockwaves), win-prob strip, scrubber, replay at 30/90/240×, "Jump to live" |
+| `game/pulse.js` | **pure, unit-tested**: tension (0–1), heartbeat interval, goal/swing detection, haptic *plans* |
+| `game/usePulse.js` | maps plans onto expo-haptics; persisted on/off (`game:pulse`, default **off**); live goals/swings/heartbeat |
+| `game/shareFormat.js` | **pure, unit-tested** labels, goal lines, stat tiles, headline for the poster |
+| `game/ShareCard.js` + `ShareCardModal.js` | fixed 4:5 dark poster, captured at 1080×1350 with `react-native-view-shot`, shared with `expo-sharing` |
+
+- A live game opens the **Live Rink**; a finished game's is a **Replay** (it ends on the real result, shootouts included).
+- Haptics only run while the Live Rink tab is open on a *live* game, and during replay when you press play.
+- Both features need a native build (`react-native-view-shot`, `expo-sharing`, `expo-haptics`). Haptics do nothing on web.
+
 ## Checks
 
 ```
