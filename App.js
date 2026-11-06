@@ -14,8 +14,8 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import * as SplashScreen from 'expo-splash-screen';
 import {StatusBar} from 'expo-status-bar';
-import React, {useCallback, useEffect, useState} from 'react';
-import {Text, View} from 'react-native';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Linking, Text, View} from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -40,6 +40,8 @@ import StandingsScreen from './src/screens/StandingsScreen';
 import RadioBar from './src/radio/RadioBar';
 import {RadioProvider} from './src/radio/RadioProvider';
 import {ThemeProvider, useAppTheme} from './src/theme';
+import {parseWidgetUrl} from './src/widgets/links';
+import {useWidgetSync} from './src/widgets/useWidgetSync';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -129,6 +131,33 @@ function RootNavigator() {
         Sora_800ExtraBold,
     });
 
+    // Home/lock screen widgets and the game Live Activity follow the favourite team.
+    useWidgetSync(team);
+
+    // Widgets and Live Activities open rinkside://game/<id> or rinkside://standings.
+    const pendingUrl = useRef(null);
+    const openUrl = useCallback((url) => {
+        const link = parseWidgetUrl(url);
+        if (!link) return;
+        if (!navigationRef.isReady()) {
+            pendingUrl.current = url; // cold start: replayed from onReady
+            return;
+        }
+        if (link.type === 'game') navigationRef.navigate(ROUTES.game, {gameId: link.gameId});
+        else if (link.type === 'standings') navigationRef.navigate(ROUTES.tabs, {screen: ROUTES.standings});
+    }, []);
+    useEffect(() => {
+        Linking.getInitialURL().then((u) => u && openUrl(u)).catch(() => {});
+        const sub = Linking.addEventListener('url', ({url}) => openUrl(url));
+        return () => sub.remove();
+    }, [openUrl]);
+    const onNavReady = useCallback(() => {
+        syncRoute();
+        const url = pendingUrl.current;
+        pendingUrl.current = null;
+        if (url) openUrl(url);
+    }, [syncRoute, openUrl]);
+
     // Warm the caches the first tabs need while the splash screen is still up.
     useEffect(() => {
         nhl.standings().catch(() => {});
@@ -147,7 +176,7 @@ function RootNavigator() {
     return (
         <View style={{flex: 1, backgroundColor: theme.colors.background}} onLayout={onLayout}>
             <StatusBar style={theme.dark ? 'light' : 'dark'}/>
-            <NavigationContainer ref={navigationRef} theme={theme.navigation} onReady={syncRoute} onStateChange={syncRoute}>
+            <NavigationContainer ref={navigationRef} theme={theme.navigation} onReady={onNavReady} onStateChange={syncRoute}>
                 <Stack.Navigator
                     screenLayout={screenLayout}
                     screenOptions={{

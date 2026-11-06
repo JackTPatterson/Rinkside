@@ -16,6 +16,7 @@ src/
   hooks/useQuery.js        useQuery(fetcher, deps, {refetchInterval, keepPreviousData}), useNow()
   hooks/useLeague.js       standings + calibrated game-model ratings (memoised app-wide)
   hooks/useFavoriteTeam.js favourite team context (AsyncStorage)
+  widgets/                 iOS home/lock screen widgets + game Live Activity (expo-widgets), see below
   analytics/               pure-JS models, unit-tested with `npm test`
   components/ui.js         T, Screen, Header, BackButton, Card, Section, PillTabs, Segmented, InfoTip,
                            TeamLogo, Headshot, Skeleton(List), ErrorState, EmptyState, LiveDot, Badge,
@@ -53,10 +54,39 @@ src/
 | `detectStreak` / `formLine` | Is a hot/cold run signal or noise (Poisson tail probability); EWMA form |
 | `teamProfile` / `pythagorean` / `pdo` / `playoffLine` | Luck, pace, projected points, playoff-line cushion |
 
+## Widgets and Live Activity (iOS only)
+
+Built with `expo-widgets` (config plugin in `app.json`): layouts are JSX in `src/widgets/*Widget.js` and
+`GameLiveActivity.js`, rendered by SwiftUI in a generated widget extension. Needs a **dev/EAS build**, not Expo Go
+(`widgetModules()` returns null there, on Android and on web, and the app behaves as before).
+
+| Piece | Role |
+|---|---|
+| `NextGameWidget` | small/medium + lock screen (circular, rectangular, inline): puck-drop countdown → live score → final |
+| `TeamFormWidget` | small/medium: record, points, rank, L10, streak, 82-game point pace, goal diff |
+| `GameLiveActivity` | Lock Screen banner + Dynamic Island for the favourite team's live game |
+| `snapshot.js` | **pure, unit-tested**: picks the game, builds JSON props + timeline entries + Live Activity props |
+| `useWidgetSync.js` | in `App.js`: fetch → snapshot → `updateTimeline` / Live Activity, every 30 s live, 5 min otherwise |
+| `liveActivity.js` | start once per game at puck drop, update on change, end with the final score; Settings toggle |
+| `links.js` | `rinkside://game/<id>` and `rinkside://standings` deep links (handled in `App.js`) |
+
+Rules and limits:
+
+- **A `'widget'` function is serialised into a separate runtime.** No hooks, no async, no imports of your own
+  modules, no module-scope values: declare helpers *inside* the function and pass data through props.
+  Do the thinking in `snapshot.js`, not in the widget.
+- **Widgets can't fetch.** Data only moves while the app runs. Timeline entries carry their own expiry
+  (countdown flips to "Puck drop" at start time; a live score downgrades to "Open app to refresh" after 20 min).
+- **The Live Activity is updated by the app, not by a server.** It stays current while Rinkside is running
+  (foreground, or background while team radio keeps it alive) and goes stale once iOS suspends the app. Reliable
+  updates need an APNs push service plus `enablePushNotifications` in the plugin config; not built.
+- Changing widget names, families or the plugin config needs a new native build (`expo prebuild`).
+- Text uses SF fonts and team colours (no logos): images must be written to `widgetsDirectory` first.
+
 ## Checks
 
 ```
-npm test                 # analytics unit tests
+npm test                 # analytics + widget snapshot unit tests
 node scripts/check.js    # parse every file, verify local imports/exports and packages
 npm run bundle:check     # full Metro iOS bundle
 ```

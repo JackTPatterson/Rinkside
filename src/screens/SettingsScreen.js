@@ -8,6 +8,7 @@ import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {ROUTES} from '../navigation/routes';
 import {useAppTheme} from '../theme';
 import {APP_VERSION} from './settings/appInfo';
+import LiveActivityRow from './settings/LiveActivityRow';
 import {SettingsGroup, SettingsRow} from './settings/SettingsRow';
 
 export default function SettingsScreen({navigation}) {
@@ -65,6 +66,7 @@ export default function SettingsScreen({navigation}) {
                         right={team ? <TeamLogo abbrev={team} size={28}/> : null}
                         onPress={() => go(ROUTES.favoriteTeam)}
                     />
+                    <LiveActivityRow/>
                     <SettingsRow
                         icon={Lamp}
                         title="How the Models Work"
