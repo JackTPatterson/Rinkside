@@ -2,7 +2,8 @@
   "expo": {
     "name": "Rinkside",
     "slug": "rinkside",
-    "version": "1.2.0",
+    "owner": "jpx-software-inc",
+    "version": "2.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "rinkside",
@@ -12,9 +13,9 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.jpdigital.rinkside",
+      "bundleIdentifier": "com.jackpatterson.rinkside",
       "icon": "./assets/icon.png",
-      "buildNumber": "6",
+      "buildNumber": "16",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CADisableMinimumFrameDurationOnPhone": true
@@ -49,15 +50,21 @@
             ]
           }
         ]
-      }
+      },
+      "appleTeamId": "P8FLGJ3757"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#010100"
       },
       "package": "com.jpdigital.rinkside",
-      "versionCode": 6
+      "versionCode": 6,
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "plugins": [
       "expo-asset",
@@ -67,13 +74,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/icon.png",
-          "imageWidth": 120,
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#010100",
           "dark": {
-            "image": "./assets/icon.png",
-            "backgroundColor": "#010101"
+            "backgroundColor": "#010100"
           }
         }
       ],
@@ -85,7 +91,8 @@
           "enableBackgroundPlayback": true
         }
       ],
-      "expo-video"
+      "expo-video",
+      "./plugins/withSceneLifecycle"
     ],
     "extra": {
       "eas": {

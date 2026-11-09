@@ -3,7 +3,7 @@
 // To add an icon: import it from 'iconsax-react-native/dist/esm/<Name>' and wrap it below.
 import React from 'react';
 import {View} from 'react-native';
-import Svg, {G, Path} from 'react-native-svg';
+import Svg, {Circle, G, Path} from 'react-native-svg';
 import StatusRaw from 'iconsax-react-native/dist/esm/Status';
 import MonitorRaw from 'iconsax-react-native/dist/esm/Monitor';
 import AwardRaw from 'iconsax-react-native/dist/esm/Award';
@@ -142,6 +142,41 @@ export const Status = wrap(StatusRaw);
  * "moved up / moved down". Drawn with a heavy stroke so they read at small sizes.
  */
 const DIAG_STROKE = 2.6;
+
+/** Goal horn: a flared horn with sound waves (iconsax has none), drawn to match the 1.5-stroke Linear icons. */
+export function GoalHorn({size = 22, color = '#888'}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            <Path d="M2.75 9.75H6.5L14 5.25V18.75L6.5 14.25H2.75V9.75Z" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+            <Path d="M6.75 14.5L7.75 19.25" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+            <Path d="M17.25 9C18.5 10.2 18.5 13.8 17.25 15" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+            <Path d="M19.75 6.5C22.25 9.5 22.25 14.5 19.75 17.5" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+        </Svg>
+    );
+}
+
+/** Referee whistle for penalties: round chamber with a pea, mouthpiece and a lanyard loop. */
+export function Whistle({size = 22, color = '#888'}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            <Circle cx={9} cy={14.5} r={5.75} stroke={color} strokeWidth={1.5}/>
+            <Circle cx={9} cy={14.5} r={1.5} fill={color}/>
+            <Path d="M13.4 10.4L20.75 9.25V12.5L14.4 13.3" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+            <Path d="M6.5 9.4V5.5H10.5" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+        </Svg>
+    );
+}
+
+/** Faceoff circle: ring, centre dot and the two hash marks either side. */
+export function FaceoffCircle({size = 22, color = '#888'}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            <Circle cx={12} cy={12} r={6.5} stroke={color} strokeWidth={1.5}/>
+            <Circle cx={12} cy={12} r={1.75} fill={color}/>
+            <Path d="M2.75 12H5.5M18.5 12H21.25" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+        </Svg>
+    );
+}
 
 /** Television with rabbit-ear antennas (iconsax has no TV), drawn to match the 1.5-stroke Linear icons. */
 export function Tv({size = 22, color = '#888'}) {

@@ -4,7 +4,7 @@ import {Linking} from 'react-native';
 
 export const APP_VERSION = Constants.expoConfig?.version ?? null;
 
-export const DEVELOPER = {name: 'Jack Patterson', email: 'jtpatt03@gmail.com'};
+export const DEVELOPER = {name: 'JPX Software Inc.', email: 'jtpatt03@gmail.com'};
 
 export const LINKS = {
     nhl: 'https://www.nhl.com',

@@ -84,6 +84,26 @@ export function powerPlayState(situation) {
     return out;
 }
 
+/** What's happening on the ice right now, from the newest play: {icon, label} or null for ordinary live play. */
+export function currentEvent(pbp) {
+    const plays = pbp?.plays;
+    if (!plays?.length) return null;
+    const last = plays[plays.length - 1];
+    const reason = String(last?.details?.reason ?? '');
+    switch (last?.typeDescKey) {
+        case 'goal': return {icon: 'goal', label: 'Goal'};
+        case 'penalty': return {icon: 'penalty', label: 'Penalty'};
+        case 'delayed-penalty': return {icon: 'penalty', label: 'Delayed penalty'};
+        case 'faceoff': return {icon: 'faceoff', label: 'Faceoff'};
+        case 'stoppage':
+            if (/review|challenge/.test(reason)) return {icon: 'review', label: 'Review'};
+            if (reason === 'tv-timeout') return {icon: 'tv', label: 'TV timeout'};
+            if (reason === 'timeout') return {icon: 'timeout', label: 'Timeout'};
+            return {icon: 'stoppage', label: 'Stoppage'};
+        default: return null;
+    }
+}
+
 /* ------------------------------------------------------------ goals */
 
 export const SHOT_TYPES = {

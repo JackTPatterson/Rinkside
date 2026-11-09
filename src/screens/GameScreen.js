@@ -333,7 +333,7 @@ export default function GameScreen({route, navigation}) {
                         <View onLayout={(e) => {
                             scoreHeight.value = e.nativeEvent.layout.height;
                         }}>
-                            <Scoreboard header={header} wp={wp} wpSource={wpSource}/>
+                            <Scoreboard header={header} wp={wp} wpSource={wpSource} pbp={pbp}/>
                         </View>
                     </FadeInView>
                     {/* Main sections as a Kalshi-style underline bar; a section with several views gets a switcher. */}
