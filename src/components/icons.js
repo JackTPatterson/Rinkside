@@ -60,6 +60,7 @@ import TickCircleRaw from 'iconsax-react-native/dist/esm/TickCircle';
 import Timer1Raw from 'iconsax-react-native/dist/esm/Timer1';
 import UserRaw from 'iconsax-react-native/dist/esm/User';
 import VideoRaw from 'iconsax-react-native/dist/esm/Video';
+import ExportRaw from 'iconsax-react-native/dist/esm/Export';
 
 const wrap = (C) => {
     const Icon = ({size = 22, color = '#888', variant = 'Linear', ...rest}) => (
@@ -118,6 +119,7 @@ export const TickCircle = wrap(TickCircleRaw);
 export const Timer1 = wrap(Timer1Raw);
 export const User = wrap(UserRaw);
 export const Video = wrap(VideoRaw);
+export const Export = wrap(ExportRaw);
 export const ArrowUp2 = wrap(ArrowUp2Raw);
 export const Edit2 = wrap(Edit2Raw);
 export const Link = wrap(LinkRaw);

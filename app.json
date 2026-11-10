@@ -85,7 +85,42 @@
           "enableBackgroundPlayback": true
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-widgets",
+        {
+          "enablePushNotifications": false,
+          "widgets": [
+            {
+              "name": "NextGame",
+              "displayName": "Next Game",
+              "description": "Puck drop countdown, live score and final result for your favorite team.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "accessoryCircular",
+                  "accessoryRectangular",
+                  "accessoryInline"
+                ],
+                "initialLayout": "src/widgets/NextGameWidget.js"
+              }
+            },
+            {
+              "name": "TeamForm",
+              "displayName": "Team Form",
+              "description": "Record, points, rank and recent form for your favorite team.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ],
+                "initialLayout": "src/widgets/TeamFormWidget.js"
+              }
+            }
+          ]
+        }
+      ]
     ],
     "extra": {
       "eas": {

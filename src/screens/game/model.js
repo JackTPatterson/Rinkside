@@ -302,7 +302,7 @@ export const timeLabel = (t) => {
     return `${periodLabel(Math.min(p, 99))} ${Math.floor(s / 60)}:${pad2(Math.floor(s % 60))}`;
 };
 
-function rinksideAt(ratings, header, t, homeScore, awayScore, situationCode) {
+export function rinksideAt(ratings, header, t, homeScore, awayScore, situationCode) {
     const period = Math.floor(Math.min(t, 1e9) / 1200) + 1;
     const inPeriod = t - (period - 1) * 1200;
     return liveWinProbability(ratings, {
