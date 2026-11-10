@@ -15,7 +15,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.jackpatterson.rinkside",
       "icon": "./assets/icon.png",
-      "buildNumber": "16",
+      "buildNumber": "17",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "CADisableMinimumFrameDurationOnPhone": true
