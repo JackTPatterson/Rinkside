@@ -1,9 +1,9 @@
 import React, {useCallback, useMemo, useRef, useState} from 'react';
-import {RefreshControl, StyleSheet, View} from 'react-native';
+import {Pressable, RefreshControl, StyleSheet, View} from 'react-native';
 import Animated, {useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring} from 'react-native-reanimated';
 import {alignPrediction, applyExternalXG, gameXG, predictGame} from '../analytics';
-import {DocumentText, Microphone2, Video} from '../components/icons';
-import {BackButton, ErrorState, FadeInView, Header, Screen, Segmented, Skeleton, SkeletonList, T, UnderlineTabs} from '../components/ui';
+import {DocumentText, Export, Microphone2, Video} from '../components/icons';
+import {BackButton, ErrorState, FadeInView, Header, Screen, Segmented, Skeleton, SkeletonList, T, UnderlineTabs, tap} from '../components/ui';
 import {useRatingsBefore} from '../hooks/useLeague';
 import {ROUTES} from '../navigation/routes';
 import {GUTTER, useAppTheme} from '../theme';
@@ -27,6 +27,8 @@ import {LinesTab, PreviewTab, SeriesTab} from './game/Pregame';
 import RinkMapTab from './game/Rink';
 import {useRadio} from '../radio/RadioProvider';
 import LinksSheet from './game/LinksSheet';
+import LiveRinkTab from './game/LiveRink';
+import ShareCardModal from './game/ShareCardModal';
 import WhereToWatch from './fan/WhereToWatch';
 import Scoreboard from './game/Scoreboard';
 import StatsTab from './game/StatsTab';
@@ -54,7 +56,17 @@ function gameSections(header, hasStars) {
             ],
         },
         {key: 'team', label: 'Team Stats', views: [{key: 'stats', label: 'Game Stats'}]},
-        {key: 'analytics', label: 'Analytics', views: [{key: 'wp', label: 'Win Prob'}, {key: 'xg', label: 'xG'}, {key: 'map', label: 'Rink Map'}]},
+        {
+            key: 'analytics',
+            label: 'Analytics',
+            // The Live Rink leads: a live game opens straight onto it; a finished game's is a replay.
+            views: [
+                {key: 'live', label: header.live ? 'Live Rink' : 'Replay'},
+                {key: 'wp', label: 'Win Prob'},
+                {key: 'xg', label: 'xG'},
+                {key: 'map', label: 'Rink Map'},
+            ],
+        },
         {key: 'players', label: 'Players', views: [{key: 'players', label: 'Box Score'}, {key: 'gamescore', label: 'Impact'}]},
         {key: 'info', label: 'Info', views: [{key: 'series', label: 'Season Series'}, {key: 'scratches', label: 'Scratches'}, {key: 'officials', label: 'Officials'}]},
     ];
@@ -194,6 +206,7 @@ export default function GameScreen({route, navigation}) {
 
     /* ------------------------------------------------- navigation */
 
+    const [shareOpen, setShareOpen] = useState(false);
     const goBack = useCallback(() => navigation.goBack(), [navigation]);
     const openPlayer = useCallback((playerId) => {
         if (playerId) navigation.navigate(ROUTES.player, {playerId});
@@ -265,6 +278,8 @@ export default function GameScreen({route, navigation}) {
                 return <SeriesTab landing={landing} rail={rail} header={header} onOpenGame={openGame}/>;
             case 'goals':
                 return <GoalsTab goals={goals} shootout={shootout} header={header} pbp={pbp} xgShots={xgShots} onPlayer={openPlayer}/>;
+            case 'live':
+                return <LiveRinkTab header={header} pbp={pbp} xg={xg} roster={roster} ratings={ratings} mp={mp}/>;
             case 'wp':
                 return (
                     <WinProbTab
@@ -312,8 +327,21 @@ export default function GameScreen({route, navigation}) {
                     />
                 }
                 left={<BackButton onPress={goBack}/>}
-                right={home.abbrev && (links.length || (!header.final && broadcasts?.length)) ? (
+                right={home.abbrev && (header.started || links.length || (!header.final && broadcasts?.length)) ? (
                     <View style={styles.headerRight}>
+                        {header.started ? (
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="Share game card"
+                                hitSlop={8}
+                                onPress={() => {
+                                    tap();
+                                    setShareOpen(true);
+                                }}
+                                style={({pressed}) => [styles.shareBtn, {backgroundColor: colors.card}, pressed && {opacity: 0.6}]}>
+                                <Export size={20} color={colors.text}/>
+                            </Pressable>
+                        ) : null}
                         {!header.final ? <WhereToWatch broadcasts={broadcasts} home={home.abbrev} away={away.abbrev}/> : null}
                         <LinksSheet links={links} icon={header.live ? Microphone2 : Video} title={header.live ? 'Listen' : 'Recaps'}/>
                     </View>
@@ -346,6 +374,18 @@ export default function GameScreen({route, navigation}) {
                     </View>
                 </Animated.ScrollView>
             )}
+            {header.started ? (
+                <ShareCardModal
+                    visible={shareOpen}
+                    onClose={() => setShareOpen(false)}
+                    header={header}
+                    pbp={pbp}
+                    xg={xg}
+                    goals={goalsRaw}
+                    ratings={ratings}
+                    mp={mp}
+                />
+            ) : null}
         </Screen>
     );
 }
@@ -356,4 +396,5 @@ const styles = StyleSheet.create({
     subTabs: {marginTop: 14, marginHorizontal: GUTTER},
     body: {paddingHorizontal: GUTTER, paddingTop: 20},
     headerRight: {flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '62%'},
+    shareBtn: {width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center'},
 });
