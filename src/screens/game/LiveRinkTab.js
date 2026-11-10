@@ -5,6 +5,7 @@ import Animated, {
     FadeInDown,
     FadeOut,
     cancelAnimation,
+    useAnimatedProps,
     useAnimatedStyle,
     useSharedValue,
     withDelay,
@@ -60,6 +61,31 @@ const Shockwave = memo(function Shockwave({color, size}) {
     );
 });
 
+const AnimatedLine = Animated.createAnimatedComponent(Line);
+
+/**
+ * A goal's shot line, from where it was shot into the net. A fresh goal draws its line in, shooter to net;
+ * older goals keep a softer line so the game's scoring chances stay readable.
+ */
+const GoalLine = memo(function GoalLine({x1, y1, x2, y2, color, recent, animate}) {
+    const k = useSharedValue(animate && recent ? 0 : 1);
+    useEffect(() => {
+        if (animate && recent) k.value = withTiming(1, {duration: 450, easing: Easing.out(Easing.cubic)});
+    }, [animate, recent, k]);
+    const props = useAnimatedProps(() => ({x2: x1 + (x2 - x1) * k.value, y2: y1 + (y2 - y1) * k.value}));
+    return (
+        <AnimatedLine
+            x1={x1}
+            y1={y1}
+            animatedProps={props}
+            stroke={color}
+            strokeWidth={recent ? 2.5 : 1.75}
+            strokeOpacity={recent ? 0.9 : 0.4}
+            strokeLinecap="round"
+        />
+    );
+});
+
 /** One shot / goal on the ice. Eases in when it appears (no overshoot); goals send out a shockwave. */
 const ShotDot = memo(function ShotDot({x, y, r, color, kind, recent, animate, delay}) {
     const s = useSharedValue(animate ? 0 : 1);
@@ -98,17 +124,28 @@ const RinkLayer = memo(function RinkLayer({events, t, hc, ac, animate, width}) {
     const height = Math.round(width * (85 / 200));
     const k = width / 360;
     const shown = useMemo(() => events.filter((e) => e.x != null), [events]);
-    const lastGoals = shown.filter((e) => e.kind === 'goal').slice(-3);
+    const goals = shown.filter((e) => e.kind === 'goal');
     const netY = height / 2;
     return (
         <View style={{width, height}}>
             <RinkSvg view="full" width={width} height={height} style={StyleSheet.absoluteFill}/>
             <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
-                {/* Streaks from the last few goals into the net */}
-                {lastGoals.map((g) => {
+                {/* Every goal's shot line into the net (drawn under the dots, so each starts at its shot) */}
+                {goals.map((g) => {
                     const p = mapToPixel(g.x, g.y, width, height);
                     const n = mapToPixel(g.isHome ? -HALF_NET : HALF_NET, 0, width, height);
-                    return <Line key={g.id} x1={p.x} y1={p.y} x2={n.x} y2={netY} stroke={g.isHome ? hc : ac} strokeWidth={2} strokeOpacity={0.55} strokeLinecap="round" strokeDasharray="1 5"/>;
+                    return (
+                        <GoalLine
+                            key={g.id}
+                            x1={p.x}
+                            y1={p.y}
+                            x2={n.x}
+                            y2={netY}
+                            color={g.isHome ? hc : ac}
+                            recent={t - g.t < RECENT}
+                            animate={animate}
+                        />
+                    );
                 })}
             </Svg>
             {shown.map((e, i) => {
