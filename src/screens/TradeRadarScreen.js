@@ -1,7 +1,7 @@
 import React, {useMemo, useState} from 'react';
 import {Alert, FlatList, Linking, Pressable, RefreshControl, StyleSheet, Switch, View} from 'react-native';
 import {fetchTrades, tradeRadarConfigured} from '../api/trades';
-import {Card, EmptyState, Header, PillTabs, Screen, T} from '../components/ui';
+import {BackButton, Card, EmptyState, Header, PillTabs, Screen, T} from '../components/ui';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {useQuery} from '../hooks/useQuery';
 import {useAppTheme} from '../theme';
@@ -13,7 +13,7 @@ async function openSource(url) {
     try { if (!url.startsWith('https://')) throw new Error(); await Linking.openURL(url); }
     catch { Alert.alert('Could not open source', 'Please try again later.'); }
 }
-function Story({story, highlighted}) {
+export function Story({story, highlighted}) {
     const {colors} = useAppTheme();
     return (
         <Card style={[styles.story, highlighted && {borderWidth: 2, borderColor: colors.text}]}>
@@ -51,7 +51,7 @@ export default function TradeRadarScreen({navigation, route}) {
     const unavailable = query.data?.sources?.filter(source => source.status !== 'ok') ?? [];
     return (
         <Screen>
-            <Header title="Trade Radar" subtitle="The reports. The sources. The confidence."/>
+            <Header title="Trade Radar" subtitle="The reports. The sources. The confidence." left={<BackButton onPress={() => navigation.goBack()}/>}/>
             <FlatList
                 data={stories} keyExtractor={story => story.id} contentContainerStyle={styles.content}
                 renderItem={({item}) => <Story story={item} highlighted={item.id === selectedId}/>}

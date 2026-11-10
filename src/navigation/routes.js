@@ -7,7 +7,6 @@ export const ROUTES = {
     scores: 'Scores',
     standings: 'Standings',
     players: 'Players',
-    trades: 'TradeRadar',
     settings: 'Settings',
     // root-stack detail screens
     game: 'Game', //     params: {gameId, game?}  game = score-feed object for instant first paint
@@ -17,5 +16,6 @@ export const ROUTES = {
     favoriteTeam: 'FavoriteTeam',
     about: 'About',
     methodology: 'Methodology',
+    trades: 'TradeRadar',
     video: 'Video', //   params: {videoId, title?, webUrl?}  in-app NHL video player (full-screen modal)
 };
