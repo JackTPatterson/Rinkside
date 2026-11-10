@@ -25,6 +25,8 @@ import {Brodcast, Chart, Home2, Setting2, User} from './src/components/icons';
 import {FavoriteTeamProvider, useFavoriteTeam} from './src/hooks/useFavoriteTeam';
 import {ROUTES} from './src/navigation/routes';
 import AboutScreen from './src/screens/AboutScreen';
+import TradeRadarScreen from './src/screens/TradeRadarScreen';
+import {TradeAlertsProvider, useTradeNotificationNavigation} from './src/trades/TradeAlerts';
 import FavoriteTeamScreen from './src/screens/FavoriteTeamScreen';
 import GameScreen from './src/screens/GameScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -112,6 +114,8 @@ function RootNavigator() {
     const {team, ready} = useFavoriteTeam();
     // Whether the tab bar is showing, so the radio mini player can sit right above it or near the bottom edge.
     const [onTabs, setOnTabs] = useState(true);
+    const [navigationReady, setNavigationReady] = useState(false);
+    useTradeNotificationNavigation(navigationRef, navigationReady && ready && !!team);
     const [onVideo, setOnVideo] = useState(false); // the video player covers everything, so hide the radio bar
     const syncRoute = useCallback(() => {
         const root = navigationRef.isReady() ? navigationRef.getRootState() : null;
@@ -147,7 +151,7 @@ function RootNavigator() {
     return (
         <View style={{flex: 1, backgroundColor: theme.colors.background}} onLayout={onLayout}>
             <StatusBar style={theme.dark ? 'light' : 'dark'}/>
-            <NavigationContainer ref={navigationRef} theme={theme.navigation} onReady={syncRoute} onStateChange={syncRoute}>
+            <NavigationContainer ref={navigationRef} theme={theme.navigation} onReady={() => { setNavigationReady(true); syncRoute(); }} onStateChange={syncRoute}>
                 <Stack.Navigator
                     screenLayout={screenLayout}
                     screenOptions={{
@@ -167,6 +171,7 @@ function RootNavigator() {
                             <Stack.Screen name={ROUTES.favoriteTeam} component={FavoriteTeamScreen}/>
                             <Stack.Screen name={ROUTES.about} component={AboutScreen}/>
                             <Stack.Screen name={ROUTES.methodology} component={MethodologyScreen}/>
+                            <Stack.Screen name={ROUTES.trades} component={TradeRadarScreen}/>
                             <Stack.Screen
                                 name={ROUTES.video}
                                 component={VideoScreen}
@@ -189,7 +194,9 @@ export default function App() {
                 <ThemeProvider>
                     <FavoriteTeamProvider>
                         <RadioProvider>
-                            <RootNavigator/>
+                            <TradeAlertsProvider>
+                                <RootNavigator/>
+                            </TradeAlertsProvider>
                         </RadioProvider>
                     </FavoriteTeamProvider>
                 </ThemeProvider>

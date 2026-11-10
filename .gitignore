@@ -48,3 +48,8 @@ scripts/.cache/
 # Render smoke test output
 scripts/smoke/dist/
 scripts/smoke/out/
+
+# Trade Radar runtime state and local credentials
+server/trades/data/
+server/trades/.env
+.env

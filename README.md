@@ -43,3 +43,16 @@ Alternatively, from your Mac:
 ```bash
 npx eas-cli build -p ios --profile production --auto-submit
 ```
+
+## Trade Radar
+
+Trade Radar is available from My Team and Settings, with source links, confidence explanations,
+team filters and opt-in push alerts. The companion [Trade Radar service](server/trades/README.md)
+monitors Elliotte Friedman's X timeline first, plus Sportsnet and Pro Hockey Rumors RSS.
+Set `EXPO_PUBLIC_TRADE_API_URL` to the deployed service and rebuild the native app for notifications.
+Live X access requires a server-side API bearer token; High/Confirmed evidence requires editorial review.
+
+```sh
+npm ci --prefix server/trades
+npm test --prefix server/trades
+```

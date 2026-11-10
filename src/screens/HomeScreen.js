@@ -282,6 +282,9 @@ export default function HomeScreen({navigation, route}) {
                     />
                 </View>
                 <View style={[styles.tabs, {backgroundColor: colors.background}]}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Open Trade Radar" onPress={() => navigation.navigate(ROUTES.trades)} style={styles.tradeRadar}>
+                        <T variant="label">Trade Radar · Reports & alerts ↗</T>
+                    </Pressable>
                     <UnderlineTabs tabs={TABS} value={tab} onChange={changeTab}/>
                 </View>
                 <View key={`${abbrev}-${tab}`}>{content}</View>
@@ -299,6 +302,7 @@ export default function HomeScreen({navigation, route}) {
 }
 
 const styles = StyleSheet.create({
+    tradeRadar: {paddingHorizontal: GUTTER, paddingVertical: 12},
     root: {flex: 1},
     statusFill: {position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2},
     content: {paddingBottom: 48},

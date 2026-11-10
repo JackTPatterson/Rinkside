@@ -92,7 +92,9 @@
         }
       ],
       "expo-video",
-      "./plugins/withSceneLifecycle"
+      "./plugins/withSceneLifecycle",
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "extra": {
       "eas": {
