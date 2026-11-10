@@ -27,7 +27,7 @@ import {LinesTab, PreviewTab, SeriesTab} from './game/Pregame';
 import RinkMapTab from './game/Rink';
 import {useRadio} from '../radio/RadioProvider';
 import LinksSheet from './game/LinksSheet';
-import LiveRinkTab from './game/LiveRink';
+import LiveRinkTab from './game/LiveRinkTab';
 import ShareCardModal from './game/ShareCardModal';
 import WhereToWatch from './fan/WhereToWatch';
 import Scoreboard from './game/Scoreboard';
