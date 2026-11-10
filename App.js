@@ -21,7 +21,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import {nhl} from './src/api/nhl';
 import {toISODate} from './src/utils/format';
-import {Brodcast, Chart, Home2, Setting2, User} from './src/components/icons';
+import {ArrowSwapHorizontal, Brodcast, Chart, Home2, Setting2, User} from './src/components/icons';
 import {FavoriteTeamProvider, useFavoriteTeam} from './src/hooks/useFavoriteTeam';
 import {ROUTES} from './src/navigation/routes';
 import AboutScreen from './src/screens/AboutScreen';
@@ -60,6 +60,7 @@ const TABS = {
     [ROUTES.standings]: {Icon: Chart, label: 'Rankings', size: 22},
     [ROUTES.players]: {Icon: User, label: 'Players', size: 22},
     [ROUTES.scores]: {Icon: Brodcast, label: 'Live Games', size: 28},
+    [ROUTES.trades]: {Icon: ArrowSwapHorizontal, label: 'Trades', size: 22},
     [ROUTES.settings]: {Icon: Setting2, label: 'Settings', size: 22},
 };
 
@@ -86,7 +87,7 @@ function Tabs() {
                     shadowRadius: 1,
                     shadowColor: dark ? '#555555' : '#D1D1D1',
                 },
-                tabBarIconStyle: {width: 80, height: 50},
+                tabBarIconStyle: {width: 64, height: 50}, // six tabs must fit a 375pt-wide phone
                 tabBarIcon: ({color}) => {
                     const {Icon, label, size} = TABS[route.name];
                     return (
@@ -106,6 +107,7 @@ function Tabs() {
             <Tab.Screen name={ROUTES.standings} component={StandingsScreen} options={{title: 'Rankings'}}/>
             <Tab.Screen name={ROUTES.scores} component={ScoresScreen} options={{title: 'Live Games'}}/>
             <Tab.Screen name={ROUTES.players} component={PlayersScreen} options={{title: 'Players'}}/>
+            <Tab.Screen name={ROUTES.trades} component={TradeRadarScreen} options={{title: 'Trades'}}/>
             <Tab.Screen name={ROUTES.settings} component={SettingsScreen} options={{title: 'Settings'}}/>
         </Tab.Navigator>
     );
@@ -200,7 +202,6 @@ function RootNavigator() {
                             <Stack.Screen name={ROUTES.favoriteTeam} component={FavoriteTeamScreen}/>
                             <Stack.Screen name={ROUTES.about} component={AboutScreen}/>
                             <Stack.Screen name={ROUTES.methodology} component={MethodologyScreen}/>
-                            <Stack.Screen name={ROUTES.trades} component={TradeRadarScreen}/>
                             <Stack.Screen
                                 name={ROUTES.video}
                                 component={VideoScreen}

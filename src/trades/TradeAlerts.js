@@ -81,7 +81,7 @@ export function useTradeNotificationNavigation(navigationRef, ready) {
             if (data?.type !== 'trade' || typeof data.storyId !== 'string' || seen.current === notification.request.identifier) return;
             if (!navigationRef.isReady()) return;
             seen.current = notification.request.identifier;
-            navigationRef.navigate(ROUTES.trades, {storyId: data.storyId});
+            navigationRef.navigate(ROUTES.tabs, {screen: ROUTES.trades, params: {storyId: data.storyId}});
             Notifications.clearLastNotificationResponseAsync().catch(() => {});
         };
         const listener = Notifications.addNotificationResponseReceivedListener(open);

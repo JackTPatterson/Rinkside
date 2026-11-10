@@ -60,7 +60,6 @@ export default function SettingsScreen({navigation}) {
                 <Header title="Settings" style={styles.header}/>
 
                 <SettingsGroup style={styles.rows}>
-                    <SettingsRow icon={Lamp} title="Trade Radar & Alerts" onPress={() => go(ROUTES.trades)}/>
                     <SettingsRow
                         icon={User}
                         title="Favorite Team"

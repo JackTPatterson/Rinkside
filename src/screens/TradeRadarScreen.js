@@ -1,7 +1,7 @@
 import React, {useMemo, useState} from 'react';
 import {Alert, FlatList, Linking, Pressable, RefreshControl, StyleSheet, Switch, View} from 'react-native';
 import {fetchTrades, tradeRadarConfigured} from '../api/trades';
-import {BackButton, Card, EmptyState, Header, PillTabs, Screen, T} from '../components/ui';
+import {Card, EmptyState, Header, PillTabs, Screen, T} from '../components/ui';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {useQuery} from '../hooks/useQuery';
 import {useAppTheme} from '../theme';
@@ -27,7 +27,7 @@ function Story({story, highlighted}) {
             <View style={[styles.sources, {borderTopColor: colors.border}]}>
                 {story.reports.map(report => (
                     <Pressable key={report.id} accessibilityRole="link" accessibilityLabel={`Read ${report.sourceName}: ${report.title}`} onPress={() => openSource(report.url)} style={styles.source}>
-                        <T variant="label" style={styles.link}>{report.sourceName} ↗</T>
+                        <T variant="label" style={styles.link}>{report.sourceName}</T>
                         <T variant="caption" muted>{report.status === 'denied' ? 'Denial / correction' : report.reviewed && report.independent ? 'Verified original reporting' : 'Read original source'}</T>
                     </Pressable>
                 ))}
@@ -51,7 +51,7 @@ export default function TradeRadarScreen({navigation, route}) {
     const unavailable = query.data?.sources?.filter(source => source.status !== 'ok') ?? [];
     return (
         <Screen>
-            <Header title="Trade Radar" subtitle="The reports. The sources. The confidence." left={<BackButton onPress={() => navigation.goBack()}/>}/>
+            <Header title="Trade Radar" subtitle="The reports. The sources. The confidence."/>
             <FlatList
                 data={stories} keyExtractor={story => story.id} contentContainerStyle={styles.content}
                 renderItem={({item}) => <Story story={item} highlighted={item.id === selectedId}/>}
