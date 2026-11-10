@@ -8,8 +8,6 @@ import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withDelay,
-    withRepeat,
-    withSpring,
     withTiming,
 } from 'react-native-reanimated';
 import Svg, {Circle, Line, Path} from 'react-native-svg';
@@ -46,27 +44,27 @@ const pctText = (p) => `${Math.round(p * 100)}%`;
 
 /* --------------------------------------------------------------- rink dots */
 
-/** A ring that expands and fades once or twice: the "goal!" shockwave. */
+/** A single ring that expands and fades: the "goal!" shockwave. */
 const Shockwave = memo(function Shockwave({color, size}) {
     const k = useSharedValue(0);
     useEffect(() => {
-        k.value = withRepeat(withTiming(1, {duration: 1300, easing: Easing.out(Easing.cubic)}), 2, false);
+        k.value = withTiming(1, {duration: 900, easing: Easing.out(Easing.quad)});
         return () => cancelAnimation(k);
     }, [k]);
-    const style = useAnimatedStyle(() => ({opacity: 0.75 * (1 - k.value), transform: [{scale: 1 + k.value * 4.5}]}));
+    const style = useAnimatedStyle(() => ({opacity: 0.6 * (1 - k.value), transform: [{scale: 1 + k.value * 3}]}));
     return (
         <Animated.View
             pointerEvents="none"
-            style={[{position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 3, borderColor: color}, style]}
+            style={[{position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: color}, style]}
         />
     );
 });
 
-/** One shot / goal on the ice. Springs in when it appears; goals send out a shockwave. */
+/** One shot / goal on the ice. Eases in when it appears (no overshoot); goals send out a shockwave. */
 const ShotDot = memo(function ShotDot({x, y, r, color, kind, recent, animate, delay}) {
     const s = useSharedValue(animate ? 0 : 1);
     useEffect(() => {
-        if (animate) s.value = withDelay(delay, withSpring(1, {damping: 8, stiffness: 170, mass: 0.7}));
+        if (animate) s.value = withDelay(delay, withTiming(1, {duration: 220, easing: Easing.out(Easing.cubic)}));
     }, [animate, delay, s]);
     const grow = useAnimatedStyle(() => ({transform: [{scale: s.value}]}));
     const goal = kind === 'goal';
@@ -141,8 +139,8 @@ function GoalBanner({banner}) {
     return (
         <Animated.View
             key={banner.key}
-            entering={FadeInDown.springify().damping(14)}
-            exiting={FadeOut.duration(400)}
+            entering={FadeInDown.duration(240).easing(Easing.out(Easing.cubic))}
+            exiting={FadeOut.duration(250)}
             pointerEvents="none"
             style={[styles.banner, {backgroundColor: banner.color}]}>
             <T variant="label" color={banner.fg} style={styles.bannerText} numberOfLines={1}>{banner.text}</T>
