@@ -1,10 +1,10 @@
 import React, {useMemo, useState} from 'react';
 import {Alert, FlatList, Linking, Pressable, RefreshControl, StyleSheet, Switch, View} from 'react-native';
 import {fetchTrades, tradeRadarConfigured} from '../api/trades';
-import {BackButton, Card, EmptyState, Header, PillTabs, Screen, T} from '../components/ui';
+import {BackButton, Card, EmptyState, Header, Screen, Section, Segmented, T} from '../components/ui';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {useQuery} from '../hooks/useQuery';
-import {useAppTheme} from '../theme';
+import {GUTTER, useAppTheme} from '../theme';
 import {useTradeAlerts} from '../trades/TradeAlerts';
 
 const LEVELS = ['Low', 'Medium', 'High', 'Confirmed'];
@@ -17,7 +17,7 @@ export function Story({story, highlighted}) {
     const {colors} = useAppTheme();
     return (
         <Card style={[styles.story, highlighted && {borderWidth: 2, borderColor: colors.text}]}>
-            <View style={styles.row}>
+            <View style={styles.storyHead}>
                 <T variant="label">{story.disputed ? 'Disputed' : story.confidence === 'Confirmed' ? 'Confirmed' : `${story.confidence} confidence`}</T>
                 <T variant="caption" muted>{story.teams.join(' · ') || 'Around the league'}</T>
             </View>
@@ -57,27 +57,30 @@ export default function TradeRadarScreen({navigation, route}) {
                 renderItem={({item}) => <Story story={item} highlighted={item.id === selectedId}/>}
                 refreshControl={<RefreshControl refreshing={query.refreshing} onRefresh={query.refresh} tintColor={colors.text}/>}
                 ListHeaderComponent={<View style={styles.header}>
-                    <T muted>Confidence describes the reporting behind a claim, not the probability a trade will happen. Reposts don’t count as independent confirmation.</T>
-                    <PillTabs tabs={tabs} value={scope} onChange={setScope}/>
-                    <T variant="label">Minimum confidence in feed</T>
-                    <PillTabs tabs={thresholds} value={minimum} onChange={setMinimum}/>
-                    <Card style={styles.alerts}>
+                    <T variant="caption" muted>Confidence rates the reporting behind a claim, not the odds a trade happens. Reposts don’t count as confirmation.</T>
+                    <Segmented options={tabs} value={scope} onChange={setScope}/>
+                    <View style={styles.group}>
+                        <T variant="label">Minimum confidence</T>
+                        <Segmented options={thresholds} value={minimum} onChange={setMinimum}/>
+                    </View>
+                    <Section title="Trade alerts" style={styles.section}>
                         <View style={styles.row}>
-                            <View style={styles.flex}>
-                                <T variant="heading">Trade alerts</T>
-                                <T variant="caption" muted>{prefs.enabled ? `Following ${prefs.team || 'all teams'} · ${prefs.minimum}${prefs.minimum === 'Confirmed' ? ' only' : ' and above'}` : 'Get notified when reporting strengthens.'}</T>
-                            </View>
+                            <T variant="body" muted style={styles.flex}>{prefs.enabled ? `Following ${prefs.team || 'all teams'} · ${prefs.minimum}${prefs.minimum === 'Confirmed' ? ' only' : ' and above'}` : 'Get notified when reporting strengthens.'}</T>
                             <Switch accessibilityLabel="Trade alerts" value={prefs.enabled} disabled={!ready || busy || !tradeRadarConfigured} onValueChange={enabled => save({enabled, team: scope === 'team' ? team : null})}/>
                         </View>
                         {prefs.enabled ? <>
-                            <T variant="label">Alert coverage</T>
-                            <PillTabs tabs={tabs} value={prefs.team ? 'team' : 'all'} onChange={value => { if (!busy) save({team: value === 'team' ? team : null}); }}/>
-                            <T variant="label">Alert me at</T>
-                            <PillTabs tabs={thresholds} value={prefs.minimum} onChange={value => { if (!busy) save({minimum: value}); }}/>
+                            <View style={styles.group}>
+                                <T variant="label">Alert coverage</T>
+                                <Segmented options={tabs} value={prefs.team ? 'team' : 'all'} onChange={value => { if (!busy) save({team: value === 'team' ? team : null}); }}/>
+                            </View>
+                            <View style={styles.group}>
+                                <T variant="label">Alert me at</T>
+                                <Segmented options={thresholds} value={prefs.minimum} onChange={value => { if (!busy) save({minimum: value}); }}/>
+                            </View>
                         </> : null}
                         {busy ? <T variant="caption" muted>Saving alert settings…</T> : null}
                         {alertError ? <T variant="caption" accessibilityRole="alert">{alertError}</T> : null}
-                    </Card>
+                    </Section>
                     {!tradeRadarConfigured ? <EmptyState title="Trade Radar is coming online" message="Live reporting and alerts will appear once the news service is connected."/> : null}
                     {query.error ? <T accessibilityRole="alert">Couldn’t refresh reports. Pull down to retry.{query.data ? ' Showing the last available reports.' : ''}</T> : null}
                     {query.data ? <View style={styles.health}>
@@ -92,11 +95,14 @@ export default function TradeRadarScreen({navigation, route}) {
     );
 }
 const styles = StyleSheet.create({
-    content: {paddingHorizontal: 20, paddingBottom: 110},
-    header: {gap: 16, marginBottom: 20},
-    row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'},
+    // Same gutter as the header, so the back button, text and controls share one left edge.
+    content: {paddingHorizontal: GUTTER, paddingBottom: 110},
+    header: {gap: 20, marginBottom: 20},
+    group: {gap: 10},
+    section: {marginTop: 4, gap: 16},
+    row: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12},
     flex: {flex: 1},
-    alerts: {gap: 14},
+    storyHead: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap'},
     story: {gap: 12, marginBottom: 16},
     sources: {borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, gap: 4},
     source: {paddingVertical: 8, gap: 4},
