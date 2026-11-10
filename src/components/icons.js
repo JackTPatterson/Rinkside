@@ -3,7 +3,7 @@
 // To add an icon: import it from 'iconsax-react-native/dist/esm/<Name>' and wrap it below.
 import React from 'react';
 import {View} from 'react-native';
-import Svg, {Circle, G, Path} from 'react-native-svg';
+import Svg, {Circle, G, Path, Rect} from 'react-native-svg';
 import StatusRaw from 'iconsax-react-native/dist/esm/Status';
 import MonitorRaw from 'iconsax-react-native/dist/esm/Monitor';
 import AwardRaw from 'iconsax-react-native/dist/esm/Award';
@@ -45,8 +45,6 @@ import MedalRaw from 'iconsax-react-native/dist/esm/Medal';
 import Microphone2Raw from 'iconsax-react-native/dist/esm/Microphone2';
 import MoneysRaw from 'iconsax-react-native/dist/esm/Moneys';
 import PeopleRaw from 'iconsax-react-native/dist/esm/People';
-import PlayRaw from 'iconsax-react-native/dist/esm/Play';
-import PauseRaw from 'iconsax-react-native/dist/esm/Pause';
 import Profile2UserRaw from 'iconsax-react-native/dist/esm/Profile2User';
 import RadarRaw from 'iconsax-react-native/dist/esm/Radar';
 import RankingRaw from 'iconsax-react-native/dist/esm/Ranking';
@@ -104,8 +102,24 @@ export const Medal = wrap(MedalRaw);
 export const Microphone2 = wrap(Microphone2Raw);
 export const Moneys = wrap(MoneysRaw);
 export const People = wrap(PeopleRaw);
-export const Play = wrap(PlayRaw);
-export const Pause = wrap(PauseRaw);
+// Play / pause are drawn here (solid, rounded) rather than taken from iconsax. `variant` is accepted and
+// ignored so callers can keep passing it.
+export function Play({size = 22, color = '#888', variant: _variant, ...rest}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" {...rest}>
+            <Path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.6-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z" fill={color}/>
+        </Svg>
+    );
+}
+
+export function Pause({size = 22, color = '#888', variant: _variant, ...rest}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" {...rest}>
+            <Rect x={6} y={5} width={4} height={14} rx={1.5} fill={color}/>
+            <Rect x={14} y={5} width={4} height={14} rx={1.5} fill={color}/>
+        </Svg>
+    );
+}
 export const Profile2User = wrap(Profile2UserRaw);
 export const Radar = wrap(RadarRaw);
 export const Ranking = wrap(RankingRaw);
