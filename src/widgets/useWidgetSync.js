@@ -4,7 +4,7 @@ import {isLive, nhl} from '../api/nhl';
 import {toISODate} from '../utils/format';
 import {getLiveActivityEnabled, syncLiveActivity} from './liveActivity';
 import {widgetModules} from './index';
-import {buildSnapshot, buildTimeline, pickGame, teamPalette} from './snapshot';
+import {buildSnapshot, buildTimeline, pickGame, withoutNulls} from './snapshot';
 
 const LIVE_EVERY = 30 * 1000;
 const IDLE_EVERY = 5 * 60 * 1000;
@@ -37,17 +37,6 @@ export async function loadSnapshot(team, {force = false} = {}) {
     return buildSnapshot({team, standings, games, liveGame});
 }
 
-/** A made-up live game for `team`, for checking the Live Activity without waiting for puck drop. Build-time flag only. */
-function debugSnapshot(team) {
-    const now = Date.now();
-    const opp = team === 'BOS' ? 'TOR' : 'BOS';
-    return buildSnapshot({team, now, games: [{
-        id: 2026029999, gameState: 'LIVE', startTimeUTC: new Date(now - 3600000).toISOString(),
-        homeTeam: {abbrev: team, commonName: {default: team}, score: 3, sog: 21}, awayTeam: {abbrev: opp, commonName: {default: opp}, score: 2, sog: 18},
-        periodDescriptor: {number: 2}, clock: {timeRemaining: '08:41', running: true},
-    }]});
-}
-
 /**
  * Keeps the home/lock screen widgets and the Live Activity in step with the app. Runs while the app
  * is running: on launch, on returning to the foreground, then every 30 s during a live game and every
@@ -67,17 +56,22 @@ export function useWidgetSync(team) {
             const mine = ++generation;
             let next = IDLE_EVERY;
             try {
-                const snap = process.env.EXPO_PUBLIC_LIVE_ACTIVITY_DEBUG === '1' ? debugSnapshot(team) : await loadSnapshot(team, {force: true});
+                const snap = await loadSnapshot(team, {force: true});
                 if (cancelled || mine !== generation || !snap) return;
                 if (snap.game?.state === 'live') next = LIVE_EVERY;
 
                 const sig = sigOf(snap);
                 const now = Date.now();
                 if (sig !== last.current.sig || now - last.current.at > REPUSH_MS) {
-                    const entries = buildTimeline(snap, now).map((e) => ({date: new Date(e.date), props: e.props}));
-                    modules.nextGame.updateTimeline(entries);
-                    modules.teamForm.updateTimeline(entries);
-                    last.current = {sig, at: now};
+                    // A widget that fails to update must not stop the Live Activity.
+                    try {
+                        const entries = buildTimeline(snap, now).map((e) => ({date: new Date(e.date), props: withoutNulls(e.props)}));
+                        modules.nextGame.updateTimeline(entries);
+                        modules.teamForm.updateTimeline(entries);
+                        last.current = {sig, at: now};
+                    } catch {
+                        // Keep whatever the widgets already show.
+                    }
                 }
                 await syncLiveActivity(modules.gameActivity, snap, await getLiveActivityEnabled());
             } catch {

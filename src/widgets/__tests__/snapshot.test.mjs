@@ -10,6 +10,7 @@ import {
     readableOn,
     standingSnapshot,
     teamPalette,
+    withoutNulls,
 } from '../snapshot.js';
 
 const NOW = Date.parse('2026-11-06T23:00:00Z');
@@ -154,4 +155,12 @@ test('parseWidgetUrl: game and standings links, nothing else', async () => {
     for (const bad of ['rinkside://', 'rinkside://game', 'rinkside://game/abc', 'https://example.com/game/1', 'rinkside://player/8', '', null, undefined]) {
         assert.equal(parseWidgetUrl(bad), null, String(bad));
     }
+});
+
+test('withoutNulls: widget timelines never carry null (UserDefaults rejects it)', () => {
+    assert.deepEqual(withoutNulls({a: 1, b: null, c: undefined, d: {e: null, f: 'x', g: [1, {h: null, i: 2}]}, j: 0, k: '', l: false}),
+        {a: 1, d: {f: 'x', g: [1, {i: 2}]}, j: 0, k: '', l: false});
+    const snap = buildSnapshot({team: 'NYI', games: [], now: NOW});
+    const has = (v) => v === null || (v && typeof v === 'object' && Object.values(v).some(has));
+    assert.equal(buildTimeline(snap, NOW).some((e) => has(withoutNulls(e.props))), false);
 });

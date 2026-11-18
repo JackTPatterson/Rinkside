@@ -195,6 +195,19 @@ export function buildSnapshot({team, standings, games, liveGame, now = Date.now(
  * open, so each entry carries its own expiry: a countdown flips to "puck drop" at start time, and a
  * live score downgrades to "as of ..." if the app hasn't refreshed it.
  */
+/**
+ * `value` with every null/undefined property dropped. Widget timelines are stored natively in UserDefaults, which
+ * rejects null (an NSNull throws), and which is why the widgets never updated. Layouts only test `x == null` or
+ * truthiness, so "absent" reads the same as null.
+ */
+export function withoutNulls(value) {
+    if (Array.isArray(value)) return value.map(withoutNulls);
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value).filter(([, v]) => v != null).map(([k, v]) => [k, withoutNulls(v)]));
+    }
+    return value;
+}
+
 export function buildTimeline(snapshot, now = Date.now()) {
     const entries = [{date: now, props: snapshot}];
     const g = snapshot?.game;
