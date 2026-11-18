@@ -65,10 +65,10 @@ export default function TradeRadarScreen({navigation, route}) {
                     </View>
                     <Section title="Trade alerts" style={styles.section}>
                         <View style={styles.row}>
-                            <T variant="body" muted style={styles.flex}>{prefs.enabled ? `Following ${prefs.team || 'all teams'} · ${prefs.minimum}${prefs.minimum === 'Confirmed' ? ' only' : ' and above'}` : 'Get notified when reporting strengthens.'}</T>
-                            <Switch accessibilityLabel="Trade alerts" value={prefs.enabled} disabled={!ready || busy || !tradeRadarConfigured} onValueChange={enabled => save({enabled, team: scope === 'team' ? team : null})}/>
+                            <T variant="body" muted style={styles.flex}>{prefs.topics.trades ? `Following ${prefs.team || 'all teams'} · ${prefs.minimum}${prefs.minimum === 'Confirmed' ? ' only' : ' and above'}` : 'Get notified when reporting strengthens.'}</T>
+                            <Switch accessibilityLabel="Trade alerts" value={prefs.topics.trades} disabled={!ready || busy || !tradeRadarConfigured} onValueChange={enabled => save({topics: {trades: enabled}, team: scope === 'team' ? team : null})}/>
                         </View>
-                        {prefs.enabled ? <>
+                        {prefs.topics.trades ? <>
                             <View style={styles.group}>
                                 <T variant="label">Alert coverage</T>
                                 <Segmented options={tabs} value={prefs.team ? 'team' : 'all'} onChange={value => { if (!busy) save({team: value === 'team' ? team : null}); }}/>

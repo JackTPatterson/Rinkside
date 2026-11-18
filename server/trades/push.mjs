@@ -1,6 +1,6 @@
 import {buildStories, LEVELS, shouldAlert, hash, DAY} from './model.mjs';
 
-async function expo(path, body, accessToken) {
+export async function expo(path, body, accessToken) {
     const response = await fetch(`https://exp.host/--/api/v2/push/${path}`, {
         method: 'POST', headers: {'Content-Type': 'application/json', ...(accessToken ? {Authorization: `Bearer ${accessToken}`} : {})},
         body: JSON.stringify(body), signal: AbortSignal.timeout(20000),
@@ -10,9 +10,41 @@ async function expo(path, body, accessToken) {
     if (result.errors?.length) throw new Error('Expo rejected the request');
     return result.data;
 }
+/** Which alert topics a device asked for. Subscriptions from before topics existed only ever meant trade alerts. */
+export const wantsTopic = (subscription, topic) => subscription.topics ? !!subscription.topics[topic] : topic === 'trades' && !!subscription.enabled;
+
+/**
+ * Send one notification to one device, at most once per `key`. Failed sends retry with backoff; a device the push
+ * service no longer knows is switched off. Returns true when Expo accepted it.
+ */
+export async function sendOnce(store, subscription, key, message, {send, now = Date.now()}) {
+    const id = hash(`${subscription.id}:${key}`);
+    const previous = store.get('deliveries', id);
+    if (previous?.sentAt || previous?.retryAt > now) return false;
+    const current = store.get('subscriptions', subscription.id);
+    if (!current?.enabled || current.updatedAt !== subscription.updatedAt) return false; // opted out meanwhile
+    try {
+        const result = await send({to: subscription.token, title: message.title.slice(0, 120), body: message.body.slice(0, 400), data: message.data,
+            sound: 'default', channelId: message.channelId, ttl: message.ttl ?? 3600});
+        const ticket = Array.isArray(result) ? result[0] : result;
+        if (ticket?.status === 'error' && ticket.details?.error === 'DeviceNotRegistered') {
+            store.put('subscriptions', subscription.id, {...current, enabled: false});
+            return false;
+        }
+        if (ticket?.status !== 'ok' || !ticket.id) throw new Error('Push ticket rejected');
+        store.put('deliveries', id, {id, sentAt: now});
+        store.put('receipts', ticket.id, {id: ticket.id, subscriptionId: subscription.id, token: subscription.token, deliveryKey: id, createdAt: now});
+        return true;
+    } catch {
+        const failures = (previous?.failures ?? 0) + 1;
+        store.put('deliveries', id, {id, failures, retryAt: now + Math.min(3600000, 60000 * 2 ** Math.min(failures, 6))});
+        return false;
+    }
+}
+
 export async function dispatchAlerts(store, {accessToken, send = body => expo('send', body, accessToken), now = Date.now()} = {}) {
     const stories = buildStories(store.list('reports'), now);
-    for (const subscription of store.list('subscriptions').filter(s => s.enabled)) {
+    for (const subscription of store.list('subscriptions').filter(s => s.enabled && wantsTopic(s, 'trades'))) {
         for (const story of stories) {
             const key = hash(`${subscription.id}:${story.id}`);
             const previous = store.get('deliveries', key);

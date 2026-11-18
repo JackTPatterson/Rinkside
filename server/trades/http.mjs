@@ -3,6 +3,7 @@ import {timingSafeEqual} from 'node:crypto';
 import {buildStories, hash, LEVELS, sources, validateReport} from './model.mjs';
 import {createTracking} from './tracking.mjs';
 
+const TOPICS = ['trades', 'pregame', 'milestones', 'standings'];
 const same = (a, b) => timingSafeEqual(Buffer.from(hash(a)), Buffer.from(hash(b)));
 async function body(req) {
     let data = '';
@@ -51,7 +52,22 @@ export function createAPI(store, {adminToken, trustedProxy, goalAssists = create
                 if (typeof data.enabled !== 'boolean' || !Object.hasOwn(LEVELS, data.minimum) ||
                     (data.team !== null && !/^[A-Z]{3}$/.test(data.team)) ||
                     typeof data.token !== 'string' || !/^(Expo|Exponent)PushToken\[[\w-]+\]$/.test(data.token)) return send(400, {error: 'Invalid subscription'});
-                store.subscribe(subscription[1], secret, {enabled: data.enabled, minimum: data.minimum, team: data.team, token: data.token});
+                const prefs = {enabled: data.enabled, minimum: data.minimum, team: data.team, token: data.token};
+                // Team alerts (optional; older app versions only send trade alerts).
+                if (data.topics !== undefined) {
+                    const topics = data.topics;
+                    if (!topics || typeof topics !== 'object' || !TOPICS.every(t => typeof topics[t] === 'boolean')) return send(400, {error: 'Invalid subscription'});
+                    prefs.topics = Object.fromEntries(TOPICS.map(t => [t, topics[t]]));
+                }
+                if (data.fanTeam !== undefined) {
+                    if (data.fanTeam !== null && !/^[A-Z]{3}$/.test(data.fanTeam)) return send(400, {error: 'Invalid subscription'});
+                    prefs.fanTeam = data.fanTeam;
+                }
+                if (data.tz !== undefined) {
+                    try { new Intl.DateTimeFormat('en-US', {timeZone: data.tz}); } catch { return send(400, {error: 'Invalid subscription'}); }
+                    prefs.tz = data.tz;
+                }
+                store.subscribe(subscription[1], secret, prefs);
                 return send(200, {ok: true});
             }
             if (req.method === 'POST' && url.pathname === '/reports') {

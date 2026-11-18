@@ -17,5 +17,6 @@ export const ROUTES = {
     about: 'About',
     methodology: 'Methodology',
     trades: 'TradeRadar',
+    notifications: 'Notifications',
     video: 'Video', //   params: {videoId, title?, webUrl?}  in-app NHL video player (full-screen modal)
 };

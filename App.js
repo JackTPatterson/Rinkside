@@ -25,6 +25,7 @@ import {Brodcast, Chart, Home2, Setting2, User} from './src/components/icons';
 import {FavoriteTeamProvider, useFavoriteTeam} from './src/hooks/useFavoriteTeam';
 import {ROUTES} from './src/navigation/routes';
 import AboutScreen from './src/screens/AboutScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import TradeRadarScreen from './src/screens/TradeRadarScreen';
 import {TradeAlertsProvider, useTradeNotificationNavigation} from './src/trades/TradeAlerts';
 import FavoriteTeamScreen from './src/screens/FavoriteTeamScreen';
@@ -201,6 +202,7 @@ function RootNavigator() {
                             <Stack.Screen name={ROUTES.about} component={AboutScreen}/>
                             <Stack.Screen name={ROUTES.methodology} component={MethodologyScreen}/>
                             <Stack.Screen name={ROUTES.trades} component={TradeRadarScreen}/>
+                            <Stack.Screen name={ROUTES.notifications} component={NotificationsScreen}/>
                             <Stack.Screen
                                 name={ROUTES.video}
                                 component={VideoScreen}

@@ -2,7 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Alert, ScrollView, StyleSheet, View} from 'react-native';
 import Animated, {FadeInDown, FadeOut} from 'react-native-reanimated';
 import {clearCache} from '../api/client';
-import {InfoCircle, Lamp, Refresh, TickCircle, User} from '../components/icons';
+import {InfoCircle, Lamp, Notification, Refresh, TickCircle, User} from '../components/icons';
 import {Header, Screen, T, TeamLogo, tap} from '../components/ui';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
 import {ROUTES} from '../navigation/routes';
@@ -67,6 +67,7 @@ export default function SettingsScreen({navigation}) {
                         onPress={() => go(ROUTES.favoriteTeam)}
                     />
                     <LiveActivityRow/>
+                    <SettingsRow icon={Notification} title="Notifications" onPress={() => go(ROUTES.notifications)}/>
                     <SettingsRow
                         icon={Lamp}
                         title="How the Models Work"
