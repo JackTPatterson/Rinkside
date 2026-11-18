@@ -1,6 +1,7 @@
 import {createServer} from 'node:http';
 import {timingSafeEqual} from 'node:crypto';
 import {buildStories, hash, LEVELS, sources, validateReport} from './model.mjs';
+import {createTracking} from './tracking.mjs';
 
 const same = (a, b) => timingSafeEqual(Buffer.from(hash(a)), Buffer.from(hash(b)));
 async function body(req) {
@@ -11,7 +12,7 @@ async function body(req) {
     }
     try { return JSON.parse(data); } catch { throw Object.assign(new Error('Invalid JSON'), {status: 400}); }
 }
-export function createAPI(store, {adminToken, trustedProxy} = {}) {
+export function createAPI(store, {adminToken, trustedProxy, goalAssists = createTracking()} = {}) {
     const limits = new Map();
     return createServer(async (req, res) => {
         res.setHeader('Content-Type', 'application/json');
@@ -36,6 +37,11 @@ export function createAPI(store, {adminToken, trustedProxy} = {}) {
                 return send(200, {stories: buildStories(store.list('reports')).filter(s => !team || s.teams.includes(team)).slice(0, 100),
                     sources: sources.filter(s => s.kind !== 'editorial').map(s => store.get('sources', s.id) ?? {id: s.id, name: s.name, status: 'pending'}),
                     fetchedAt: new Date().toISOString()});
+            }
+            const assists = /^\/games\/(\d{10})\/assists$/.exec(url.pathname);
+            if (req.method === 'GET' && assists) {
+                try { return send(200, {goals: await goalAssists(assists[1])}); }
+                catch { return send(200, {goals: {}}); } // upstream trouble is "no data", not an app error
             }
             const subscription = /^\/subscriptions\/([a-f0-9-]{36})$/.exec(url.pathname);
             const secret = String(req.headers.authorization ?? '').replace(/^Bearer /, '');

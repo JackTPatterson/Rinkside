@@ -16,13 +16,24 @@ export const elapsedOf = (period, timeInPeriod) => (Math.max(1, period) - 1) * 1
 
 const KIND = {goal: 'goal', 'shot-on-goal': 'shot', 'missed-shot': 'miss', 'blocked-shot': 'block', penalty: 'penalty'};
 
+function assistSpots(known, flip) {
+    const out = [];
+    for (const [n, key] of [[1, 'a1'], [2, 'a2']]) {
+        const spot = known?.[key];
+        if (Number.isFinite(spot?.x) && Number.isFinite(spot?.y)) out.push({n, x: flip ? -spot.x : spot.x, y: flip ? -spot.y : spot.y});
+    }
+    return out;
+}
+
 /**
  * Events in game order. Shots carry rink coordinates normalised so the home team attacks LEFT
  * (same rule as the Rink Map tab), plus xG when the matching shot is in `xgShots`.
- * Event: {id, t, kind, isHome, x, y, xg, playerId, period, clock, shotType, hs, as}
+ * Event: {id, t, kind, isHome, x, y, xg, playerId, period, clock, shotType, hs, as, assists}
+ *   assists = [{n: 1|2, x, y}] where each assister last had the puck (goals only, when tracking data is known),
+ *   normalised like x/y.
  *   hs/as = score AFTER the event.
  */
-export function buildEvents(pbp, homeId, xgShots = []) {
+export function buildEvents(pbp, homeId, xgShots = [], assistsById = null) {
     const xgById = new Map(xgShots.map((s) => [s.eventId, s.xg]));
     const out = [];
     let hs = 0;
@@ -51,6 +62,7 @@ export function buildEvents(pbp, homeId, xgShots = []) {
             x: hasXY ? (flip ? -rx : rx) : null,
             y: hasXY ? (flip ? -ry : ry) : null,
             xg: xgById.get(p.eventId) ?? null,
+            assists: kind === 'goal' ? assistSpots(assistsById?.[p.eventId], flip) : [],
             playerId: d.shootingPlayerId ?? d.scoringPlayerId ?? d.committedByPlayerId ?? null,
             period,
             clock: p.timeInPeriod ?? null,

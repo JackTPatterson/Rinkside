@@ -149,3 +149,14 @@ test('share card formatting', async () => {
     assert.equal(f.headline({header, excitement: {comeback: 0.5, label: 'Thriller'}, dtw: {home: 0.6, away: 0.4}}), 'Thriller');
     assert.equal(f.headline({header, excitement: null, dtw: null}), null);
 });
+
+test('buildEvents: goal assists use the same orientation as the shot, and are empty when unknown', () => {
+    // Goal 3 was shot with the home team defending left, so its coordinates flip; goal 7 does not.
+    const known = {3: {a1: {x: 60, y: -10}, a2: null}, 7: {a1: {x: 55, y: 4}, a2: {x: 40, y: -20}}};
+    const ev = Object.fromEntries(buildEvents(pbp, HOME, [], known).map((e) => [e.id, e]));
+    assert.deepEqual(ev[3].assists, [{n: 1, x: -60, y: 10}]);
+    assert.deepEqual(ev[7].assists, [{n: 1, x: 55, y: 4}, {n: 2, x: 40, y: -20}]);
+    assert.deepEqual(ev[8].assists, []); // no data for this goal
+    assert.deepEqual(ev[2].assists, []); // shots never carry assists
+    assert.deepEqual(buildEvents(pbp, HOME).find((e) => e.id === '3').assists, []); // no tracking data at all
+});

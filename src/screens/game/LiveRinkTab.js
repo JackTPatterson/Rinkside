@@ -11,11 +11,13 @@ import Animated, {
     withDelay,
     withTiming,
 } from 'react-native-reanimated';
-import Svg, {Circle, Line, Path} from 'react-native-svg';
+import Svg, {Circle, Line, Path, Text as SvgText} from 'react-native-svg';
 import RinkSvg from '../../components/RinkSvg';
 import {Activity, Pause, Play} from '../../components/icons';
 import {EmptyState, LiveDot, ProgressBar, T, TeamLogo, tap} from '../../components/ui';
+import {fetchGoalAssists, trackingConfigured} from '../../api/tracking';
 import {useFavoriteTeam} from '../../hooks/useFavoriteTeam';
+import {useQuery} from '../../hooks/useQuery';
 import {useAppTheme} from '../../theme';
 import {periodLabel} from '../../utils/format';
 import {SectionTitle} from './common';
@@ -67,11 +69,11 @@ const AnimatedLine = Animated.createAnimatedComponent(Line);
  * A goal's shot line, from where it was shot into the net. A fresh goal draws its line in, shooter to net;
  * older goals keep a softer line so the game's scoring chances stay readable.
  */
-const GoalLine = memo(function GoalLine({x1, y1, x2, y2, color, recent, animate}) {
+const GoalLine = memo(function GoalLine({x1, y1, x2, y2, color, recent, animate, delay = 0, dashed = false, width = 2.5}) {
     const k = useSharedValue(animate && recent ? 0 : 1);
     useEffect(() => {
-        if (animate && recent) k.value = withTiming(1, {duration: 450, easing: Easing.out(Easing.cubic)});
-    }, [animate, recent, k]);
+        if (animate && recent) k.value = withDelay(delay, withTiming(1, {duration: 380, easing: Easing.out(Easing.cubic)}));
+    }, [animate, recent, delay, k]);
     const props = useAnimatedProps(() => ({x2: x1 + (x2 - x1) * k.value, y2: y1 + (y2 - y1) * k.value}));
     return (
         <AnimatedLine
@@ -79,9 +81,10 @@ const GoalLine = memo(function GoalLine({x1, y1, x2, y2, color, recent, animate}
             y1={y1}
             animatedProps={props}
             stroke={color}
-            strokeWidth={recent ? 2.5 : 1.75}
-            strokeOpacity={recent ? 0.9 : 0.4}
+            strokeWidth={recent ? width : width * 0.7}
+            strokeOpacity={recent ? (dashed ? 0.8 : 0.9) : dashed ? 0.3 : 0.4}
             strokeLinecap="round"
+            strokeDasharray={dashed ? '5 5' : undefined}
         />
     );
 });
@@ -130,21 +133,49 @@ const RinkLayer = memo(function RinkLayer({events, t, hc, ac, animate, width}) {
         <View style={{width, height}}>
             <RinkSvg view="full" width={width} height={height} style={StyleSheet.absoluteFill}/>
             <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
-                {/* Every goal's shot line into the net (drawn under the dots, so each starts at its shot) */}
+                {/* Every goal's path into the net: pass from each assister, then the shot (drawn under the dots) */}
                 {goals.map((g) => {
                     const p = mapToPixel(g.x, g.y, width, height);
                     const n = mapToPixel(g.isHome ? -HALF_NET : HALF_NET, 0, width, height);
+                    const color = g.isHome ? hc : ac;
+                    const recent = t - g.t < RECENT;
+                    // Pass order: second assist, first assist, the shot.
+                    const spots = [...g.assists].sort((a, b) => b.n - a.n).map((a) => ({n: a.n, ...mapToPixel(a.x, a.y, width, height)}));
+                    const route = [...spots, p];
                     return (
-                        <GoalLine
-                            key={g.id}
-                            x1={p.x}
-                            y1={p.y}
-                            x2={n.x}
-                            y2={netY}
-                            color={g.isHome ? hc : ac}
-                            recent={t - g.t < RECENT}
-                            animate={animate}
-                        />
+                        <React.Fragment key={g.id}>
+                            {route.slice(0, -1).map((from, i) => (
+                                <GoalLine
+                                    key={`${g.id}-pass-${from.n}`}
+                                    x1={from.x}
+                                    y1={from.y}
+                                    x2={route[i + 1].x}
+                                    y2={route[i + 1].y}
+                                    color={color}
+                                    recent={recent}
+                                    animate={animate}
+                                    delay={i * 300}
+                                    dashed
+                                    width={2}
+                                />
+                            ))}
+                            <GoalLine
+                                x1={p.x}
+                                y1={p.y}
+                                x2={n.x}
+                                y2={netY}
+                                color={color}
+                                recent={recent}
+                                animate={animate}
+                                delay={spots.length * 300}
+                            />
+                            {spots.map((a) => (
+                                <React.Fragment key={`${g.id}-spot-${a.n}`}>
+                                    <Circle cx={a.x} cy={a.y} r={7} fill={color} fillOpacity={recent ? 1 : 0.6} stroke="#FFFFFF" strokeWidth={1.25}/>
+                                    <SvgText x={a.x} y={a.y + 3.5} fontSize={10} fontWeight="700" fill={readable(color)} textAnchor="middle">{a.n}</SvgText>
+                                </React.Fragment>
+                            ))}
+                        </React.Fragment>
                     );
                 })}
             </Svg>
@@ -337,7 +368,15 @@ function LiveRinkTab({header, pbp, xg, roster, ratings, mp}) {
 
     const homeId = home.id ?? pbp?.homeTeam?.id;
     const shots = useMemo(() => (xg ? [...xg.home.shots, ...xg.away.shots] : []), [xg]);
-    const events = useMemo(() => buildEvents(pbp, homeId, shots), [pbp, homeId, shots]);
+    // Where assisters had the puck, from the NHL's tracking clips via our server. Optional: with no data the rink
+    // simply shows the shot line, as before.
+    const gameId = pbp?.id;
+    const goalCount = useMemo(() => (pbp?.plays ?? []).filter((p) => p?.typeDescKey === 'goal').length, [pbp]);
+    const tracking = useQuery(({force}) => fetchGoalAssists(gameId, {force}), [gameId, goalCount], {
+        enabled: trackingConfigured && !!gameId && goalCount > 0,
+        refetchInterval: liveGame ? 60000 : 0,
+    });
+    const events = useMemo(() => buildEvents(pbp, homeId, shots, tracking.data), [pbp, homeId, shots, tracking.data]);
     const nowT = liveGame ? currentElapsed(header) : 0;
     const endT = gameEnd(events, {nowT, final: header.final});
     const goals = useMemo(() => events.filter((e) => e.kind === 'goal'), [events]);
