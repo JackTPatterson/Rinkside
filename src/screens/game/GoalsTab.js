@@ -1,5 +1,7 @@
 import React, {memo, useCallback, useMemo, useRef, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import {fetchGoalAssists, trackingConfigured} from '../../api/tracking';
+import {useQuery} from '../../hooks/useQuery';
 import {EmptyState, Headshot, Row, Sheet, T, fillRadii, tap} from '../../components/ui';
 import {ArrowDownRight, ArrowRight, ArrowUpRight, Close, User, Video} from '../../components/icons';
 import {useAppTheme, withAlpha} from '../../theme';
@@ -174,6 +176,11 @@ function GoalSheet({visible, goal, index, pbp, xgShots, header, onClose, onPlaye
         fn?.();
     };
     const color = goal ? teamColor(goal.team) : colors.text;
+    // Where the assisters had the puck (NHL tracking, via our server). Optional: without it the sheet shows the shot alone.
+    const gameId = pbp?.id;
+    const tracking = useQuery(({force}) => fetchGoalAssists(gameId, {force}), [gameId], {enabled: visible && trackingConfigured && !!gameId});
+    const known = play ? tracking.data?.[play.eventId] : null;
+    const assistSpots = [[1, known?.a1], [2, known?.a2]].filter(([, p]) => Number.isFinite(p?.x) && Number.isFinite(p?.y)).map(([n, p]) => ({n, x: p.x, y: p.y}));
     const x = Number(play?.details?.xCoord);
     const y = Number(play?.details?.yCoord);
     return (
@@ -194,7 +201,7 @@ function GoalSheet({visible, goal, index, pbp, xgShots, header, onClose, onPlaye
                         <T variant="body" style={[type.sub, {marginTop: 4}]}>Assists: {goal.assists.map((a) => a.name).join(', ')}</T>
                     ) : null}
                     <View style={{marginTop: 20}}>
-                        <HalfRink x={x} y={y} color={color} width={230}/>
+                        <HalfRink x={x} y={y} color={color} width={230} assists={assistSpots}/>
                     </View>
                     <ValueRow
                         title="Shot xG"

@@ -4,7 +4,7 @@ import {Flash} from '../../components/icons';
 import {tap} from '../../components/ui';
 import {useAppTheme} from '../../theme';
 import {widgetModules} from '../../widgets';
-import {getLiveActivityEnabled, setLiveActivityEnabled, syncLiveActivity} from '../../widgets/liveActivity';
+import {getLiveActivityEnabled, getLiveActivityError, setLiveActivityEnabled, syncLiveActivity} from '../../widgets/liveActivity';
 import {SettingsRow} from './SettingsRow';
 
 /** Switch for the game Live Activity. Renders nothing where widgets aren't available (Expo Go, Android, web). */
@@ -12,6 +12,15 @@ export default function LiveActivityRow() {
     const {colors} = useAppTheme();
     const modules = widgetModules();
     const [on, setOn] = useState(true);
+    const [problem, setProblem] = useState(null);
+
+    // Starting an activity can fail for reasons only the user can fix (iOS Settings > Rinkside > Live Activities).
+    useEffect(() => {
+        const read = () => setProblem(getLiveActivityError());
+        read();
+        const timer = setInterval(read, 3000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         let alive = true;
@@ -34,7 +43,7 @@ export default function LiveActivityRow() {
         <SettingsRow
             icon={Flash}
             title="Game Live Activity"
-            subtitle="Show your team's live score on the Lock Screen and Dynamic Island during games."
+            subtitle={on && problem ? `Couldn't start: ${problem}` : "Show your team's live score on the Lock Screen and Dynamic Island during games."}
             right={<Switch value={on} onValueChange={toggle} trackColor={{true: colors.accent}} accessibilityLabel="Game Live Activity"/>}
         />
     );

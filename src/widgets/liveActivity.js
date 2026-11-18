@@ -35,6 +35,10 @@ async function readStarted() {
 }
 const writeStarted = (list) => AsyncStorage.setItem(STARTED_KEY, JSON.stringify(list.slice(-5))).catch(() => {});
 
+let lastError = null;
+/** Why the last start/update failed (e.g. Live Activities are switched off for the app in iOS Settings), or null. */
+export const getLiveActivityError = () => lastError;
+
 const lastSent = new Map(); // activityId → JSON of the last props pushed to it
 let busy = null;
 
@@ -96,6 +100,7 @@ export function syncLiveActivity(activity, snapshot, enabled) {
     if (!activity) return Promise.resolve();
     busy = (busy ?? Promise.resolve())
         .then(() => run(activity, snapshot, enabled))
-        .catch(() => {});
+        .then(() => { lastError = null; })
+        .catch((e) => { lastError = String(e?.message ?? e); });
     return busy;
 }

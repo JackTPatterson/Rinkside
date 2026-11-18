@@ -5,13 +5,12 @@ import Animated, {
     FadeInDown,
     FadeOut,
     cancelAnimation,
-    useAnimatedProps,
     useAnimatedStyle,
     useSharedValue,
     withDelay,
     withTiming,
 } from 'react-native-reanimated';
-import Svg, {Circle, Line, Path, Text as SvgText} from 'react-native-svg';
+import Svg, {Circle, Line, Path} from 'react-native-svg';
 import RinkSvg from '../../components/RinkSvg';
 import {Activity, Pause, Play} from '../../components/icons';
 import {EmptyState, LiveDot, ProgressBar, T, TeamLogo, tap} from '../../components/ui';
@@ -33,6 +32,7 @@ import {
 } from './liveRink';
 import {currentElapsed} from './model';
 import {cheerFor, plan, tension as tensionOf} from './pulse';
+import {GoalPath} from './GoalPath';
 import {mapToPixel} from './Rink';
 import {resultLabel} from './shareFormat';
 import {runPlan, useLivePulse, usePulsePreference} from './usePulse';
@@ -63,32 +63,6 @@ const Shockwave = memo(function Shockwave({color, size}) {
     );
 });
 
-const AnimatedLine = Animated.createAnimatedComponent(Line);
-
-/**
- * A goal's shot line, from where it was shot into the net. A fresh goal draws its line in, shooter to net;
- * older goals keep a softer line so the game's scoring chances stay readable.
- */
-const GoalLine = memo(function GoalLine({x1, y1, x2, y2, color, recent, animate, delay = 0, dashed = false, width = 2.5}) {
-    const k = useSharedValue(animate && recent ? 0 : 1);
-    useEffect(() => {
-        if (animate && recent) k.value = withDelay(delay, withTiming(1, {duration: 380, easing: Easing.out(Easing.cubic)}));
-    }, [animate, recent, delay, k]);
-    const props = useAnimatedProps(() => ({x2: x1 + (x2 - x1) * k.value, y2: y1 + (y2 - y1) * k.value}));
-    return (
-        <AnimatedLine
-            x1={x1}
-            y1={y1}
-            animatedProps={props}
-            stroke={color}
-            strokeWidth={recent ? width : width * 0.7}
-            strokeOpacity={recent ? (dashed ? 0.8 : 0.9) : dashed ? 0.3 : 0.4}
-            strokeLinecap="round"
-            strokeDasharray={dashed ? '5 5' : undefined}
-        />
-    );
-});
-
 /** One shot / goal on the ice. Eases in when it appears (no overshoot); goals send out a shockwave. */
 const ShotDot = memo(function ShotDot({x, y, r, color, kind, recent, animate, delay}) {
     const s = useSharedValue(animate ? 0 : 1);
@@ -111,10 +85,10 @@ const ShotDot = memo(function ShotDot({x, y, r, color, kind, recent, animate, de
                         backgroundColor: hollow ? 'transparent' : color,
                         borderWidth: goal ? 2.5 : hollow ? 1.5 : 1.25,
                         borderColor: hollow ? color : '#FFFFFF',
-                        opacity: recent ? (hollow ? 0.8 : 1) : hollow ? 0.35 : 0.5,
+                        opacity: recent ? (hollow ? 0.8 : 1) : hollow ? 0.25 : 0.35,
                     },
-                    goal && styles.goalGlow,
-                    goal && {shadowColor: color},
+                    goal && recent && styles.goalGlow,
+                    goal && recent && {shadowColor: color},
                     grow,
                 ]}
             />
@@ -133,49 +107,19 @@ const RinkLayer = memo(function RinkLayer({events, t, hc, ac, animate, width}) {
         <View style={{width, height}}>
             <RinkSvg view="full" width={width} height={height} style={StyleSheet.absoluteFill}/>
             <Svg width={width} height={height} style={StyleSheet.absoluteFill} pointerEvents="none">
-                {/* Every goal's path into the net: pass from each assister, then the shot (drawn under the dots) */}
-                {goals.map((g) => {
-                    const p = mapToPixel(g.x, g.y, width, height);
-                    const n = mapToPixel(g.isHome ? -HALF_NET : HALF_NET, 0, width, height);
-                    const color = g.isHome ? hc : ac;
-                    const recent = t - g.t < RECENT;
-                    // Pass order: second assist, first assist, the shot.
-                    const spots = [...g.assists].sort((a, b) => b.n - a.n).map((a) => ({n: a.n, ...mapToPixel(a.x, a.y, width, height)}));
-                    const route = [...spots, p];
+                {/* Only the latest goal and any in the last couple of minutes keep their path; older goals are just dots. */}
+                {goals.filter((g, i) => i === goals.length - 1 || t - g.t < RECENT).map((g) => {
+                    const fresh = t - g.t < RECENT;
                     return (
-                        <React.Fragment key={g.id}>
-                            {route.slice(0, -1).map((from, i) => (
-                                <GoalLine
-                                    key={`${g.id}-pass-${from.n}`}
-                                    x1={from.x}
-                                    y1={from.y}
-                                    x2={route[i + 1].x}
-                                    y2={route[i + 1].y}
-                                    color={color}
-                                    recent={recent}
-                                    animate={animate}
-                                    delay={i * 300}
-                                    dashed
-                                    width={2}
-                                />
-                            ))}
-                            <GoalLine
-                                x1={p.x}
-                                y1={p.y}
-                                x2={n.x}
-                                y2={netY}
-                                color={color}
-                                recent={recent}
-                                animate={animate}
-                                delay={spots.length * 300}
-                            />
-                            {spots.map((a) => (
-                                <React.Fragment key={`${g.id}-spot-${a.n}`}>
-                                    <Circle cx={a.x} cy={a.y} r={7} fill={color} fillOpacity={recent ? 1 : 0.6} stroke="#FFFFFF" strokeWidth={1.25}/>
-                                    <SvgText x={a.x} y={a.y + 3.5} fontSize={10} fontWeight="700" fill={readable(color)} textAnchor="middle">{a.n}</SvgText>
-                                </React.Fragment>
-                            ))}
-                        </React.Fragment>
+                        <GoalPath
+                            key={g.id}
+                            shot={mapToPixel(g.x, g.y, width, height)}
+                            net={{...mapToPixel(g.isHome ? -HALF_NET : HALF_NET, 0, width, height), y: netY}}
+                            assists={g.assists.map((a) => ({n: a.n, ...mapToPixel(a.x, a.y, width, height)}))}
+                            color={g.isHome ? hc : ac}
+                            strong={fresh}
+                            animate={animate && fresh}
+                        />
                     );
                 })}
             </Svg>
