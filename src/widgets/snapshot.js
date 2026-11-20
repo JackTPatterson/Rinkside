@@ -226,7 +226,7 @@ export function buildTimeline(snapshot, now = Date.now()) {
 export function liveActivityProps(snapshot) {
     const g = snapshot?.game;
     if (!g || !snapshot.team) return null;
-    return {
+    return withoutNulls({
         gameId: g.id,
         state: g.state,
         team: {abbrev: snapshot.team.abbrev, name: snapshot.team.short, bgLight: snapshot.team.bgLight, bgDark: snapshot.team.bgDark},
@@ -243,6 +243,7 @@ export function liveActivityProps(snapshot) {
         result: g.result,
         isHome: g.isHome,
         playoff: g.playoff,
+        usWin: g.usWin, // our team's win probability, 0..1 (live games, when MoneyPuck has it)
         updatedAt: snapshot.updatedAt,
-    };
+    });
 }

@@ -1,6 +1,8 @@
 import {useEffect, useRef} from 'react';
 import {AppState} from 'react-native';
 import {isLive, nhl} from '../api/nhl';
+import {moneypuck} from '../api/moneypuck';
+import {currentSeasonId} from '../utils/season';
 import {toISODate} from '../utils/format';
 import {getLiveActivityEnabled, syncLiveActivity} from './liveActivity';
 import {widgetModules} from './index';
@@ -34,7 +36,24 @@ export async function loadSnapshot(team, {force = false} = {}) {
         const scores = await nhl.score(day, {force: true}).catch(() => null);
         liveGame = scores?.games?.find((g) => g.id === picked.id) ?? null;
     }
-    return buildSnapshot({team, standings, games, liveGame});
+    const snap = buildSnapshot({team, standings, games, liveGame});
+    if (snap?.game?.state === 'live' && picked) {
+        const p = await liveHomeWinProb(picked.season ?? currentSeasonId(), picked.id, force);
+        if (p != null) snap.game.usWin = snap.game.isHome ? p : 1 - p;
+    }
+    return snap;
+}
+
+/** MoneyPuck's latest in-game home win probability (0..1), or null when it has no file for the game yet. */
+async function liveHomeWinProb(season, gameId, force) {
+    const rows = await moneypuck.gameData(season, gameId, {force}).catch(() => null);
+    if (!Array.isArray(rows)) return null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const raw = rows[i]?.homeWinProbability;
+        const v = Number(raw);
+        if (raw != null && raw !== '' && Number.isFinite(v) && v >= 0 && v <= 1) return v;
+    }
+    return null;
 }
 
 /**
