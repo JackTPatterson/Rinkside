@@ -3,12 +3,14 @@
 // To add an icon: import it from 'iconsax-react-native/dist/esm/<Name>' and wrap it below.
 import React from 'react';
 import {View} from 'react-native';
-import Svg, {G, Path} from 'react-native-svg';
+import Svg, {Circle, G, Path, Rect} from 'react-native-svg';
 import StatusRaw from 'iconsax-react-native/dist/esm/Status';
 import MonitorRaw from 'iconsax-react-native/dist/esm/Monitor';
 import AwardRaw from 'iconsax-react-native/dist/esm/Award';
 import SpeedometerRaw from 'iconsax-react-native/dist/esm/Speedometer';
 import LampRaw from 'iconsax-react-native/dist/esm/Lamp';
+import NotificationRaw from 'iconsax-react-native/dist/esm/Notification';
+import ArrowSwapHorizontalRaw from 'iconsax-react-native/dist/esm/ArrowSwapHorizontal';
 import HealthRaw from 'iconsax-react-native/dist/esm/Health';
 import HierarchyRaw from 'iconsax-react-native/dist/esm/Hierarchy';
 import DiagramRaw from 'iconsax-react-native/dist/esm/Diagram';
@@ -44,8 +46,6 @@ import MedalRaw from 'iconsax-react-native/dist/esm/Medal';
 import Microphone2Raw from 'iconsax-react-native/dist/esm/Microphone2';
 import MoneysRaw from 'iconsax-react-native/dist/esm/Moneys';
 import PeopleRaw from 'iconsax-react-native/dist/esm/People';
-import PlayRaw from 'iconsax-react-native/dist/esm/Play';
-import PauseRaw from 'iconsax-react-native/dist/esm/Pause';
 import Profile2UserRaw from 'iconsax-react-native/dist/esm/Profile2User';
 import RadarRaw from 'iconsax-react-native/dist/esm/Radar';
 import RankingRaw from 'iconsax-react-native/dist/esm/Ranking';
@@ -60,6 +60,7 @@ import TickCircleRaw from 'iconsax-react-native/dist/esm/TickCircle';
 import Timer1Raw from 'iconsax-react-native/dist/esm/Timer1';
 import UserRaw from 'iconsax-react-native/dist/esm/User';
 import VideoRaw from 'iconsax-react-native/dist/esm/Video';
+import ExportRaw from 'iconsax-react-native/dist/esm/Export';
 
 const wrap = (C) => {
     const Icon = ({size = 22, color = '#888', variant = 'Linear', ...rest}) => (
@@ -102,8 +103,24 @@ export const Medal = wrap(MedalRaw);
 export const Microphone2 = wrap(Microphone2Raw);
 export const Moneys = wrap(MoneysRaw);
 export const People = wrap(PeopleRaw);
-export const Play = wrap(PlayRaw);
-export const Pause = wrap(PauseRaw);
+// Play / pause are drawn here (solid, rounded) rather than taken from iconsax. `variant` is accepted and
+// ignored so callers can keep passing it.
+export function Play({size = 22, color = '#888', variant: _variant, ...rest}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" {...rest}>
+            <Path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.6-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z" fill={color}/>
+        </Svg>
+    );
+}
+
+export function Pause({size = 22, color = '#888', variant: _variant, ...rest}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" {...rest}>
+            <Rect x={6} y={5} width={4} height={14} rx={1.5} fill={color}/>
+            <Rect x={14} y={5} width={4} height={14} rx={1.5} fill={color}/>
+        </Svg>
+    );
+}
 export const Profile2User = wrap(Profile2UserRaw);
 export const Radar = wrap(RadarRaw);
 export const Ranking = wrap(RankingRaw);
@@ -118,6 +135,7 @@ export const TickCircle = wrap(TickCircleRaw);
 export const Timer1 = wrap(Timer1Raw);
 export const User = wrap(UserRaw);
 export const Video = wrap(VideoRaw);
+export const Export = wrap(ExportRaw);
 export const ArrowUp2 = wrap(ArrowUp2Raw);
 export const Edit2 = wrap(Edit2Raw);
 export const Link = wrap(LinkRaw);
@@ -132,6 +150,8 @@ export const Diagram = wrap(DiagramRaw);
 export const Hierarchy = wrap(HierarchyRaw);
 export const Health = wrap(HealthRaw);
 export const Lamp = wrap(LampRaw);
+export const Notification = wrap(NotificationRaw);
+export const ArrowSwapHorizontal = wrap(ArrowSwapHorizontalRaw);
 export const Speedometer = wrap(SpeedometerRaw);
 export const Monitor = wrap(MonitorRaw);
 export const Award = wrap(AwardRaw);
@@ -142,6 +162,41 @@ export const Status = wrap(StatusRaw);
  * "moved up / moved down". Drawn with a heavy stroke so they read at small sizes.
  */
 const DIAG_STROKE = 2.6;
+
+/** Goal horn: a flared horn with sound waves (iconsax has none), drawn to match the 1.5-stroke Linear icons. */
+export function GoalHorn({size = 22, color = '#888'}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            <Path d="M2.75 9.75H6.5L14 5.25V18.75L6.5 14.25H2.75V9.75Z" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+            <Path d="M6.75 14.5L7.75 19.25" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+            <Path d="M17.25 9C18.5 10.2 18.5 13.8 17.25 15" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+            <Path d="M19.75 6.5C22.25 9.5 22.25 14.5 19.75 17.5" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+        </Svg>
+    );
+}
+
+/** Referee whistle for penalties: round chamber with a pea, mouthpiece and a lanyard loop. */
+export function Whistle({size = 22, color = '#888'}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            <Circle cx={9} cy={14.5} r={5.75} stroke={color} strokeWidth={1.5}/>
+            <Circle cx={9} cy={14.5} r={1.5} fill={color}/>
+            <Path d="M13.4 10.4L20.75 9.25V12.5L14.4 13.3" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+            <Path d="M6.5 9.4V5.5H10.5" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+        </Svg>
+    );
+}
+
+/** Faceoff circle: ring, centre dot and the two hash marks either side. */
+export function FaceoffCircle({size = 22, color = '#888'}) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            <Circle cx={12} cy={12} r={6.5} stroke={color} strokeWidth={1.5}/>
+            <Circle cx={12} cy={12} r={1.75} fill={color}/>
+            <Path d="M2.75 12H5.5M18.5 12H21.25" stroke={color} strokeWidth={1.5} strokeLinecap="round"/>
+        </Svg>
+    );
+}
 
 /** Television with rabbit-ear antennas (iconsax has no TV), drawn to match the 1.5-stroke Linear icons. */
 export function Tv({size = 22, color = '#888'}) {

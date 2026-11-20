@@ -1,12 +1,13 @@
 import React, {memo, useMemo, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
-import Svg, {Circle, G, Line} from 'react-native-svg';
+import Svg, {Circle, G} from 'react-native-svg';
 import RinkSvg from '../../components/RinkSvg';
 import {ArrowLeft, ArrowRight} from '../../components/icons';
 import {EmptyState, Row, Segmented, T, TeamLogo, tap} from '../../components/ui';
 import {useAppTheme} from '../../theme';
 import {loc, num, periodLabel} from '../../utils/format';
 import {OptionSheet, SelectRow, type as typo} from './common';
+import {GoalPath} from './GoalPath';
 import {MAP_EVENTS, mapEvents, mapXGShots, shotTypeLabel} from './model';
 
 /** NHL rink coordinates (x −100…100, y −42.5…42.5) → pixels on a full horizontal rink. */
@@ -74,27 +75,29 @@ export const FullRink = memo(function FullRink({points, home, away, centerLogo =
     );
 });
 
-/** Vertical half rink (net at top) with a crosshair at the shot location. */
-export const HalfRink = memo(function HalfRink({x, y, color, width = 240}) {
+/**
+ * Vertical half rink (net at top) showing how one goal was scored: the shot, the shot line into the net, and (when
+ * known) where each assister last had the puck, drawn like the Live Rink. `assists`: [{n, x, y}] in rink feet.
+ * Assisters back past the centre line are held to the bottom edge, since only the attacking half is drawn.
+ */
+export const HalfRink = memo(function HalfRink({x, y, color, width = 240, assists = []}) {
     const height = Math.round(width * (100 / 85));
     const ok = Number.isFinite(x) && Number.isFinite(y);
     // Normalise so the shooter attacks toward +x.
-    const nx = ok && x < 0 ? -x : x;
-    const ny = ok && x < 0 ? -y : y;
-    const dot = ok ? placeDotCoords(nx, ny, width, height) : null;
+    const flip = ok && x < 0;
+    const at = (px, py) => placeDotCoords(flip ? -px : px, flip ? -py : py, width, height);
     return (
         <View style={[styles.half, {width, height}]}>
             <RinkSvg view="half" width={width} height={height}/>
-            {dot ? (
+            {ok ? (
                 <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-                    <G x={dot.x} y={dot.y}>
-                        <Circle r={11} fill="none" stroke={color} strokeWidth={3}/>
-                        <Circle r={3} fill={color}/>
-                        <Line x1={-17} x2={-12} y1={0} y2={0} stroke={color} strokeWidth={3} strokeLinecap="round"/>
-                        <Line x1={12} x2={17} y1={0} y2={0} stroke={color} strokeWidth={3} strokeLinecap="round"/>
-                        <Line x1={0} x2={0} y1={-17} y2={-12} stroke={color} strokeWidth={3} strokeLinecap="round"/>
-                        <Line x1={0} x2={0} y1={12} y2={17} stroke={color} strokeWidth={3} strokeLinecap="round"/>
-                    </G>
+                    <GoalPath
+                        shot={at(x, y)}
+                        net={placeDotCoords(89, 0, width, height)}
+                        assists={assists.map((a) => ({n: a.n, ...at(a.x, a.y)}))}
+                        color={color}
+                        shotNode
+                    />
                 </Svg>
             ) : null}
         </View>

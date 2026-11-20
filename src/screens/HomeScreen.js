@@ -6,7 +6,7 @@ import {Pressable, RefreshControl, ScrollView, StyleSheet, View} from 'react-nat
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {preGameHomeWinProb} from '../api/moneypuck';
 import {isFinal, isLive, nhl} from '../api/nhl';
-import {Activity, Calendar, Danger, Lamp, User} from '../components/icons';
+import {Activity, ArrowSwapHorizontal, Calendar, Danger, Lamp, User} from '../components/icons';
 import {EmptyState, Screen, T, UnderlineTabs} from '../components/ui';
 import {getTeam} from '../data/teams';
 import {useFavoriteTeam} from '../hooks/useFavoriteTeam';
@@ -31,15 +31,17 @@ import {fetchLines} from '../api/dailyfaceoff';
 import {fetchTeamMilestones} from '../api/fan';
 import ScheduleTab from './home/ScheduleTab';
 import StatsTab from './home/StatsTab';
+import TradesTab from './home/TradesTab';
 import TeamHeader from './home/TeamHeader';
 import TeamPicker from './home/TeamPicker';
 
 const TABS = [
     {key: 'schedule', label: 'Schedule', icon: Calendar},
     {key: 'insights', label: 'Insights', icon: Lamp},
-    {key: 'stats', label: 'Stats', icon: Activity}, // short: five labels share one underline bar
+    {key: 'stats', label: 'Stats', icon: Activity}, // short labels keep the scrolling tab bar compact
     {key: 'roster', label: 'Roster', icon: User},
     {key: 'injuries', label: 'Injuries', icon: Danger},
+    {key: 'trades', label: 'Trades', icon: ArrowSwapHorizontal},
 ];
 
 const STICKY = [1];
@@ -251,6 +253,8 @@ export default function HomeScreen({navigation, route}) {
                 onOpenPlayerId={onOpenPlayerId}
             />
         );
+    } else if (tab === 'trades') {
+        content = <TradesTab abbrev={abbrev} onOpenRadar={() => navigation.navigate(ROUTES.trades)}/>;
     } else {
         content = <InjuriesTab injuries={injuries.data} loading={injuries.loading} error={injuries.error} onRetry={injuries.refresh}/>;
     }
@@ -282,7 +286,7 @@ export default function HomeScreen({navigation, route}) {
                     />
                 </View>
                 <View style={[styles.tabs, {backgroundColor: colors.background}]}>
-                    <UnderlineTabs tabs={TABS} value={tab} onChange={changeTab}/>
+                    <UnderlineTabs tabs={TABS} value={tab} onChange={changeTab} scrollable/>
                 </View>
                 <View key={`${abbrev}-${tab}`}>{content}</View>
             </ScrollView>

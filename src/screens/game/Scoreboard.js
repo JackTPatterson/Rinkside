@@ -1,10 +1,11 @@
 import React, {memo, useEffect, useRef} from 'react';
 import {StyleSheet, View} from 'react-native';
+import {FaceoffCircle, GoalHorn, Pause, Timer1, Tv, Video, Whistle} from '../../components/icons';
 import {LiveDot, SplitBar, T, TeamLogo} from '../../components/ui';
 import {useNow} from '../../hooks/useQuery';
 import {GUTTER, useAppTheme} from '../../theme';
 import {formatTime, parseISODate, pct, periodLabel, relativeDayLabel, secondsToMMSS} from '../../utils/format';
-import {powerPlayState} from './model';
+import {currentEvent, powerPlayState} from './model';
 
 function useIntermissionClock(header) {
     const {inIntermission, secondsRemaining, timeRemaining} = header.clock;
@@ -84,7 +85,20 @@ const TeamColumn = memo(function TeamColumn({team, wp, showWp, pp, en, ppTime}) 
     );
 });
 
-/** Status pill centred between the two scores: white "FINAL" / red "P2 · 12:34" while live. */
+const EVENT_ICONS = {goal: GoalHorn, penalty: Whistle, faceoff: FaceoffCircle, review: Video, tv: Tv, timeout: Timer1, stoppage: Pause};
+
+/** Icon for what's happening on the ice (stoppage, penalty, goal...), sitting just above the status pill. */
+function EventIcon({event}) {
+    const {colors} = useAppTheme();
+    const Icon = EVENT_ICONS[event.icon];
+    return (
+        <View accessible accessibilityLabel={event.label}>
+            <Icon size={22} color={event.icon === 'goal' ? colors.live : colors.text}/>
+        </View>
+    );
+}
+
+/** Plain status text centred between the two scores: "FINAL" / "P2 · 12:34" while live. */
 function StatusBadge({header}) {
     const {colors} = useAppTheme();
     const intermission = useIntermissionClock(header);
@@ -95,9 +109,7 @@ function StatusBadge({header}) {
         label = header.clock.inIntermission ? `${p} INT · ${intermission}` : `${p} · ${header.clock.timeRemaining}`;
     }
     return (
-        <View style={[styles.badge, {backgroundColor: header.live ? colors.live : colors.text}]}>
-            <T variant="body" color={header.live ? '#FFFFFF' : colors.background} numberOfLines={1} style={styles.badgeText}>{label.toUpperCase()}</T>
-        </View>
+        <T variant="body" color={colors.text} numberOfLines={1} style={styles.badgeText}>{label.toUpperCase()}</T>
     );
 }
 
@@ -121,10 +133,11 @@ function ScoreSide({team, right, lost}) {
  * Score header in the original layout: home | status + score | away, straight on the background,
  * win-probability pills over each logo and a full-width team-colour bar underneath.
  */
-function Scoreboard({header, wp}) {
+function Scoreboard({header, wp, pbp}) {
     const {teamColor} = useAppTheme();
     const {home, away} = header;
     const pp = header.live ? powerPlayState(header.situation) : null;
+    const event = header.live && !header.clock.inIntermission ? currentEvent(pbp) : null;
     const series = header.seriesStatus;
     const seriesText = series && series.topSeedTeamAbbrev ? (() => {
         const homeTop = series.topSeedTeamAbbrev === home.abbrev;
@@ -141,9 +154,10 @@ function Scoreboard({header, wp}) {
                         <ScoreSide team={home} lost={header.final && home.score < away.score}/>
                         <ScoreSide team={away} right lost={header.final && away.score < home.score}/>
                         <View pointerEvents="none" style={styles.scoreMiddle}>
+                            {event ? <EventIcon event={event}/> : null}
                             <StatusBadge header={header}/>
                             {pp?.even ? <PPPill label={pp.even}/> : null}
-                            {pp?.homePP || pp?.awayPP ? <PPPill label={`${pp.homePP ? home.abbrev : away.abbrev} ${pp.homePP ?? pp.awayPP}`}/> : null}
+                            {pp?.homePP || pp?.awayPP ? <PPPill label={`${pp.homePP ? home.abbrev : away.abbrev} ${pp.homePP || pp.awayPP}`}/> : null}
                             {pp?.homeEN || pp?.awayEN ? <PPPill label={`${pp.homeEN ? home.abbrev : away.abbrev} EN`}/> : null}
                         </View>
                     </View>
@@ -188,8 +202,8 @@ const styles = StyleSheet.create({
     // 36pt tall to match the round recap / listen button beside it in the header.
     statusText: {fontFamily: 'Sora_500Medium', fontSize: 15, lineHeight: 19, fontVariant: ['tabular-nums']},
     statusPill: {flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 100},
-    ppPill: {borderRadius: 100, marginTop: 10, paddingHorizontal: 15, paddingVertical: 4},
-    ppText: {fontFamily: 'Sora_500Medium', fontSize: 20, lineHeight: 26, textAlign: 'center'},
+    ppPill: {borderRadius: 100, paddingHorizontal: 12, paddingVertical: 5},
+    ppText: {fontFamily: 'Sora_600SemiBold', fontSize: 13, lineHeight: 17, textAlign: 'center', fontVariant: ['tabular-nums']},
     ppTime: {fontFamily: 'Sora_400Regular', marginTop: 10, textAlign: 'center'},
     sub: {fontFamily: 'Sora_600SemiBold', fontSize: 14, opacity: 0.5, marginTop: 4, textAlign: 'center'},
     center: {textAlign: 'center'},
@@ -205,7 +219,6 @@ const styles = StyleSheet.create({
     lost: {opacity: 0.55},
     bigScore: {fontFamily: 'Sora_800ExtraBold', fontSize: 54, lineHeight: 60, fontVariant: ['tabular-nums']},
     sog: {fontFamily: 'Sora_500Medium', fontSize: 13, lineHeight: 17},
-    badge: {paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100},
     badgeText: {fontFamily: 'Sora_600SemiBold', fontSize: 13, lineHeight: 17, fontVariant: ['tabular-nums']},
     // Explicit insets (not absoluteFillObject) so the pill always overlays the centre of the row.
     scoreMiddle: {position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center', gap: 6},

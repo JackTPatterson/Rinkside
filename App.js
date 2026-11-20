@@ -14,8 +14,8 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import * as Haptics from 'expo-haptics';
 import * as SplashScreen from 'expo-splash-screen';
 import {StatusBar} from 'expo-status-bar';
-import React, {useCallback, useEffect, useState} from 'react';
-import {Text, View} from 'react-native';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Linking, Text, View} from 'react-native';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -25,6 +25,9 @@ import {Brodcast, Chart, Home2, Setting2, User} from './src/components/icons';
 import {FavoriteTeamProvider, useFavoriteTeam} from './src/hooks/useFavoriteTeam';
 import {ROUTES} from './src/navigation/routes';
 import AboutScreen from './src/screens/AboutScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import TradeRadarScreen from './src/screens/TradeRadarScreen';
+import {TradeAlertsProvider, useTradeNotificationNavigation} from './src/trades/TradeAlerts';
 import FavoriteTeamScreen from './src/screens/FavoriteTeamScreen';
 import GameScreen from './src/screens/GameScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -40,6 +43,8 @@ import StandingsScreen from './src/screens/StandingsScreen';
 import RadioBar from './src/radio/RadioBar';
 import {RadioProvider} from './src/radio/RadioProvider';
 import {ThemeProvider, useAppTheme} from './src/theme';
+import {parseWidgetUrl} from './src/widgets/links';
+import {useWidgetSync} from './src/widgets/useWidgetSync';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -82,7 +87,7 @@ function Tabs() {
                     shadowRadius: 1,
                     shadowColor: dark ? '#555555' : '#D1D1D1',
                 },
-                tabBarIconStyle: {width: 80, height: 50},
+                tabBarIconStyle: {width: '100%', height: 50}, // fill the slot so icon + label centre in it
                 tabBarIcon: ({color}) => {
                     const {Icon, label, size} = TABS[route.name];
                     return (
@@ -112,6 +117,8 @@ function RootNavigator() {
     const {team, ready} = useFavoriteTeam();
     // Whether the tab bar is showing, so the radio mini player can sit right above it or near the bottom edge.
     const [onTabs, setOnTabs] = useState(true);
+    const [navigationReady, setNavigationReady] = useState(false);
+    useTradeNotificationNavigation(navigationRef, navigationReady && ready && !!team);
     const [onVideo, setOnVideo] = useState(false); // the video player covers everything, so hide the radio bar
     const syncRoute = useCallback(() => {
         const root = navigationRef.isReady() ? navigationRef.getRootState() : null;
@@ -128,6 +135,33 @@ function RootNavigator() {
         Sora_700Bold,
         Sora_800ExtraBold,
     });
+
+    // Home/lock screen widgets and the game Live Activity follow the favourite team.
+    useWidgetSync(team);
+
+    // Widgets and Live Activities open rinkside://game/<id> or rinkside://standings.
+    const pendingUrl = useRef(null);
+    const openUrl = useCallback((url) => {
+        const link = parseWidgetUrl(url);
+        if (!link) return;
+        if (!navigationRef.isReady()) {
+            pendingUrl.current = url; // cold start: replayed from onReady
+            return;
+        }
+        if (link.type === 'game') navigationRef.navigate(ROUTES.game, {gameId: link.gameId});
+        else if (link.type === 'standings') navigationRef.navigate(ROUTES.tabs, {screen: ROUTES.standings});
+    }, []);
+    useEffect(() => {
+        Linking.getInitialURL().then((u) => u && openUrl(u)).catch(() => {});
+        const sub = Linking.addEventListener('url', ({url}) => openUrl(url));
+        return () => sub.remove();
+    }, [openUrl]);
+    const onNavReady = useCallback(() => {
+        syncRoute();
+        const url = pendingUrl.current;
+        pendingUrl.current = null;
+        if (url) openUrl(url);
+    }, [syncRoute, openUrl]);
 
     // Warm the caches the first tabs need while the splash screen is still up.
     useEffect(() => {
@@ -147,7 +181,7 @@ function RootNavigator() {
     return (
         <View style={{flex: 1, backgroundColor: theme.colors.background}} onLayout={onLayout}>
             <StatusBar style={theme.dark ? 'light' : 'dark'}/>
-            <NavigationContainer ref={navigationRef} theme={theme.navigation} onReady={syncRoute} onStateChange={syncRoute}>
+            <NavigationContainer ref={navigationRef} theme={theme.navigation} onReady={() => { setNavigationReady(true); onNavReady(); }} onStateChange={syncRoute}>
                 <Stack.Navigator
                     screenLayout={screenLayout}
                     screenOptions={{
@@ -167,6 +201,8 @@ function RootNavigator() {
                             <Stack.Screen name={ROUTES.favoriteTeam} component={FavoriteTeamScreen}/>
                             <Stack.Screen name={ROUTES.about} component={AboutScreen}/>
                             <Stack.Screen name={ROUTES.methodology} component={MethodologyScreen}/>
+                            <Stack.Screen name={ROUTES.trades} component={TradeRadarScreen}/>
+                            <Stack.Screen name={ROUTES.notifications} component={NotificationsScreen}/>
                             <Stack.Screen
                                 name={ROUTES.video}
                                 component={VideoScreen}
@@ -189,7 +225,9 @@ export default function App() {
                 <ThemeProvider>
                     <FavoriteTeamProvider>
                         <RadioProvider>
-                            <RootNavigator/>
+                            <TradeAlertsProvider>
+                                <RootNavigator/>
+                            </TradeAlertsProvider>
                         </RadioProvider>
                     </FavoriteTeamProvider>
                 </ThemeProvider>
